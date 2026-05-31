@@ -354,10 +354,36 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   // 建立歌曲資訊行陣列
   const artistAlbum = [];
-  if (options.songInfoArtist)
-    artistAlbum.push(`{\\c&H00FF0000&}主唱：${options.songInfoArtist}`);
-  if (options.songInfoAlbum)
-    artistAlbum.push(`{\\c&H00FF0000&}專輯：${options.songInfoAlbum}`);
+  if (options.songInfoArtist) {
+    const lines = options.songInfoArtist.split("\n");
+    let count = 0;
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (trimmed) {
+        if (count === 0) {
+          artistAlbum.push(`{\\c&H00FF0000&}主唱：${trimmed}`);
+        } else {
+          artistAlbum.push(`{\\c&H00FF0000&}　　　${trimmed}`);
+        }
+        count++;
+      }
+    });
+  }
+  if (options.songInfoAlbum) {
+    const lines = options.songInfoAlbum.split("\n");
+    let count = 0;
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (trimmed) {
+        if (count === 0) {
+          artistAlbum.push(`{\\c&H00FF0000&}專輯：${trimmed}`);
+        } else {
+          artistAlbum.push(`{\\c&H00FF0000&}　　　${trimmed}`);
+        }
+        count++;
+      }
+    });
+  }
   if (options.songInfoCustom) {
     const customLines = options.songInfoCustom.split("\n");
     customLines.forEach((line) => {
@@ -389,19 +415,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   // 3. 產生紅色標題 Dialogue
   if (options.songInfoTitle) {
+    const formattedTitle = options.songInfoTitle.replace(/\r?\n/g, "\\N");
     if (INFO_OUTLINE_MODE === "simulated-dual-layer") {
       // 外框層 (底層)：位移 4 個方向，顏色設為純白 &HFFFFFF&
       offsets.forEach(({ dx, dy }) => {
-        const outlineTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX + dx},${titleY + dy})\\fs${titleSize}\\c&HFFFFFF&\\bord0\\shad0\\b1}${options.songInfoTitle}{\\b0}`;
+        const outlineTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX + dx},${titleY + dy})\\fs${titleSize}\\c&HFFFFFF&\\bord0\\shad0\\b1}${formattedTitle}{\\b0}`;
         ass += `Dialogue: 10,${formatAssTime(infoStart)},${formatAssTime(infoEnd)},CenterInfo,,0,0,0,,${outlineTitleText}\n`;
       });
 
       // 核心層 (頂層)：疊在中央，層級設為 12，顏色維持為紅色 body
-      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord0\\shad0\\b1}${options.songInfoTitle}{\\b0}`;
+      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord0\\shad0\\b1}${formattedTitle}{\\b0}`;
       ass += `Dialogue: 12,${formatAssTime(infoStart)},${formatAssTime(infoEnd)},CenterInfo,,0,0,0,,${coreTitleText}\n`;
     } else {
       // 傳統單層黑色邊框模式：使用組件內建 \bord3\3c&H000000&，本體為紅色 \c&H000000FF&
-      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord${border3Scaled}\\shad0\\3c&H000000&\\b1}${options.songInfoTitle}{\\b0}`;
+      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord${border3Scaled}\\shad0\\3c&H000000&\\b1}${formattedTitle}{\\b0}`;
       ass += `Dialogue: 10,${formatAssTime(infoStart)},${formatAssTime(infoEnd)},CenterInfo,,0,0,0,,${coreTitleText}\n`;
     }
   }

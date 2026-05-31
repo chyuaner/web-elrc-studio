@@ -1394,12 +1394,12 @@ export function KtvAssExport() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[60px_1fr] items-center gap-2">
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right">
+                <div className="grid grid-cols-[60px_1fr] items-start gap-2">
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
                     標題
                   </span>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={Math.max(1, (options.songInfoTitle || "").split("\n").length)}
                     value={options.songInfoTitle}
                     onChange={(e) => {
                       const updated = {
@@ -1409,14 +1409,14 @@ export function KtvAssExport() {
                       setOptions(updated);
                       syncToLrcMetadata(updated);
                     }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)]"
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
                   />
 
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right">
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
                     主唱
                   </span>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={Math.max(1, (options.songInfoArtist || "").split("\n").length)}
                     value={options.songInfoArtist}
                     onChange={(e) => {
                       const updated = {
@@ -1426,14 +1426,14 @@ export function KtvAssExport() {
                       setOptions(updated);
                       syncToLrcMetadata(updated);
                     }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)]"
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
                   />
 
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right">
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
                     專輯
                   </span>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={Math.max(1, (options.songInfoAlbum || "").split("\n").length)}
                     value={options.songInfoAlbum}
                     onChange={(e) => {
                       const updated = {
@@ -1443,7 +1443,7 @@ export function KtvAssExport() {
                       setOptions(updated);
                       syncToLrcMetadata(updated);
                     }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)]"
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
                   />
 
                   <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1">

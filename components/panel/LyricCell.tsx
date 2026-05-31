@@ -2,6 +2,23 @@ import React from 'react';
 import { formatTime } from '@/lib/lyric-utils';
 import { Tooltip } from '@/components/common/Tooltip';
 
+const getCharWeight = (char: string): number => {
+  // 英文字 [a-zA-Z] 或半角空格算 0.5 個字，其餘算 1.0 個字
+  if (/^[a-zA-Z ]$/.test(char)) {
+    return 0.5;
+  }
+  return 1.0;
+};
+
+const getWordWeightSum = (text: string): number => {
+  let sum = 0;
+  const t = text || '';
+  for (let i = 0; i < t.length; i++) {
+    sum += getCharWeight(t[i]);
+  }
+  return sum;
+};
+
 export function LyricCellContent({ 
   line, 
   globalIndex, 
@@ -60,37 +77,46 @@ export function LyricCellContent({
           line.raw
          ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1">
-            {line.words && line.words.map((word: any, wIdx: number) => {
-              const isWordActive = isActive && wIdx === activeWordIndex;
-              const isWordStamped = word.start !== null;
-              return (
-                <Tooltip key={wIdx} title={word.start !== null ? formatTime(word.start) : 'Not synced'} delay={50}>
-                  <span 
-                    className={`
-                      px-1 py-0.5 rounded transition-all select-none
-                      ${isWordActive ? 'bg-[var(--app-accent)] text-black font-bold ring-2 ring-[var(--app-accent)]/50 cursor-pointer' : 'cursor-pointer'}
-                      ${isWordStamped && !isWordActive ? 'text-[var(--app-accent)] bg-[var(--app-border-base)]' : ''}
-                      ${!isWordStamped && !isWordActive ? 'text-[var(--app-text-muted)] bg-[var(--app-bg-panel)]' : ''}
-                    `}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveLineIndex(globalIndex);
-                      setActiveWordIndex(wIdx);
-                      const { current: player } = playerRef;
-                      if (player instanceof HTMLMediaElement && word.start !== null) {
-                         player.currentTime = word.start;
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.stopPropagation();
-                      if (onWordContextMenu) onWordContextMenu(e, globalIndex, wIdx);
-                    }}
-                  >
-                    {word.text || '⏎'}
-                  </span>
-                </Tooltip>
-              )
-            })}
+            {(() => {
+              let cumulativeLen = 0;
+              return line.words && line.words.map((word: any, wIdx: number) => {
+                const isWordActive = isActive && wIdx === activeWordIndex;
+                const isWordStamped = word.start !== null;
+                const wordLength = getWordWeightSum(word.text);
+                const startsAtOrAfter15 = cumulativeLen >= 14;
+                cumulativeLen += wordLength;
+                
+                const isRed = startsAtOrAfter15 && !isWordActive;
+
+                return (
+                  <Tooltip key={wIdx} title={word.start !== null ? formatTime(word.start) : 'Not synced'} delay={50}>
+                    <span 
+                      className={`
+                        px-1 py-0.5 rounded transition-all select-none
+                        ${isWordActive ? 'bg-[var(--app-accent)] text-black font-bold ring-2 ring-[var(--app-accent)]/50 cursor-pointer' : 'cursor-pointer'}
+                        ${isWordStamped && !isWordActive ? (isRed ? 'text-red-500 font-bold bg-red-500/10 border border-red-500/30' : 'text-[var(--app-accent)] bg-[var(--app-border-base)]') : ''}
+                        ${!isWordStamped && !isWordActive ? (isRed ? 'text-red-500 font-bold bg-red-500/10 border border-red-500/20' : 'text-[var(--app-text-muted)] bg-[var(--app-bg-panel)]') : ''}
+                      `}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveLineIndex(globalIndex);
+                        setActiveWordIndex(wIdx);
+                        const { current: player } = playerRef;
+                        if (player instanceof HTMLMediaElement && word.start !== null) {
+                           player.currentTime = word.start;
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.stopPropagation();
+                        if (onWordContextMenu) onWordContextMenu(e, globalIndex, wIdx);
+                      }}
+                    >
+                      {word.text || '⏎'}
+                    </span>
+                  </Tooltip>
+                )
+              })
+            })()}
           </div>
         )}
       </div>
