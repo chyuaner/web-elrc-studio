@@ -35,6 +35,8 @@ export interface AssOptions {
   dotOuterSize?: number; // ratio (0.1 ~ 0.5)
   dotInnerSize?: number; // ratio (0.05 ~ 0.4)
   dotSpacing?: number; // ratio (0.5 ~ 1.2)
+  songInfoTitleColor?: string; // hex
+  songInfoArtistColor?: string; // hex
 }
 
 // 內部控制參數
@@ -354,6 +356,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   // 建立歌曲資訊行陣列
   const artistAlbum = [];
+  const titleColorHex = options.songInfoTitleColor || "#BC2600";
+  const artistColorHex = options.songInfoArtistColor || "#2A04C8";
+  const titleAssColor = hexToAssColor(titleColorHex);
+  const artistAssColor = hexToAssColor(artistColorHex);
+
   if (options.songInfoArtist) {
     const lines = options.songInfoArtist.split("\n");
     let count = 0;
@@ -361,9 +368,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const trimmed = line.trim();
       if (trimmed) {
         if (count === 0) {
-          artistAlbum.push(`{\\c&H00FF0000&}主唱：${trimmed}`);
+          artistAlbum.push(`{\\c${artistAssColor}&}主唱：${trimmed}`);
         } else {
-          artistAlbum.push(`{\\c&H00FF0000&}${trimmed}`);
+          artistAlbum.push(`{\\c${artistAssColor}&}${trimmed}`);
         }
         count++;
       }
@@ -376,9 +383,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const trimmed = line.trim();
       if (trimmed) {
         if (count === 0) {
-          artistAlbum.push(`{\\c&H00FF0000&}專輯：${trimmed}`);
+          artistAlbum.push(`{\\c${artistAssColor}&}專輯：${trimmed}`);
         } else {
-          artistAlbum.push(`{\\c&H00FF0000&}${trimmed}`);
+          artistAlbum.push(`{\\c${artistAssColor}&}${trimmed}`);
         }
         count++;
       }
@@ -388,7 +395,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const customLines = options.songInfoCustom.split("\n");
     customLines.forEach((line) => {
       if (line.trim()) {
-        artistAlbum.push(`{\\c&H00FF0000&}${line.trim()}`);
+        artistAlbum.push(`{\\c${artistAssColor}&}${line.trim()}`);
       }
     });
   }
@@ -399,7 +406,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
 
   if (overlapsWithLyrics && artistAlbum.length > 0) {
-    // 計算歌曲詳細資訊的實際總高度 (包括新加的空行)
+    // 計算歌曲詳細資訊的實際總高度 (包括新加 of 空行)
     const detailHeight = artistAlbum.length * detailFontSize;
     titleY = Math.round(
       detailBottomY - detailHeight - Math.round(40 * scale) - titleSize / 2,
@@ -424,11 +431,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       });
 
       // 核心層 (頂層)：疊在中央，層級設為 12，顏色維持為紅色 body
-      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord0\\shad0\\b1}${formattedTitle}{\\b0}`;
+      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c${titleAssColor}&\\bord0\\shad0\\b1}${formattedTitle}{\\b0}`;
       ass += `Dialogue: 12,${formatAssTime(infoStart)},${formatAssTime(infoEnd)},CenterInfo,,0,0,0,,${coreTitleText}\n`;
     } else {
       // 傳統單層黑色邊框模式：使用組件內建 \bord3\3c&H000000&，本體為紅色 \c&H000000FF&
-      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c&H000000FF&\\bord${border3Scaled}\\shad0\\3c&H000000&\\b1}${formattedTitle}{\\b0}`;
+      const coreTitleText = `{\\fad(${fadeMs},${fadeMs})\\an5\\pos(${centerX},${titleY})\\fs${titleSize}\\c${titleAssColor}&\\bord${border3Scaled}\\shad0\\3c&H000000&\\b1}${formattedTitle}{\\b0}`;
       ass += `Dialogue: 10,${formatAssTime(infoStart)},${formatAssTime(infoEnd)},CenterInfo,,0,0,0,,${coreTitleText}\n`;
     }
   }

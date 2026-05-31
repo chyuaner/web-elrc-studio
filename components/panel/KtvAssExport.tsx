@@ -32,10 +32,10 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     : parsedStart + 6;
 
   return {
-    primaryColor: "#0000FF", // Blue
-    color2: "#FF0000", // Red
+    primaryColor: "#2A04C8", // Blue
+    color2: "#BC2600", // Red
     color3: "#800080", // Purple
-    chorusColor: "#008000", // Green
+    chorusColor: "#32AA17", // Green
     fontFamily: "Noto Sans CJK TC Medium",
     fontSize: 135, // Default for BottomLeft
     fontSizeOffset: 20, // Pre-offset for Noto Sans CJK TC Medium
@@ -60,11 +60,13 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     playResX: 1920,
     playResY: 1080,
     simulatedOutlineWidth: 3,
-    dotOuterColor: "#DEDDDA",
+    dotOuterColor: "#eeeeee",
     dotInnerColor: "#FFFFFF",
-    dotOuterSize: 0.28,
-    dotInnerSize: 0.26,
+    dotOuterSize: 0.26,
+    dotInnerSize: 0.24,
     dotSpacing: 0.75,
+    songInfoTitleColor: "#BC2600",
+    songInfoArtistColor: "#2A04C8",
   };
 }
 
@@ -112,89 +114,7 @@ export function KtvAssExport() {
     }
   }, [ffmpegMode, originalVideoName, assFilename, outputVideoName]);
 
-  // 在掛載時載入 localStorage 中的使用者自訂樣式設定 (透過 useEffect 避免 Next.js Hydration Mismatch)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("ktv_ass_export_options");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          
-          // 移除從 localStorage 載入小白圓設定（避免使用者 legacy 或舊設定汙染新預設值）
-          delete parsed.dotOuterColor;
-          delete parsed.dotInnerColor;
-          delete parsed.dotOuterSize;
-          delete parsed.dotInnerSize;
-          delete parsed.dotSpacing;
 
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setOptions((prev) => ({
-            ...prev,
-            ...parsed,
-          }));
-        }
-      } catch (e) {
-        console.error("Failed to load ASS options from localStorage", e);
-      }
-    }
-  }, []);
-
-  // 持久化 options 中的渲染樣式設定至 localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const styleOptionsOnly = {
-          primaryColor: options.primaryColor,
-          color2: options.color2,
-          color3: options.color3,
-          chorusColor: options.chorusColor,
-          fontFamily: options.fontFamily,
-          fontSize: options.fontSize,
-          fontSizeOffset: options.fontSizeOffset,
-          infoFontSize: options.infoFontSize,
-          infoTitleFontSize: options.infoTitleFontSize,
-          dualRowSpacing: options.dualRowSpacing,
-          dualRowMarginL: options.dualRowMarginL,
-          dualRowMarginR: options.dualRowMarginR,
-          dualRowMarginV: options.dualRowMarginV,
-          row2FadeoutMode: options.row2FadeoutMode,
-          interludeBuffer: options.interludeBuffer,
-          introDelayLimit: options.introDelayLimit,
-          fadeInOutTime: options.fadeInOutTime,
-          playResX: options.playResX,
-          playResY: options.playResY,
-          simulatedOutlineWidth: options.simulatedOutlineWidth,
-        };
-        localStorage.setItem(
-          "ktv_ass_export_options",
-          JSON.stringify(styleOptionsOnly),
-        );
-      } catch (e) {
-        console.error("Failed to save ASS options to localStorage", e);
-      }
-    }
-  }, [
-    options.primaryColor,
-    options.color2,
-    options.color3,
-    options.chorusColor,
-    options.fontFamily,
-    options.fontSize,
-    options.fontSizeOffset,
-    options.infoFontSize,
-    options.infoTitleFontSize,
-    options.dualRowSpacing,
-    options.dualRowMarginL,
-    options.dualRowMarginR,
-    options.dualRowMarginV,
-    options.row2FadeoutMode,
-    options.interludeBuffer,
-    options.introDelayLimit,
-    options.fadeInOutTime,
-    options.playResX,
-    options.playResY,
-    options.simulatedOutlineWidth,
-  ]);
 
   // 當 Lrc 內部的自訂 KTV 中繼資料被更新時，將歌名、歌手、專輯與自訂欄位同步至 options，確保資料即時更新且不遺失自定義渲染樣式（不自動回退至通用屬性）
   useEffect(() => {
@@ -869,6 +789,58 @@ export function KtvAssExport() {
                         </span>
                       </div>
                     </div>
+
+                    {SHOW_INTERNAL_TEST_PARAMS && (
+                      <>
+                        <div className="flex flex-col gap-1 border-t border-[var(--app-border-light)] pt-2 col-span-2 mt-1">
+                          <span className="text-[10px] text-[var(--app-accent)] font-semibold">
+                            [內部測試] 開始資訊顏色
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                            標題顏色 (Title)
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={options.songInfoTitleColor || "#BC2600"}
+                              onChange={(e) =>
+                                setOptions({
+                                  ...options,
+                                  songInfoTitleColor: e.target.value,
+                                })
+                              }
+                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                            />
+                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                              {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                            主唱/專輯文字顏色 (Info)
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={options.songInfoArtistColor || "#2A04C8"}
+                              onChange={(e) =>
+                                setOptions({
+                                  ...options,
+                                  songInfoArtistColor: e.target.value,
+                                })
+                              }
+                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                            />
+                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                              {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

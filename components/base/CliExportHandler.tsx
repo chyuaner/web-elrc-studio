@@ -28,21 +28,9 @@ export function CliExportHandler() {
           const lines = parsed.lines;
           const lrcMetadata = parsed.metadata;
 
-          // Load options from localStorage if available
-          let savedOptions: any = {};
-          try {
-            const saved = localStorage.getItem("ktv_ass_export_options");
-            if (saved) {
-              savedOptions = JSON.parse(saved);
-            }
-          } catch (e) {
-            console.error("Failed to parse localStorage options", e);
-          }
-
-          // Default options matching UI, overlaid with saved options, then metadata overrides
+          // Default options matching UI, overlaid with metadata overrides
           const options = {
             ...getDefaultAssOptions(lrcMetadata),
-            ...savedOptions,
             
             // These should come specifically from the file's metadata/lrc context or command-line context
             interludeThreshold: parseFloat(lrcMetadata.kth || "6") || 6,
