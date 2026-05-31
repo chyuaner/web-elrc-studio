@@ -363,7 +363,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if (count === 0) {
           artistAlbum.push(`{\\c&H00FF0000&}主唱：${trimmed}`);
         } else {
-          artistAlbum.push(`{\\c&H00FF0000&}　　　${trimmed}`);
+          artistAlbum.push(`{\\c&H00FF0000&}${trimmed}`);
         }
         count++;
       }
@@ -378,7 +378,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if (count === 0) {
           artistAlbum.push(`{\\c&H00FF0000&}專輯：${trimmed}`);
         } else {
-          artistAlbum.push(`{\\c&H00FF0000&}　　　${trimmed}`);
+          artistAlbum.push(`{\\c&H00FF0000&}${trimmed}`);
         }
         count++;
       }
