@@ -147,7 +147,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   const [formData, setFormData] = useState<LrcMetadata>(() => ({ ...lrcMetadata }));
   const [customKeys, setCustomKeys] = useState<{key: string, value: string}[]>(() => {
     const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
-    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth'];
+    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
     const currentCustom: {key: string, value: string}[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
         if (!predefinedKeys.includes(key) && value) {
@@ -161,7 +161,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   });
   const [systemKeys, setSystemKeys] = useState<{key: string, value: string}[]>(() => {
     const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
-    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth'];
+    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
     const currentSystem: {key: string, value: string}[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
         if (!predefinedKeys.includes(key) && value) {
@@ -199,7 +199,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
      
      setFormData({ ...lrcMetadata });
      const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
-     const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth'];
+     const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
      
      const currentCustom: {key: string, value: string}[] = [];
      const currentSystem: {key: string, value: string}[] = [];
@@ -386,7 +386,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
       const newSystemKeys = [...systemKeys];
       const newFormData = { ...formData };
       const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
-      const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth'];
+      const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
 
       selected.forEach(ext => {
            ext.suggestions.forEach(sug => {

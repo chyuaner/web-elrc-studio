@@ -15,6 +15,7 @@ import {
   Copy,
   Check,
   X,
+  Trash2,
 } from "lucide-react";
 import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { formatTime, parseSeconds } from "@/lib/lyric-utils";
@@ -45,6 +46,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     songInfoArtist: lrcMetadata.kar !== undefined ? lrcMetadata.kar : "",
     songInfoAlbum: lrcMetadata.kal !== undefined ? lrcMetadata.kal : "",
     songInfoCustom: lrcMetadata.ko !== undefined ? lrcMetadata.ko : "",
+    interludeLogoSvg: lrcMetadata.klg !== undefined ? lrcMetadata.klg : "",
     customStartInfoTime: hasCustomTime,
     startInfoStartTime: parsedStart,
     startInfoEndTime: parsedEnd,
@@ -67,6 +69,9 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     dotSpacing: 0.75,
     songInfoTitleColor: "#BC2600",
     songInfoArtistColor: "#2A04C8",
+    logoMaxWidth: 450,
+    logoMaxHeight: 200,
+    logoMinInterludeGap: 9.0,
   };
 }
 
@@ -92,6 +97,10 @@ export function KtvAssExport() {
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+  const [interludeLogoFileName, setInterludeLogoFileName] = useState<
+    string | null
+  >(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [options, setOptions] = useState<
     Omit<AssOptions, "interludeThreshold">
@@ -203,8 +212,49 @@ export function KtvAssExport() {
     return generateAss(lines, lrcMetadata, {
       ...options,
       interludeThreshold: dualLineGapSec,
+      songDuration: duration,
     });
-  }, [lines, lrcMetadata, options, dualLineGapSec]);
+  }, [lines, lrcMetadata, options, dualLineGapSec, duration]);
+
+  const handleInterludeLogoUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (
+      !file.name.toLowerCase().endsWith(".svg") &&
+      file.type !== "image/svg+xml"
+    ) {
+      showToast("請選擇 SVG 格式的 Logo 圖檔");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const svgText = reader.result as string;
+      const updated = { ...options, interludeLogoSvg: svgText };
+      setOptions(updated);
+      syncToLrcMetadata(updated);
+      setInterludeLogoFileName(file.name);
+      showToast(`已載入 Logo：${file.name}`);
+    };
+    reader.onerror = () => {
+      showToast("讀取 SVG 檔案失敗");
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleClearInterludeLogo = () => {
+    const updated = { ...options };
+    delete updated.interludeLogoSvg;
+    setOptions(updated);
+    syncToLrcMetadata(updated);
+    setInterludeLogoFileName(null);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+    showToast("已清除 Logo 圖檔");
+  };
 
   const handleDownload = () => {
     const blob = new Blob([assContent], { type: "text/plain;charset=utf-8" });
@@ -263,7 +313,7 @@ export function KtvAssExport() {
     
     // 把所有的LRC屬性「自訂標籤」（排除本系統專用的標籤）也一起填入「自訂內容」
     const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length', 'tool'];
-    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth'];
+    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
     
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
@@ -320,6 +370,14 @@ export function KtvAssExport() {
     }
     if (newOptions.songInfoCustom !== undefined) {
       updatedMeta.ko = newOptions.songInfoCustom;
+    }
+    // 同步間奏 Logo 圖檔 (klg)
+    if (newOptions.interludeLogoSvg !== undefined) {
+      if (newOptions.interludeLogoSvg) {
+        updatedMeta.klg = newOptions.interludeLogoSvg;
+      } else {
+        delete updatedMeta.klg;
+      }
     }
 
     lastCommittedMetaRef.current = updatedMeta;
@@ -434,6 +492,7 @@ export function KtvAssExport() {
         customStartInfoTime: false,
         startInfoStartTime: 1,
         startInfoEndTime: 7,
+        interludeLogoSvg: "",
       }));
     } else {
       const extTT = lrcMetadata.TT || lrcMetadata.tt;
@@ -450,6 +509,7 @@ export function KtvAssExport() {
       const loadedArtist = lrcMetadata.kar !== undefined ? lrcMetadata.kar : "";
       const loadedAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const loadedCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
+      const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -461,6 +521,7 @@ export function KtvAssExport() {
         customStartInfoTime: hasExtCustom,
         startInfoStartTime: extStart,
         startInfoEndTime: extEnd,
+        interludeLogoSvg: loadedLogo,
       }));
     }
   }, [
@@ -473,6 +534,7 @@ export function KtvAssExport() {
     lrcMetadata.kar,
     lrcMetadata.kal,
     lrcMetadata.ko,
+    lrcMetadata.klg,
     lrcMetadata.TT,
     lrcMetadata.TTE,
     lrcMetadata.tt,
@@ -1336,6 +1398,55 @@ export function KtvAssExport() {
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"
                         />
                       </div>
+                      <div className="flex flex-col">
+                        <label className="text-[var(--app-text-muted)]">
+                          Logo 最大寬度 (px)
+                        </label>
+                        <input
+                          type="number"
+                          value={options.logoMaxWidth !== undefined ? options.logoMaxWidth : 450}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              logoMaxWidth: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-accent)]"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[var(--app-text-muted)]">
+                          Logo 最大高度 (px)
+                        </label>
+                        <input
+                          type="number"
+                          value={options.logoMaxHeight !== undefined ? options.logoMaxHeight : 300}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              logoMaxHeight: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-accent)]"
+                        />
+                      </div>
+                      <div className="flex flex-col col-span-2">
+                        <label className="text-[var(--app-text-muted)]">
+                          Logo 間奏顯示最小門檻 (s)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={options.logoMinInterludeGap !== undefined ? options.logoMinInterludeGap : 9.0}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              logoMinInterludeGap: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1480,22 +1591,50 @@ export function KtvAssExport() {
                 )}
               </div>
 
-              {/* 自訂間奏Logo圖檔 (準備中) */}
-              <div className="flex flex-col gap-1.5 opacity-50 relative border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
+              {/* 自訂間奏Logo圖檔 */}
+              <div className="flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
                 <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4" /> 自訂間奏Logo圖檔 (準備中)
+                  <ImageIcon className="w-4 h-4" /> 自訂間奏 Logo 圖檔 (SVG)
                 </label>
-                <div className="flex items-center gap-2 pointer-events-none mt-2">
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                  僅支援 SVG 向量格式，匯出時會轉為 ASS 內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距 dualRowMarginV，等比例縮小至最大寬高範圍）。
+                </p>
+                <div className="flex items-center gap-2 mt-1">
                   <input
+                    ref={logoInputRef}
                     type="file"
-                    disabled
-                    className="text-xs bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded py-1.5 px-2 w-full text-[var(--app-text-muted)] border-dashed border-[var(--app-border-light)]"
+                    accept=".svg,image/svg+xml"
+                    onChange={handleInterludeLogoUpload}
+                    className="text-xs bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded py-1.5 px-2 w-full text-[var(--app-text-primary)] border-dashed border-[var(--app-border-light)] file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[var(--app-bg-hover)] file:text-[var(--app-text-primary)]"
                   />
+                  {options.interludeLogoSvg && (
+                    <button
+                      type="button"
+                      onClick={handleClearInterludeLogo}
+                      className="shrink-0 flex items-center gap-1.5 py-1.5 px-3 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 text-xs font-medium"
+                      title="清除 Logo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>清除圖片</span>
+                    </button>
+                  )}
                 </div>
-                <div
-                  className="absolute inset-0 bg-transparent"
-                  title="此功能正在開發中"
-                ></div>
+                {options.interludeLogoSvg && (
+                  <div className="flex items-center gap-3 mt-1 animate-fade-in">
+                    <div
+                      className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
+                      dangerouslySetInnerHTML={{
+                        __html: options.interludeLogoSvg.replace(
+                          /<svg/i,
+                          '<svg style="width:100%;height:100%"',
+                        ),
+                      }}
+                    />
+                    <span className="text-[10px] text-[var(--app-text-muted)] truncate">
+                      {interludeLogoFileName || "從 LRC 載入的 SVG 圖檔"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

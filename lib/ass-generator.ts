@@ -1,4 +1,8 @@
 import { LyricLine, LrcMetadata } from "./lyric-utils";
+import {
+  parseSvgToAssVector,
+  scaleAssVectorPath,
+} from "./svg-to-ass-vector";
 
 export interface AssOptions {
   primaryColor: string; // hex
@@ -37,11 +41,21 @@ export interface AssOptions {
   dotSpacing?: number; // ratio (0.5 ~ 1.2)
   songInfoTitleColor?: string; // hex
   songInfoArtistColor?: string; // hex
+  interludeLogoSvg?: string; // SVG 原始文字，匯出時轉為 ASS 向量圖
+  songDuration?: number; // duration of the song in seconds
+  logoMaxWidth?: number; // maximum logo width in pixels
+  logoMaxHeight?: number; // maximum logo height in pixels
+  logoMinInterludeGap?: number; // minimum gap in seconds between paragraphs to display logo
 }
 
 // 內部控制參數
 const DEFAULT_INFO_STAY_TIME = 6.0;
 const INTRO_DELAY_BUFFER_TIME = 1;
+
+// 間奏 Logo 預設尺寸與間奏門檻常數
+const DEFAULT_LOGO_MAX_WIDTH = 450;
+const DEFAULT_LOGO_MAX_HEIGHT = 300;
+const LOGO_MIN_INTERLUDE_GAP = 9.0;
 
 // =========================================================================
 // 【核心設計與模式微調參數】
@@ -831,6 +845,77 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       }
     }
   });
+
+  // 自訂間奏 Logo（測試階段：一律顯示於左上角）
+  if (options.interludeLogoSvg) {
+    const graphic = parseSvgToAssVector(options.interludeLogoSvg);
+    if (graphic) {
+      const maxLogoW = Math.round((options.logoMaxWidth ?? DEFAULT_LOGO_MAX_WIDTH) * scale);
+      const maxLogoH = Math.round((options.logoMaxHeight ?? DEFAULT_LOGO_MAX_HEIGHT) * scale);
+      const fitScale = Math.min(
+        maxLogoW / graphic.width,
+        maxLogoH / graphic.height,
+      );
+      const logoX = dualRowMarginL;
+      const logoY = dualRowMarginV;
+
+      // Render the multiple appearances of the Logo
+      const logoAppearances: { start: number; end: number; fadeOutDuration: number }[] = [];
+
+      // 1. Initial display alongside Song Info
+      logoAppearances.push({ start: infoStart, end: infoEnd, fadeOutDuration: fadeMs });
+
+      // 2. Interludes and Outro
+      for (let idx = 0; idx < paragraphs.length; idx++) {
+        const logoStart = finalTruncatedBlockEnds[idx] + INTRO_DELAY_BUFFER_TIME;
+        
+        if (idx < paragraphs.length - 1) {
+          // It's an interlude between two paragraphs
+          const pNextStart = pInfos[idx + 1].p[0].start!;
+          const pPrevEnd = getLineEndTime(paragraphs[idx][paragraphs[idx].length - 1]);
+          
+          const minGap = options.logoMinInterludeGap ?? LOGO_MIN_INTERLUDE_GAP;
+          if (pNextStart - pPrevEnd >= minGap) {
+            const logoEnd = pInfos[idx + 1].blockDisplayStart - INTRO_DELAY_BUFFER_TIME;
+            if (logoEnd > logoStart) {
+              logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+            }
+          }
+        } else {
+          // Outro - after the last paragraph
+          if (options.songDuration && options.songDuration > logoStart) {
+            const logoEnd = options.songDuration;
+            logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: 1000 }); // "最後1秒會再淡出"
+          } else if (!options.songDuration) {
+             // Fallback if no songDuration available
+             const logoEnd = logoStart + 10.0;
+             logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+          }
+        }
+      }
+
+      for (const item of graphic.items) {
+        const scaledPath = scaleAssVectorPath(item.path, fitScale);
+        for (const appearance of logoAppearances) {
+          if (appearance.start >= appearance.end) continue;
+          
+          const startStr = formatAssTime(appearance.start);
+          const endStr = formatAssTime(appearance.end);
+          const fadeText = `\\fad(${fadeMs},${appearance.fadeOutDuration})`;
+          
+          if (item.strokeOnly && item.strokeColor) {
+            const bord = Math.max(
+              1,
+              Math.round((item.strokeWidth || 1) * fitScale),
+            );
+            ass += `Dialogue: 3,${startStr},${endStr},TopLeft,,0,0,0,,{\\an7\\pos(${logoX},${logoY})${fadeText}\\1a&HFF&\\3c${item.strokeColor}&\\bord${bord}\\shad0}{\\p1}${scaledPath}{\\p0}\n`;
+          } else if (item.fillColor) {
+            ass += `Dialogue: 3,${startStr},${endStr},TopLeft,,0,0,0,,{\\an7\\pos(${logoX},${logoY})${fadeText}\\c${item.fillColor}&\\bord0\\shad0\\1a&H00&}{\\p1}${scaledPath}{\\p0}\n`;
+          }
+        }
+      }
+    }
+  }
 
   return ass;
 }
