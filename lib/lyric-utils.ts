@@ -86,12 +86,21 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
     
     const predefined = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've'];
     const lowerKey = trimmedKey.toLowerCase();
-    const finalKey = predefined.includes(lowerKey) ? lowerKey : trimmedKey;
+    const finalKey = predefined.includes(lowerKey) ? lowerKey : (lowerKey === 'klgno' ? 'klgno' : trimmedKey);
     
     let val = value.trim();
     val = val.replace(/\\n/g, '\n');
     val = val.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-    metadata[finalKey] = val;
+    
+    if (finalKey === 'klgno') {
+      if (metadata.klgno) {
+        metadata.klgno += ';' + val;
+      } else {
+        metadata.klgno = val;
+      }
+    } else {
+      metadata[finalKey] = val;
+    }
     
     return ''; // Remove the data block from the text
   });
@@ -181,8 +190,25 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
 export function exportLrc(lines: LyricLine[], metadata?: LrcMetadata, isEnhanced = false, isSimple = false, simpleIncludeInstrumental = false, paragraphStarts?: boolean[]): string {
   let lrc = '';
   
+  let exportMetadata = metadata;
   if (!isSimple && metadata) {
-    for (const [key, value] of Object.entries(metadata)) {
+    if (metadata.klgno) {
+      exportMetadata = { ...metadata };
+      delete exportMetadata.klgno;
+      
+      const intervals = metadata.klgno.split(';');
+      for (const interval of intervals) {
+        if (interval.trim()) {
+          let encVal = interval.trim().replace(/\r?\n/g, '\\n');
+          encVal = encVal.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+          lrc += `[klgno:${encVal}]\n`;
+        }
+      }
+    }
+  }
+
+  if (!isSimple && exportMetadata) {
+    for (const [key, value] of Object.entries(exportMetadata)) {
        if (value) {
          let encodedValue = value.replace(/\r?\n/g, '\\n');
          encodedValue = encodedValue.replace(/\[/g, '\\[').replace(/\]/g, '\\]');

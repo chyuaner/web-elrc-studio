@@ -1,4 +1,4 @@
-import { LyricLine, LrcMetadata } from "./lyric-utils";
+import { LyricLine, LrcMetadata, parseSeconds } from "./lyric-utils";
 import {
   parseSvgToAssVector,
   scaleAssVectorPath,
@@ -46,6 +46,7 @@ export interface AssOptions {
   logoMaxWidth?: number; // maximum logo width in pixels
   logoMaxHeight?: number; // maximum logo height in pixels
   logoMinInterludeGap?: number; // minimum gap in seconds between paragraphs to display logo
+  klgno?: string; // semicolons separated durations of not displaying logo
 }
 
 // 內部控制參數
@@ -860,7 +861,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const logoY = dualRowMarginV;
 
       // Render the multiple appearances of the Logo
-      const logoAppearances: { start: number; end: number; fadeOutDuration: number }[] = [];
+      let logoAppearances: { start: number; end: number; fadeOutDuration: number }[] = [];
 
       // 1. Initial display alongside Song Info
       logoAppearances.push({ start: infoStart, end: infoEnd, fadeOutDuration: fadeMs });
@@ -894,6 +895,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
       }
 
+      // Apply klgno exclusions from metadata (exempting the first appearance which represents the Song Info block)
+      if (metadata && metadata.klgno) {
+        const exclusions = parseKlgnoMetadata(metadata.klgno);
+        if (logoAppearances.length > 1) {
+          const songInfoLogo = logoAppearances[0];
+          const restAppearances = logoAppearances.slice(1);
+          const excludedRest = applyExclusions(restAppearances, exclusions, fadeMs);
+          logoAppearances = [songInfoLogo, ...excludedRest];
+        }
+      }
+
       for (const item of graphic.items) {
         const scaledPath = scaleAssVectorPath(item.path, fitScale);
         for (const appearance of logoAppearances) {
@@ -919,3 +931,66 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   return ass;
 }
+
+interface LogoExcludeInterval {
+  start: number;
+  end: number;
+}
+
+function parseKlgnoMetadata(klgnoStr?: string): LogoExcludeInterval[] {
+  if (!klgnoStr) return [];
+  const intervals: LogoExcludeInterval[] = [];
+  const parts = klgnoStr.split(";");
+  for (const part of parts) {
+    if (!part.trim()) continue;
+    const times = part.split("-");
+    if (times.length === 2) {
+      const start = parseSeconds(times[0].trim());
+      const end = parseSeconds(times[1].trim());
+      if (!isNaN(start) && !isNaN(end) && start < end) {
+        intervals.push({ start, end });
+      }
+    }
+  }
+  return intervals;
+}
+
+function applyExclusions(
+  intervals: { start: number; end: number; fadeOutDuration: number }[],
+  exclusions: LogoExcludeInterval[],
+  defaultFadeMs: number,
+): { start: number; end: number; fadeOutDuration: number }[] {
+  let result = [...intervals];
+
+  for (const excl of exclusions) {
+    const nextResult: { start: number; end: number; fadeOutDuration: number }[] = [];
+    for (const item of result) {
+      // 若完全無交集，保留
+      if (excl.end <= item.start || excl.start >= item.end) {
+        nextResult.push(item);
+      } else {
+        // 有交集
+        // 1. 左半邊剩餘
+        if (excl.start > item.start) {
+          nextResult.push({
+            start: item.start,
+            end: excl.start,
+            fadeOutDuration: defaultFadeMs,
+          });
+        }
+        // 2. 右半邊剩餘
+        if (excl.end < item.end) {
+          nextResult.push({
+            start: excl.end,
+            end: item.end,
+            fadeOutDuration: item.fadeOutDuration,
+          });
+        }
+      }
+    }
+    result = nextResult;
+  }
+
+  return result.filter(item => item.end - item.start > 0.1);
+}
+

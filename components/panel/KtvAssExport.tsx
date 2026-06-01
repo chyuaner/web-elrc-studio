@@ -16,6 +16,9 @@ import {
   Check,
   X,
   Trash2,
+  EyeOff,
+  Plus,
+  Clock,
 } from "lucide-react";
 import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { formatTime, parseSeconds } from "@/lib/lyric-utils";
@@ -70,8 +73,9 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     songInfoTitleColor: "#BC2600",
     songInfoArtistColor: "#2A04C8",
     logoMaxWidth: 450,
-    logoMaxHeight: 200,
+    logoMaxHeight: 300,
     logoMinInterludeGap: 9.0,
+    klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
   };
 }
 
@@ -105,6 +109,72 @@ export function KtvAssExport() {
   const [options, setOptions] = useState<
     Omit<AssOptions, "interludeThreshold">
   >(() => getDefaultAssOptions(lrcMetadata));
+  
+  const [newExcludeStart, setNewExcludeStart] = useState("");
+  const [newExcludeEnd, setNewExcludeEnd] = useState("");
+
+  const parsedIntervals = useMemo(() => {
+    if (!options.klgno) return [];
+    return options.klgno.split(';').filter(Boolean).map(part => {
+      const parts = part.split('-');
+      if (parts.length === 2) {
+        return {
+          startStr: parts[0].trim(),
+          endStr: parts[1].trim(),
+          raw: part
+        };
+      }
+      return null;
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [options.klgno]);
+
+  const handleAddExcludeInterval = () => {
+    const start = newExcludeStart.trim();
+    const end = newExcludeEnd.trim();
+    if (!start || !end) {
+      showToast("開始時間與結束時間皆為必填");
+      return;
+    }
+    const timeFormat = /^\d+:\d+(?:\.\d+)?$/;
+    if (!timeFormat.test(start) || !timeFormat.test(end)) {
+      showToast("時間格式不正確，例：01:11.099");
+      return;
+    }
+
+    const tStart = parseSeconds(start);
+    const tEnd = parseSeconds(end);
+    if (tStart >= tEnd) {
+      showToast("開始時間必須小於結束時間");
+      return;
+    }
+
+    const newItem = `${start}-${end}`;
+    const prevList = options.klgno ? options.klgno.split(';').filter(Boolean) : [];
+    
+    if (prevList.includes(newItem)) {
+      showToast("此不顯示時段已存在");
+      return;
+    }
+
+    const newList = [...prevList, newItem].join(';');
+    const updated = { ...options, klgno: newList };
+    setOptions(updated);
+    syncToLrcMetadata(updated);
+    
+    setNewExcludeStart("");
+    setNewExcludeEnd("");
+    showToast("已成功新增特殊自訂 Logo 排除時段");
+  };
+
+  const handleRemoveExcludeInterval = (idxToRemove: number) => {
+    const prevList = options.klgno ? options.klgno.split(';').filter(Boolean) : [];
+    const filtered = prevList.filter((_, idx) => idx !== idxToRemove);
+    const newList = filtered.join(';');
+    const updated = { ...options, klgno: newList };
+    setOptions(updated);
+    syncToLrcMetadata(updated);
+    showToast("已刪除該排除時段");
+  };
 
   const originalVideoName = audioFileName || "video.mp4";
   const baseName = useMemo(() => {
@@ -379,6 +449,14 @@ export function KtvAssExport() {
         delete updatedMeta.klg;
       }
     }
+    // 同步不顯示 Logo 時段 (klgno)
+    if (newOptions.klgno !== undefined) {
+      if (newOptions.klgno) {
+        updatedMeta.klgno = newOptions.klgno;
+      } else {
+        delete updatedMeta.klgno;
+      }
+    }
 
     lastCommittedMetaRef.current = updatedMeta;
     commitLrcMetadata(updatedMeta, "Update Custom KTV Info and Times");
@@ -493,6 +571,7 @@ export function KtvAssExport() {
         startInfoStartTime: 1,
         startInfoEndTime: 7,
         interludeLogoSvg: "",
+        klgno: "",
       }));
     } else {
       const extTT = lrcMetadata.TT || lrcMetadata.tt;
@@ -510,6 +589,7 @@ export function KtvAssExport() {
       const loadedAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const loadedCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
       const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
+      const loadedKlgno = lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -522,6 +602,7 @@ export function KtvAssExport() {
         startInfoStartTime: extStart,
         startInfoEndTime: extEnd,
         interludeLogoSvg: loadedLogo,
+        klgno: loadedKlgno,
       }));
     }
   }, [
@@ -535,6 +616,7 @@ export function KtvAssExport() {
     lrcMetadata.kal,
     lrcMetadata.ko,
     lrcMetadata.klg,
+    lrcMetadata.klgno,
     lrcMetadata.TT,
     lrcMetadata.TTE,
     lrcMetadata.tt,
@@ -564,7 +646,7 @@ export function KtvAssExport() {
       </div>
 
       {/* Settings / Toolbar Panel */}
-      <div className="shrink-0 p-4 bg-[var(--app-bg-base)] border-b border-[var(--app-border-base)] flex flex-col gap-4 overflow-y-auto max-h-[50vh]">
+      <div className="flex-1 p-4 bg-[var(--app-bg-base)] flex flex-col gap-4 overflow-y-auto">
         <div className="text-xs text-[var(--app-text-secondary)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {/* Left Column */}
@@ -1591,10 +1673,10 @@ export function KtvAssExport() {
                 )}
               </div>
 
-              {/* 自訂間奏Logo圖檔 */}
+              {/* 自訂出版商Logo圖檔 */}
               <div className="flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
                 <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4" /> 自訂間奏 Logo 圖檔 (SVG)
+                  <ImageIcon className="w-4 h-4" /> 自訂出版商 Logo 圖檔 (SVG)
                 </label>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
                   僅支援 SVG 向量格式，匯出時會轉為 ASS 內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距 dualRowMarginV，等比例縮小至最大寬高範圍）。
@@ -1607,34 +1689,137 @@ export function KtvAssExport() {
                     onChange={handleInterludeLogoUpload}
                     className="text-xs bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded py-1.5 px-2 w-full text-[var(--app-text-primary)] border-dashed border-[var(--app-border-light)] file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[var(--app-bg-hover)] file:text-[var(--app-text-primary)]"
                   />
-                  {options.interludeLogoSvg && (
-                    <button
-                      type="button"
-                      onClick={handleClearInterludeLogo}
-                      className="shrink-0 flex items-center gap-1.5 py-1.5 px-3 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 text-xs font-medium"
-                      title="清除 Logo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>清除圖片</span>
-                    </button>
-                  )}
                 </div>
                 {options.interludeLogoSvg && (
-                  <div className="flex items-center gap-3 mt-1 animate-fade-in">
-                    <div
-                      className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
-                      dangerouslySetInnerHTML={{
-                        __html: options.interludeLogoSvg.replace(
-                          /<svg/i,
-                          '<svg style="width:100%;height:100%"',
-                        ),
-                      }}
-                    />
-                    <span className="text-[10px] text-[var(--app-text-muted)] truncate">
-                      {interludeLogoFileName || "從 LRC 載入的 SVG 圖檔"}
-                    </span>
+                  <div className="flex flex-col gap-2.5 mt-2 animate-fade-in border-t border-[var(--app-border-light)] pt-2.5">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
+                        dangerouslySetInnerHTML={{
+                          __html: options.interludeLogoSvg.replace(
+                            /<svg/i,
+                            '<svg style="width:100%;height:100%"',
+                          ),
+                        }}
+                      />
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[150px] font-mono leading-none">
+                            {interludeLogoFileName || "從 LRC 載入的 SVG 圖檔"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                const blob = new Blob([options.interludeLogoSvg!], { type: "image/svg+xml;charset=utf-8" });
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement("a");
+                                link.href = url;
+                                link.download = interludeLogoFileName || "publisher_logo.svg";
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(url);
+                                showToast("已另存 Logo 圖片");
+                              } catch (err) {
+                                showToast("儲存失敗，請重試");
+                              }
+                            }}
+                            className="shrink-0 flex items-center gap-1 py-0.5 px-2 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-200 transition-colors border border-blue-500/20 text-[10px] font-medium"
+                          >
+                            <span>另存這張圖片</span>
+                          </button>
+                        </div>
+                        <div className="mt-1">
+                          <button
+                            type="button"
+                            onClick={handleClearInterludeLogo}
+                            className="flex items-center gap-1 py-0.5 px-2 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 text-[10px] font-medium w-fit"
+                            title="清除已選的圖片"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>清除已選的圖片</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
+              </div>
+
+              {/* 特殊自訂不要顯示 Logo 時段 */}
+              <div id="exclude-logo-intervals" className="flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
+                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示 Logo 時段
+                </label>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                  可自訂特定時間戳範圍不要出現任何 Logo，時間戳核心顯示如歌詞不受影響。
+                </p>
+
+                {/* 新增區段 */}
+                <div className="flex gap-2.5 items-end bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] z-10">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">開始時間 (mm:ss.cs/ms)</span>
+                    <input
+                      type="text"
+                      id="exclude-start-input"
+                      value={newExcludeStart}
+                      onChange={(e) => setNewExcludeStart(e.target.value)}
+                      placeholder="01:11.099"
+                      className="w-full bg-[var(--app-bg-base)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">結束時間 (mm:ss.cs/ms)</span>
+                    <input
+                      type="text"
+                      id="exclude-end-input"
+                      value={newExcludeEnd}
+                      onChange={(e) => setNewExcludeEnd(e.target.value)}
+                      placeholder="01:17.211"
+                      className="w-full bg-[var(--app-bg-base)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddExcludeInterval}
+                    className="shrink-0 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-semibold text-xs py-1.5 px-3 rounded transition-colors flex items-center gap-1 h-[26px]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>新增</span>
+                  </button>
+                </div>
+
+                {/* 清單顯示 */}
+                <div className="flex flex-col gap-1.5 mt-1 max-h-[180px] overflow-y-auto pr-1">
+                  {parsedIntervals.length === 0 ? (
+                    <div className="text-[10px] text-[var(--app-text-muted)] text-center py-2.5 bg-black/10 rounded border border-dashed border-[var(--app-border-light)]">
+                      尚未新增任何不顯示 Logo 的時段
+                    </div>
+                  ) : (
+                    parsedIntervals.map((interval, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between text-xs font-mono bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] rounded px-2.5 py-1.5 hover:bg-[var(--app-bg-hover)] transition-colors group"
+                      >
+                        <div className="flex items-center gap-2 text-[var(--app-text-primary)]">
+                          <Clock className="w-3.5 h-3.5 text-orange-400/70" />
+                          <span>{interval.startStr}</span>
+                          <span className="text-[var(--app-text-muted)]">➔</span>
+                          <span>{interval.endStr}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveExcludeInterval(index)}
+                          className="p-1 rounded hover:bg-red-500/10 text-[var(--app-text-muted)] hover:text-red-400 transition-colors"
+                          title="刪除此時段"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1642,7 +1827,7 @@ export function KtvAssExport() {
       </div>
 
       {/* Editor / Preview Area */}
-      <div className="border border-[var(--app-border-light)] rounded overflow-hidden mb-4">
+      <div className="shrink-0 border-t border-[var(--app-border-base)] bg-[var(--app-bg-panel)] animate-fade-in">
         <div 
           onClick={() => setRawPreviewOpen(!rawPreviewOpen)}
           className="flex items-center justify-between px-4 py-2.5 bg-[var(--app-bg-input)] cursor-pointer hover:bg-[var(--app-bg-hover)] transition-colors select-none"
