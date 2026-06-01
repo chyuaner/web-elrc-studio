@@ -633,7 +633,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         let dotFadeIn = 0;
         if (d === 0) {
-          dotStart -= options.fadeInOutTime;
+          dotStart = blockDisplayStart;
           dotFadeIn = fadeMs;
         }
 
