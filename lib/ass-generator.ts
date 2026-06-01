@@ -1,4 +1,5 @@
 import { LyricLine, LrcMetadata, parseSeconds } from "./lyric-utils";
+import { createEffectiveLines, computeEffectiveStyles } from "./compute-styles";
 import {
   parseSvgToAssVector,
   scaleAssVectorPath,
@@ -143,16 +144,18 @@ function getStyleColor(styleId: string | undefined, options: AssOptions): string
     case 'R': return hexToAssColor(options.color2);
     case 'P': return hexToAssColor(options.color3);
     case 'G': return hexToAssColor(options.chorusColor);
+    case 'T': return hexToAssColor('#9ca3af');
     case 'B':
     default: return hexToAssColor(options.primaryColor);
   }
 }
 
 export function generateAss(
-  lines: LyricLine[],
+  rawLines: LyricLine[],
   metadata: LrcMetadata,
   options: AssOptions,
 ): string {
+  const lines: LyricLine[] = createEffectiveLines(rawLines) as LyricLine[];
   const playResX = options.playResX || 1920;
   const playResY = options.playResY || 1080;
   const centerX = playResX / 2;
@@ -736,8 +739,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       let karaokeStrCore = "";
       let karaokeStrTraditional = "";
       
+      const primaryAssColor = hexToAssColor(options.primaryColor);
       const lineAssColor = getStyleColor(line.style, options);
       let lastCoreColor = lineAssColor;
+      
+      if (lineAssColor !== primaryAssColor) {
+        karaokeStrCore += `{\\1c${lineAssColor}}`;
+        karaokeStrTraditional += `{\\1c${lineAssColor}}`;
+      }
       
       const validWords = line.words.filter(
         (w) => w.text.trim().length > 0 || w.text === " ",

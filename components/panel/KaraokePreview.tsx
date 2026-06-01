@@ -5,8 +5,11 @@ import { useEditor } from '@/components/base/EditorProvider';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useSyncHotkeys } from '@/components/base/useSyncHotkeys';
 
+import { createEffectiveLines } from '@/lib/compute-styles';
+
 export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean }) {
-  const { lines, activeLineIndex, activeWordIndex, trackAssignments, paragraphStarts, dualLineGapSec, syncMode, autoScrollEnabled, playerRef, isPlaying, touchUIMode } = useEditor();
+  const { lines: rawLines, activeLineIndex, activeWordIndex, trackAssignments, paragraphStarts, dualLineGapSec, syncMode, autoScrollEnabled, playerRef, isPlaying, touchUIMode } = useEditor();
+  const lines = React.useMemo(() => createEffectiveLines(rawLines), [rawLines]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const { handleLineStamp, handleWordStamp, handleWordNextLine } = useSyncHotkeys();
@@ -155,23 +158,39 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     };
   }, []);
 
+  const getStyleClasses = (style?: string) => {
+      switch (style?.toUpperCase()) {
+         case 'B': return { past: 'text-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]', current: 'text-blue-100 border-blue-500', future: 'text-blue-500/40', wordBg: 'bg-blue-500/20' };
+         case 'R': return { past: 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]', current: 'text-red-100 border-red-500', future: 'text-red-500/40', wordBg: 'bg-red-500/20' };
+         case 'P': return { past: 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]', current: 'text-purple-100 border-purple-500', future: 'text-purple-500/40', wordBg: 'bg-purple-500/20' };
+         case 'G': return { past: 'text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]', current: 'text-green-100 border-green-500', future: 'text-green-500/40', wordBg: 'bg-green-500/20' };
+         case 'T': return { past: 'text-gray-500 drop-shadow-[0_0_8px_rgba(107,114,128,0.8)]', current: 'text-gray-100 border-gray-500', future: 'text-gray-500/40', wordBg: 'bg-gray-500/20' };
+         default: return { past: 'text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)]', current: 'text-[var(--app-text-primary)] border-[var(--app-accent)]', future: 'text-[var(--app-text-muted)]', wordBg: 'bg-[var(--app-accent)]/20' };
+      }
+  };
+
   const getWordColor = (lineIdx: number, wordIdx: number) => {
+      const line = lines[lineIdx];
+      const word = line?.words[wordIdx];
+      const effectiveStyle = word?.style || line?.style;
+      const theme = getStyleClasses(effectiveStyle);
+
       if (lineIdx < activeLineIndex) {
-          return "text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)] border-b-4 border-transparent pb-1 transition-all";
+          return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
       } else if (lineIdx === activeLineIndex) {
-          const isLineSynced = lines[lineIdx].words.every(w => w.start === null);
+          const isLineSynced = lines[lineIdx].words.every((w: any) => w.start === null);
           if (syncMode === 'line' || isLineSynced) {
-              return "text-[var(--app-text-primary)] border-b-4 border-[var(--app-accent)] pb-1 transition-all relative transform scale-105 origin-bottom z-10";
+              return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
           }
           if (wordIdx < activeWordIndex) {
-              return "text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)] border-b-4 border-transparent pb-1 transition-all";
+              return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
           } else if (wordIdx === activeWordIndex) {
-              return "text-[var(--app-text-primary)] border-b-4 border-[var(--app-accent)] pb-1 transition-all relative transform scale-105 origin-bottom z-10";
+              return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
           } else {
-              return "text-[var(--app-text-muted)] border-b-4 border-transparent pb-1 transition-colors";
+              return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
           }
       } else {
-          return "text-[var(--app-text-muted)] border-b-4 border-transparent pb-1 transition-colors";
+          return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
       }
   };
 
@@ -229,7 +248,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                     )}
                     <div className="overflow-hidden w-full">
                       <p className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopOnly ? 'justify-center text-center' : 'justify-start text-left'}`}>
-                        {lines[topIndex].words.map((w, i) => (
+                        {lines[topIndex].words.map((w: any, i: number) => (
                           <span key={i} className={getWordColor(topIndex, i)}>
                             {w.text || (i === lines[topIndex].words.length - 1 ? '⏎' : '')}
                           </span>
@@ -265,7 +284,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                     )}
                     <div className="overflow-hidden w-full">
                       <p className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomOnly ? 'justify-center text-center' : 'justify-end text-right'}`}>
-                        {lines[bottomIndex].words.map((w, i) => (
+                        {lines[bottomIndex].words.map((w: any, i: number) => (
                            <span key={i} className={getWordColor(bottomIndex, i)}>
                              {w.text || (i === lines[bottomIndex].words.length - 1 ? '⏎' : '')}
                            </span>

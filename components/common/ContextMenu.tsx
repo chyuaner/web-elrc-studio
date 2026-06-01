@@ -84,3 +84,34 @@ export function ContextMenuItem({ icon, label, children, danger, rightElement, c
 export function ContextMenuSeparator() {
   return <div className="h-px bg-[var(--app-border-base)] my-1"></div>;
 }
+
+export function ContextMenuSub({ label, icon, children }: { label: React.ReactNode, icon?: React.ReactNode, children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  
+  return (
+    <div 
+      className="w-full"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <div
+        className="w-full text-left px-3 py-1.5 hover:bg-[var(--app-bg-hover)] transition-colors flex items-center justify-between gap-2 cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+      >
+        <div className="flex items-center gap-2 max-w-full overflow-hidden">
+          {icon}
+          {label}
+        </div>
+        <span className={`text-xs opacity-50 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+      </div>
+      {isOpen && (
+        <div className="w-full bg-[var(--app-bg-hover)]/30 py-1 flex flex-col border-y border-[var(--app-border-base)]">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}

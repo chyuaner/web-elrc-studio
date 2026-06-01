@@ -2,6 +2,30 @@ import React from 'react';
 import { formatTime } from '@/lib/lyric-utils';
 import { Tooltip } from '@/components/common/Tooltip';
 
+const getStyleColorClass = (style?: string, isWarning: boolean = false) => {
+  switch (style?.toUpperCase()) {
+    case 'B': return '!text-blue-500';
+    case 'R': return '!text-red-500';
+    case 'P': return '!text-purple-500';
+    case 'G': return '!text-green-500';
+    case 'T': return '!text-gray-500';
+    case 'N': return isWarning ? 'text-red-500' : 'text-[var(--app-accent)]';
+    default: return isWarning ? 'text-red-500' : 'text-[var(--app-accent)]';
+  }
+};
+
+const getStyleBgClass = (style?: string) => {
+  switch (style?.toUpperCase()) {
+    case 'B': return '!bg-blue-500/20 border border-blue-500/80';
+    case 'R': return '!bg-red-500/20 border border-red-500/80';
+    case 'P': return '!bg-purple-500/20 border border-purple-500/80';
+    case 'G': return '!bg-green-500/20 border border-green-500/80';
+    case 'T': return '!bg-gray-500/20 border border-gray-500/80';
+    case 'N': return '';
+    default: return '';
+  }
+};
+
 const getCharWeight = (char: string): number => {
   // 英文字 [a-zA-Z] 或半角空格算 0.5 個字，其餘算 1.0 個字
   if (/^[a-zA-Z ]$/.test(char)) {
@@ -67,14 +91,14 @@ export function LyricCellContent({
         }}
         title="Click to seek / Right click for options"
       >
-        <span className={isStamped ? 'text-[var(--app-accent)]' : 'opacity-30'}>
+        <span className={`${isStamped ? getStyleColorClass(line.style) : 'opacity-30'} ${line._isStyleBoundary ? 'font-bold underline decoration-2 underline-offset-4' : ''}`}>
            {isStamped ? formatTime(line.start) : '--:--.--'}
         </span>
       </div>
       
       <div className={`flex-1 leading-relaxed ${isActive ? 'font-medium' : ''}`}>
         {syncMode === 'line' ? (
-          line.raw
+          <span className={line.style ? getStyleColorClass(line.style) : ''}>{line.raw}</span>
          ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1">
             {(() => {
@@ -87,6 +111,13 @@ export function LyricCellContent({
                 cumulativeLen += wordLength;
                 
                 const isRed = startsAtOrAfter15 && !isWordActive;
+                const effectiveWordStyle = word.style || line.style;
+                const isBoundary = word._isStyleBoundary;
+                
+                let customBg = isBoundary ? getStyleBgClass(word.style) : '';
+                if (isBoundary && !word.style) {
+                   customBg = 'bg-[var(--app-accent)]/10 border border-[var(--app-accent)]/80';
+                }
 
                 return (
                   <Tooltip key={wIdx} title={word.start !== null ? formatTime(word.start) : 'Not synced'} delay={50}>
@@ -94,8 +125,8 @@ export function LyricCellContent({
                       className={`
                         px-1 py-0.5 rounded transition-all select-none
                         ${isWordActive ? 'bg-[var(--app-accent)] text-black font-bold ring-2 ring-[var(--app-accent)]/50 cursor-pointer' : 'cursor-pointer'}
-                        ${isWordStamped && !isWordActive ? (isRed ? 'text-red-500 font-bold bg-red-500/10 border border-red-500/30' : 'text-[var(--app-accent)] bg-[var(--app-border-base)]') : ''}
-                        ${!isWordStamped && !isWordActive ? (isRed ? 'text-red-500 font-bold bg-red-500/10 border border-red-500/20' : 'text-[var(--app-text-muted)] bg-[var(--app-bg-panel)]') : ''}
+                        ${isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/30` : `${getStyleColorClass(effectiveWordStyle)} ${customBg || 'bg-[var(--app-border-base)]'}`) : ''}
+                        ${!isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/20` : `text-[var(--app-text-muted)] ${customBg || 'bg-[var(--app-bg-panel)]'}`) : ''}
                       `}
                       onClick={(e) => {
                         e.stopPropagation();

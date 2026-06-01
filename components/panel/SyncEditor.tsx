@@ -5,10 +5,11 @@ import { useSyncHotkeys } from '@/components/base/useSyncHotkeys';
 import { formatTime } from '@/lib/lyric-utils';
 import { KaraokePreview } from '@/components/panel/KaraokePreview';
 import { Tooltip } from '@/components/common/Tooltip';
+import { MultiSingerDialog } from '@/components/panel/MultiSingerDialog';
 import { Edit2, Trash2, X, ArrowRight, MoreVertical, ArrowUpFromLine, Copy, Play, SplitSquareVertical, Clock, Scissors, Type, Plus, FileText, Eraser, SlidersHorizontal, Settings2 } from 'lucide-react';
 import { BaseDialog } from '@/components/dialog/BaseDialog';
 
-import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/common/ContextMenu';
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSub } from '@/components/common/ContextMenu';
 import { useAutoScroll } from '@/components/base/useAutoScroll';
 import { useDialogs } from '@/components/dialog/DialogProvider';
 import { useI18n } from '@/hooks/useI18n';
@@ -103,11 +104,20 @@ SyncCell.displayName = 'SyncCell';
 
 const getLineRawText = (line: any) => {
     let result = '';
+    if (line?.style) {
+        result += `[kstyle:${line.style}] `;
+    }
     if (line?.start !== null) {
         result += `[${formatTime(line.start, true)}]`;
     }
     if (line?.words) {
-        result += line.words.map((w: any) => w.start !== null ? `<${formatTime(w.start, true)}>${w.text}` : w.text).join('');
+        result += line.words.map((w: any) => {
+            let p = '';
+            if (w.style) p += `<kstyle:${w.style}>`;
+            if (w.start !== null) p += `<${formatTime(w.start, true)}>`;
+            p += w.text;
+            return p;
+        }).join('');
     }
     return result;
 };
@@ -116,6 +126,8 @@ const getLineText = (line: any) => {
     if (!line?.words) return '';
     return line.words.map((w: any) => w.text).join('');
 };
+
+import { createEffectiveLines } from '@/lib/compute-styles';
 
 export function SyncEditor() {
   const {
@@ -131,6 +143,8 @@ export function SyncEditor() {
   const { handleLineStamp, handleWordStamp, handleWordNextLine } = useSyncHotkeys();
   useAutoScroll();
   const i18n = useI18n();
+
+  const effectiveLines = React.useMemo(() => createEffectiveLines(lines), [lines]);
 
   const visualParagraphStarts = React.useMemo(() => {
     const result = new Array(lines.length).fill(false);
@@ -199,6 +213,7 @@ export function SyncEditor() {
 
   const [editingText, setEditingText] = useState<{ globalIndex: number, text: string, type: 'raw' | 'text' } | null>(null);
   const [ktvspDialog, setKtvspDialog] = useState<{ globalIndex: number, text: string } | null>(null);
+  const [multiSingerDialogOpen, setMultiSingerDialogOpen] = useState(false);
 
   const handleEditRawText = useCallback((globalIndex: number) => {
     const defaultRaw = getLineRawText(lines[globalIndex]);
@@ -233,6 +248,26 @@ export function SyncEditor() {
 
   const handleDeleteLine = useCallback((globalIndex: number) => {
     commitLines(prev => prev.filter((_, i) => i !== globalIndex), 'Delete Line');
+  }, [commitLines]);
+
+  const handleSetLineStyle = useCallback((globalIndex: number, styleId: string) => {
+    commitLines(prev => {
+      const newLines = [...prev];
+      const currentObj = { ...newLines[globalIndex] };
+      currentObj.style = currentObj.style === styleId ? undefined : styleId;
+      newLines[globalIndex] = currentObj;
+      return newLines;
+    }, 'Toggle Line Style');
+  }, [commitLines]);
+
+  const handleSetWordStyle = useCallback((globalIndex: number, wordIndex: number, styleId: string) => {
+    commitLines(prev => {
+      const newLines = [...prev];
+      const newWords = [...newLines[globalIndex].words];
+      newWords[wordIndex] = { ...newWords[wordIndex], style: newWords[wordIndex].style === styleId ? undefined : styleId };
+      newLines[globalIndex] = { ...newLines[globalIndex], words: newWords };
+      return newLines;
+    }, 'Toggle Word Style');
   }, [commitLines]);
 
   const handleMergeToPrevious = useCallback((globalIndex: number) => {
@@ -476,7 +511,7 @@ export function SyncEditor() {
     let currentPair: { left: { line: any, index: number } | null, right: { line: any, index: number } | null } = { left: null, right: null };
     const currentPairEmpty = () => currentPair.left === null && currentPair.right === null;
 
-    lines.forEach((line, i) => {
+    effectiveLines.forEach((line, i) => {
        const track = trackAssignments[i] || 0;
        if (track === 0) {
           if (!currentPairEmpty()) uiRows.push(currentPair);
@@ -489,7 +524,7 @@ export function SyncEditor() {
     });
     if (!currentPairEmpty()) uiRows.push(currentPair);
   } else {
-    lines.forEach((line, i) => {
+    effectiveLines.forEach((line, i) => {
        uiRows.push({ left: { line, index: i } });
     });
   }
@@ -582,6 +617,15 @@ export function SyncEditor() {
               className="px-3 py-1.5 bg-[var(--app-bg-panel)] hover:bg-[var(--app-bg-hover)] hover:text-red-400 rounded shadow-sm border border-[var(--app-border-light)] flex items-center text-[var(--app-text-secondary)] transition-colors h-[30px]"
             >
               <Eraser className="w-4 h-4" />
+            </button>
+          </Tooltip>
+
+          <Tooltip title={<span className="text-xs font-mono">多人對唱 / 隱藏式標記</span>}>
+            <button
+              onClick={() => setMultiSingerDialogOpen(true)}
+              className="px-3 py-1.5 bg-[var(--app-bg-panel)] hover:bg-[var(--app-bg-hover)] hover:text-[var(--app-accent)] rounded shadow-sm border border-[var(--app-border-light)] flex items-center text-[var(--app-text-secondary)] transition-colors h-[30px]"
+            >
+              <span className="font-bold text-[10px]">多人對唱</span>
             </button>
           </Tooltip>
           
@@ -700,6 +744,16 @@ export function SyncEditor() {
               <ContextMenuSeparator />
               <ContextMenuItem icon={<Type className="w-3.5 h-3.5" />} label="編輯這行字" onClick={() => { handleEditTextOnly(ctxMenu.globalIndex); setCtxMenu(null); }} />
               <ContextMenuItem icon={<Edit2 className="w-3.5 h-3.5" />} label="編輯這行字RAW（含時間戳）" onClick={() => { handleEditRawText(ctxMenu.globalIndex); setCtxMenu(null); }} />
+              <ContextMenuSeparator />
+              <ContextMenuSub icon={<span className="w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] bg-gradient-to-br from-blue-500 to-red-500 text-white">🎨</span>} label="顏色標記">
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'B' ? 'text-white bg-blue-500' : 'text-blue-500'}`}>B</span>} label={lines[ctxMenu.globalIndex]?.style === 'B' ? "✓ 取消標記藍色" : "設為藍色B (男 or 第一人)"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'B'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'R' ? 'text-white bg-red-500' : 'text-red-500'}`}>R</span>} label={lines[ctxMenu.globalIndex]?.style === 'R' ? "✓ 取消標記紅色" : "設為紅色R (女 or 第二人)"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'R'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'P' ? 'text-white bg-purple-500' : 'text-purple-500'}`}>P</span>} label={lines[ctxMenu.globalIndex]?.style === 'P' ? "✓ 取消標記紫色" : "設為紫色P (第三人)"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'P'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'G' ? 'text-white bg-green-500' : 'text-green-500'}`}>G</span>} label={lines[ctxMenu.globalIndex]?.style === 'G' ? "✓ 取消標記綠色" : "設為綠色G (合唱)"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'G'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'T' ? 'text-white bg-gray-500' : 'text-gray-500'}`}>T</span>} label={lines[ctxMenu.globalIndex]?.style === 'T' ? "✓ 取消標記灰色" : "設為灰色T (旁白 or 隱藏)"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'T'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === 'N' ? 'text-white bg-[var(--app-accent)]' : 'text-[var(--app-accent)]'}`}>N</span>} label={lines[ctxMenu.globalIndex]?.style === 'N' ? "✓ 取消回歸預設" : "設為回歸預設N"} onClick={() => { handleSetLineStyle(ctxMenu.globalIndex, 'N'); setCtxMenu(null); }} />
+              </ContextMenuSub>
+              <ContextMenuSeparator />
               <ContextMenuItem icon={<span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">繁</span>} label="這行字轉繁體" onClick={() => { handleLineConvertToTraditional(ctxMenu.globalIndex); setCtxMenu(null); }} />
               <ContextMenuItem icon={<span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">簡</span>} label="這行字轉簡體" onClick={() => { handleLineConvertToSimplified(ctxMenu.globalIndex); setCtxMenu(null); }} />
               <ContextMenuItem icon={<span className="w-3.5 h-3.5 flex items-center justify-center font-semibold text-[10px] text-purple-500">3</span>} label={lines[ctxMenu.globalIndex]?.isSingleLine ? "✓ 算做第三句 (已啟用)" : "算做第三句（強制單行）"} onClick={() => { handleToggleSingleLine(ctxMenu.globalIndex); setCtxMenu(null); }} />
@@ -744,6 +798,16 @@ export function SyncEditor() {
               <ContextMenuSeparator />
               <ContextMenuItem icon={<Type className="w-3.5 h-3.5" />} label="編輯這段字" onClick={() => { handleEditWordText(ctxMenu.globalIndex, ctxMenu.wordIndex!); setCtxMenu(null); }} />
               <ContextMenuItem icon={<Edit2 className="w-3.5 h-3.5" />} label="編輯這段字RAW（含時間戳）" onClick={() => { handleEditWordRaw(ctxMenu.globalIndex, ctxMenu.wordIndex!); setCtxMenu(null); }} />
+              <ContextMenuSeparator />
+              <ContextMenuSub icon={<span className="w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] bg-gradient-to-br from-blue-500 to-red-500 text-white">🎨</span>} label="顏色標記">
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'B' ? 'text-white bg-blue-500' : 'text-blue-500'}`}>B</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'B' ? "✓ 取消標記藍色" : "設為藍色B (男 or 第一人)"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'B'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'R' ? 'text-white bg-red-500' : 'text-red-500'}`}>R</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'R' ? "✓ 取消標記紅色" : "設為紅色R (女 or 第二人)"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'R'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'P' ? 'text-white bg-purple-500' : 'text-purple-500'}`}>P</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'P' ? "✓ 取消標記紫色" : "設為紫色P (第三人)"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'P'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'G' ? 'text-white bg-green-500' : 'text-green-500'}`}>G</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'G' ? "✓ 取消標記綠色" : "設為綠色G (合唱)"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'G'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'T' ? 'text-white bg-gray-500' : 'text-gray-500'}`}>T</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'T' ? "✓ 取消標記灰色" : "設為灰色T (旁白 or 隱藏)"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'T'); setCtxMenu(null); }} />
+                <ContextMenuItem icon={<span className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'N' ? 'text-white bg-[var(--app-accent)]' : 'text-[var(--app-accent)]'}`}>N</span>} label={lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === 'N' ? "✓ 取消回歸預設" : "設為回歸預設N"} onClick={() => { handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, 'N'); setCtxMenu(null); }} />
+              </ContextMenuSub>
+              <ContextMenuSeparator />
               <ContextMenuItem icon={<span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">繁</span>} label="這段字轉繁體" onClick={() => { handleWordConvertToTraditional(ctxMenu.globalIndex, ctxMenu.wordIndex!); setCtxMenu(null); }} />
               <ContextMenuItem icon={<span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">簡</span>} label="這段字轉簡體" onClick={() => { handleWordConvertToSimplified(ctxMenu.globalIndex, ctxMenu.wordIndex!); setCtxMenu(null); }} />
               <ContextMenuSeparator />
@@ -915,6 +979,8 @@ export function SyncEditor() {
           </div>
         )}
       </BaseDialog>
+
+      <MultiSingerDialog isOpen={multiSingerDialogOpen} onClose={() => setMultiSingerDialogOpen(false)} />
     </div>
   );
 }
