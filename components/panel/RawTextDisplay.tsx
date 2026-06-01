@@ -357,14 +357,28 @@ export function RawTextDisplay({
               }
           }
       } else {
-          const metadataLinesCount = Object.values(lrcMetadata || {}).filter(Boolean).length;
-          
-          if (exportFormat !== 'simple') {
-              for (let i = 0; i < metadataLinesCount; i++) {
-                  currentRawIndex++;
+          let metadataLinesCount = 0;
+          if (exportFormat !== 'simple' && lrcMetadata) {
+              if (lrcMetadata.klgno) {
+                  const intervals = lrcMetadata.klgno.split(';');
+                  for (const interval of intervals) {
+                      if (interval.trim()) {
+                          metadataLinesCount++;
+                      }
+                  }
+              }
+              for (const [key, value] of Object.entries(lrcMetadata)) {
+                  if (value && key !== 'klgno') {
+                      metadataLinesCount++;
+                  }
               }
           }
+          
+          for (let i = 0; i < metadataLinesCount; i++) {
+              currentRawIndex++;
+          }
     
+          let currentExportStyle: string | undefined = undefined;
           for (let i = 0; i < lines.length; i++) {
               if (exportFormat === 'simple' && simpleIncludeInstrumental && i > 0 && paragraphStarts[i]) {
                   currentRawIndex++; // Empty line
@@ -377,6 +391,11 @@ export function RawTextDisplay({
                   if (lines[i].ktvsp != null) {
                       rawIdxToLineIdx.set(currentRawIndex, i);
                       currentRawIndex++;
+                  }
+                  if (lines[i].style && lines[i].style !== currentExportStyle) {
+                      rawIdxToLineIdx.set(currentRawIndex, i);
+                      currentRawIndex++;
+                      currentExportStyle = lines[i].style;
                   }
               }
               rawIdxToLineIdx.set(currentRawIndex, i);
