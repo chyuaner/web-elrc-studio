@@ -11,10 +11,9 @@ export function computeEffectiveStyles(lines: LyricLine[]) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         
+        let pLineBoundary = line.style !== undefined;
         let effectiveLineStyle = currentStyle;
-        let pLineBoundary = false;
         if (line.style) {
-            pLineBoundary = true;
             if (line.style === 'N') currentStyle = undefined;
             else currentStyle = line.style;
             effectiveLineStyle = currentStyle;
@@ -26,15 +25,12 @@ export function computeEffectiveStyles(lines: LyricLine[]) {
         const currentWordStyles: (string | undefined)[] = [];
         const currentWordBoundaries: boolean[] = [];
         let currentWordPropagatedStyle = effectiveLineStyle;
-        let previousWordPropagatedStyle = effectiveLineStyle;
 
         for (let j = 0; j < line.words.length; j++) {
             const word = line.words[j];
-            let pWordBoundary = false;
+            let pWordBoundary = word.style !== undefined;
+            
             if (word.style) {
-                if (word.style !== previousWordPropagatedStyle) {
-                    pWordBoundary = true;
-                }
                 if (word.style === 'N') {
                     currentWordPropagatedStyle = undefined;
                     currentStyle = undefined;
@@ -43,7 +39,7 @@ export function computeEffectiveStyles(lines: LyricLine[]) {
                     currentStyle = word.style;
                 }
             }
-            previousWordPropagatedStyle = currentWordPropagatedStyle;
+            
             currentWordStyles.push(currentWordPropagatedStyle);
             currentWordBoundaries.push(pWordBoundary);
         }

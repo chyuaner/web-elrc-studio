@@ -129,6 +129,7 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
   let pendingSingleLine = false;
   let pendingKtvsp: number | null = null;
   let currentStyle: string | undefined = undefined;
+  let blockStyleEncountered: string | undefined = undefined;
   
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -143,6 +144,7 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
     const styleBlockMatch = /^\[kstyle\s*[:：]\s*([^\]]+)\]$/i.exec(line.trim());
     if (styleBlockMatch) {
       currentStyle = styleBlockMatch[1].trim();
+      blockStyleEncountered = currentStyle;
       continue;
     }
 
@@ -162,9 +164,11 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       cleanText = line.substring(match[0].length);
     }
     
+    let inlineStyleJustDeclared: string | undefined = undefined;
     let inlineStyleMatch;
     while ((inlineStyleMatch = /^\[kstyle\s*[:：]\s*([^\]]+)\]/i.exec(cleanText)) !== null) {
-      currentStyle = inlineStyleMatch[1].trim();
+      inlineStyleJustDeclared = inlineStyleMatch[1].trim();
+      currentStyle = inlineStyleJustDeclared;
       cleanText = cleanText.substring(inlineStyleMatch[0].length);
     }
     
@@ -180,7 +184,19 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       }
     }
     
-    const effectiveLineStyle = matchedDefStyle || currentStyle;
+    let explicitLineStyle: string | undefined = undefined;
+    if (inlineStyleJustDeclared) {
+      explicitLineStyle = inlineStyleJustDeclared;
+      blockStyleEncountered = undefined;
+    } else if (matchedDefStyle) {
+      explicitLineStyle = matchedDefStyle;
+      blockStyleEncountered = undefined;
+    } else if (blockStyleEncountered) {
+      explicitLineStyle = blockStyleEncountered;
+      blockStyleEncountered = undefined;
+    }
+    
+    const effectiveLineStyle = explicitLineStyle || currentStyle;
     
     if (cleanText.includes('<') && cleanText.includes('>')) {
       isEnhanced = true;
@@ -192,36 +208,38 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       
       const firstTagIndex = cleanText.indexOf('<');
       if (firstTagIndex > 0) {
-        words.push({ text: cleanText.substring(0, firstTagIndex), start, end: null, style: effectiveLineStyle });
+        words.push({ text: cleanText.substring(0, firstTagIndex), start, end: null, style: undefined });
       }
       
-      let currentInlineStyle = effectiveLineStyle;
+      let currentWordStyle: string | undefined = undefined;
       
       while ((m = wordTimeRegex.exec(cleanText)) !== null) {
         const tagContent = m[1].trim();
         const wText = m[2];
         
         if (tagContent.toLowerCase().startsWith('kstyle:') || tagContent.toLowerCase().startsWith('kstyle：')) {
-          currentInlineStyle = tagContent.substring(7).trim();
+          currentWordStyle = tagContent.substring(7).trim();
           if (wText) {
-            words.push({ text: wText, start: null, end: null, style: currentInlineStyle });
+            words.push({ text: wText, start: null, end: null, style: currentWordStyle });
+            currentWordStyle = undefined;
           }
           continue;
         }
         
         const wStart = parseSeconds(tagContent);
-        words.push({ text: wText, start: wStart, end: null, style: currentInlineStyle });
+        words.push({ text: wText, start: wStart, end: null, style: currentWordStyle });
+        currentWordStyle = undefined;
       }
       
       result.push({
         id: generateId(),
         start,
         end: null,
-        words: words.length > 0 ? words : splitWordsAegisub(cleanText.replace(/<[^>]+>/g, '')).map(w => ({...w, style: effectiveLineStyle})),
+        words: words.length > 0 ? words : splitWordsAegisub(cleanText.replace(/<[^>]+>/g, '')).map(w => ({...w, style: undefined})),
         raw: cleanText.replace(/<[^>]+>/g, ''),
         isSingleLine: pendingSingleLine ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
-        style: effectiveLineStyle,
+        style: explicitLineStyle,
       });
       pendingSingleLine = false;
       pendingKtvsp = null;
@@ -230,11 +248,11 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
         id: generateId(),
         start,
         end: null,
-        words: splitWordsAegisub(cleanText).map(w => ({ ...w, style: effectiveLineStyle })),
+        words: splitWordsAegisub(cleanText).map(w => ({ ...w, style: undefined })),
         raw: cleanText,
         isSingleLine: pendingSingleLine ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
-        style: effectiveLineStyle,
+        style: explicitLineStyle,
       });
       pendingSingleLine = false;
       pendingKtvsp = null;
