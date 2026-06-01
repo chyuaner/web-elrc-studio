@@ -733,7 +733,7 @@ export function SyncEditor() {
           x={ctxMenu.x}
           y={ctxMenu.y}
           onClose={() => setCtxMenu(null)}
-          className="max-h-[85vh] overflow-y-auto"
+          className="max-h-[85vh] overflow-y-auto md:max-h-none md:overflow-visible"
         >
           {ctxMenu.type === 'line' && (
             <>

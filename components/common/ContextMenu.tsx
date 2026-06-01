@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useRef, useLayoutEffect, useState } from 'react';
 
 export interface ContextMenuProps {
   x: number;
@@ -86,11 +86,26 @@ export function ContextMenuSeparator() {
 }
 
 export function ContextMenuSub({ label, icon, children }: { label: React.ReactNode, icon?: React.ReactNode, children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [popDirection, setPopDirection] = useState<'left' | 'right'>('right');
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const anticipatedRight = rect.right + 200; // estimated width of submenu (200px)
+      if (anticipatedRight > window.innerWidth) {
+        setPopDirection('left');
+      } else {
+        setPopDirection('right');
+      }
+    }
+  }, [isOpen]);
   
   return (
     <div 
-      className="w-full"
+      ref={containerRef}
+      className="w-full relative"
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
     >
@@ -105,12 +120,24 @@ export function ContextMenuSub({ label, icon, children }: { label: React.ReactNo
           {icon}
           {label}
         </div>
-        <span className={`text-xs opacity-50 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+        <span className={`text-xs opacity-50 transition-transform md:rotate-0 ${isOpen ? 'rotate-90' : ''}`}>▶</span>
       </div>
       {isOpen && (
-        <div className="w-full bg-[var(--app-bg-hover)]/30 py-1 flex flex-col border-y border-[var(--app-border-base)]">
-          {children}
-        </div>
+        <>
+          {/* Mobile design: accordion-style fold */}
+          <div className="md:hidden w-full bg-[var(--app-bg-hover)]/30 py-1 flex flex-col border-y border-[var(--app-border-base)]">
+            {children}
+          </div>
+          
+          {/* Desktop/Tablet design: elegant side-by-side flyout */}
+          <div 
+            className={`hidden md:flex absolute top-0 z-[10000] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded-lg shadow-lg py-1 min-w-[200px] flex-col ${
+              popDirection === 'left' ? 'right-full mr-1' : 'left-full ml-1'
+            }`}
+          >
+            {children}
+          </div>
+        </>
       )}
     </div>
   );
