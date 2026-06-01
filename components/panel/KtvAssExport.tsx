@@ -388,7 +388,9 @@ export function KtvAssExport() {
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
       if (!predefinedKeys.includes(key) && !sysKeysList.includes(key.toLowerCase()) && value) {
-        customParts.push(`${key}：${value}`);
+        if (!key.toLowerCase().startsWith('kstyledef_') && key.toLowerCase() !== 'kstyle' && key.toLowerCase() !== 'kstyledef') {
+            customParts.push(`${key}：${value}`);
+        }
       }
     }
     const custom = customParts.join("\n");
@@ -845,7 +847,7 @@ export function KtvAssExport() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱字幕 (Color 1)
+                        已唱藍色B (Primary/Blue)
                       </span>
                       <div className="flex items-center gap-2">
                         <input
@@ -864,12 +866,9 @@ export function KtvAssExport() {
                         </span>
                       </div>
                     </div>
-                    <div
-                      className="flex flex-col gap-1 opacity-50 tooltip-wrapper"
-                      title="尚未實裝多部和音支援"
-                    >
+                    <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱字幕2 (暫不支援)
+                        已唱紅色R (Color2/Red)
                       </span>
                       <div className="flex items-center gap-2">
                         <input
@@ -878,7 +877,6 @@ export function KtvAssExport() {
                           onChange={(e) =>
                             setOptions({ ...options, color2: e.target.value })
                           }
-                          disabled
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
@@ -886,12 +884,9 @@ export function KtvAssExport() {
                         </span>
                       </div>
                     </div>
-                    <div
-                      className="flex flex-col gap-1 opacity-50 tooltip-wrapper"
-                      title="尚未實裝多部和音支援"
-                    >
+                    <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱字幕3 (暫不支援)
+                        已唱紫色P (Color3/Purple)
                       </span>
                       <div className="flex items-center gap-2">
                         <input
@@ -900,7 +895,6 @@ export function KtvAssExport() {
                           onChange={(e) =>
                             setOptions({ ...options, color3: e.target.value })
                           }
-                          disabled
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
@@ -908,12 +902,9 @@ export function KtvAssExport() {
                         </span>
                       </div>
                     </div>
-                    <div
-                      className="flex flex-col gap-1 opacity-50 tooltip-wrapper"
-                      title="尚未實裝多部和音支援"
-                    >
+                    <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱合唱 (暫不支援)
+                        已唱綠色G（合唱）(Chorus/Green)
                       </span>
                       <div className="flex items-center gap-2">
                         <input
@@ -925,7 +916,6 @@ export function KtvAssExport() {
                               chorusColor: e.target.value,
                             })
                           }
-                          disabled
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">

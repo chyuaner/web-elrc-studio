@@ -27,6 +27,11 @@ const extractors: Extractor[] = [
                 let key = match[1].trim();
                 let value = match[2].trim();
                 const lowerKey = key.toLowerCase();
+                
+                if (lowerKey.startsWith('kstyledef') || lowerKey === 'kstyle' || lowerKey === 'ktvsp') {
+                    return null;
+                }
+                
                 if (['词', '作词', '作詞', 'lyrics', 'lyricist'].includes(lowerKey)) key = 'au';
                 if (['演唱', '歌手', 'vocal', 'vocals', 'singer'].includes(lowerKey)) key = 'ar';
                 if (['专辑', '專輯', 'album'].includes(lowerKey)) key = 'al';
@@ -47,16 +52,29 @@ const extractors: Extractor[] = [
                 let value = match[2].trim();
                 const lowerKey = key.toLowerCase();
                 
+                // Exclude common vocal role markers from being extracted as metadata
+                const isRole = /^(男|女|合|合唱|男声|女声|主唱|和声|rap|os|口白|旁白|[\u4e00-\u9fa5A-Za-z0-9]+)$/i.test(key);
+                if (['男', '女', '合', '合唱'].includes(key)) {
+                    return null;
+                }
+                
+                const originalLowerKey = lowerKey;
+                
                 if (['词', '作词', '作詞', 'lyrics', 'lyricist'].includes(lowerKey)) key = 'au';
                 if (['演唱', '歌手', 'vocal', 'vocals', 'singer'].includes(lowerKey)) key = 'ar';
                 if (['专辑', '專輯', 'album'].includes(lowerKey)) key = 'al';
                 
-                if (!isEdge) {
-                    // Middle of the song: be strict to avoid false positives (e.g. conversational lyrics with colons)
-                    const isKnown = ['au', 'ar', 'al', 'ti', 'by', 'lyric', 'compos', 'arrang', 'vocal', 'produc', 'mix', 'master'].some(k => lowerKey.includes(k)) || 
-                                    ['词', '曲', '编', '唱', '后', '混', '母带', '制作', '吉他', '贝斯', '鼓', '键盘', '和声', '弦乐', '乐器'].some(k => key.includes(k));
-                    if (!isKnown && key.length > 15) {
-                        return null; // Reject likely false positive
+                const isKnown = ['au', 'ar', 'al', 'ti', 'by', 'lyric', 'compos', 'arrang', 'vocal', 'produc', 'mix', 'master'].some(k => key.toLowerCase().includes(k)) || 
+                                ['词', '曲', '编', '唱', '后', '混', '母带', '制作', '吉他', '贝斯', '鼓', '键盘', '和声', '弦乐', '乐器', '歌名', '标题', '標題', '原唱', '翻唱', '鸣谢'].some(k => originalLowerKey.includes(k));
+
+                if (!isKnown) {
+                    // If it's not a known metadata field, it might be a character name speaking or a specific singer.
+                    // If the "key" is very short (like a name), reject it, especially in the middle of the song.
+                    if (!isEdge || key.length <= 4) {
+                        return null; // Reject likely false positive (e.g. conversational lyrics or singer names like 美琪：)
+                    }
+                    if (key.length > 15) {
+                        return null; // Reject long false positive sentences
                     }
                 }
                 
@@ -148,11 +166,14 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   const [customKeys, setCustomKeys] = useState<{key: string, value: string}[]>(() => {
     const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
     const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg', 'klgno'];
+    const isSystemKey = (key: string) => {
+        const lower = key.toLowerCase();
+        return sysKeysList.includes(lower) || lower.startsWith('kstyledef_') || lower === 'kstyledef' || lower === 'kstyle';
+    };
     const currentCustom: {key: string, value: string}[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
         if (!predefinedKeys.includes(key) && value) {
-            const lowerKey = key.toLowerCase();
-            if (!sysKeysList.includes(lowerKey)) {
+            if (!isSystemKey(key)) {
                 currentCustom.push({ key, value });
             }
         }
@@ -162,11 +183,14 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   const [systemKeys, setSystemKeys] = useState<{key: string, value: string}[]>(() => {
     const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
     const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg', 'klgno'];
+    const isSystemKey = (key: string) => {
+        const lower = key.toLowerCase();
+        return sysKeysList.includes(lower) || lower.startsWith('kstyledef_') || lower === 'kstyledef' || lower === 'kstyle';
+    };
     const currentSystem: {key: string, value: string}[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
         if (!predefinedKeys.includes(key) && value) {
-            const lowerKey = key.toLowerCase();
-            if (sysKeysList.includes(lowerKey)) {
+            if (isSystemKey(key)) {
                 currentSystem.push({ key, value });
             }
         }
@@ -200,14 +224,17 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
      setFormData({ ...lrcMetadata });
      const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
      const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg', 'klgno'];
+     const isSystemKey = (key: string) => {
+         const lower = key.toLowerCase();
+         return sysKeysList.includes(lower) || lower.startsWith('kstyledef_') || lower === 'kstyledef' || lower === 'kstyle';
+     };
      
      const currentCustom: {key: string, value: string}[] = [];
      const currentSystem: {key: string, value: string}[] = [];
      
      for (const [key, value] of Object.entries(lrcMetadata)) {
          if (!predefinedKeys.includes(key) && value) {
-             const lowerKey = key.toLowerCase();
-             if (sysKeysList.includes(lowerKey)) {
+             if (isSystemKey(key)) {
                  currentSystem.push({ key, value });
              } else {
                  currentCustom.push({ key, value });
@@ -387,16 +414,19 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
       const newFormData = { ...formData };
       const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length'];
       const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg', 'klgno'];
+      const isSystemKey = (key: string) => {
+          const lower = key.toLowerCase();
+          return sysKeysList.includes(lower) || lower.startsWith('kstyledef_') || lower === 'kstyledef' || lower === 'kstyle';
+      };
 
       selected.forEach(ext => {
            ext.suggestions.forEach(sug => {
                if (predefinedKeys.includes(sug.key)) {
                     newFormData[sug.key] = sug.value;
                } else {
-                    const lowerKey = sug.key.toLowerCase();
-                    if (sysKeysList.includes(lowerKey)) {
+                    if (isSystemKey(sug.key)) {
                          // Avoid inserting duplicates
-                         if (!newSystemKeys.find(sk => sk.key.toLowerCase() === lowerKey)) {
+                         if (!newSystemKeys.find(sk => sk.key.toLowerCase() === sug.key.toLowerCase())) {
                              newSystemKeys.push({ key: sug.key, value: sug.value });
                          }
                     } else {
@@ -539,7 +569,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
                     <div className="space-y-3 animate-in fade-in duration-200">
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] text-[var(--app-text-muted)] italic">
-                                系統專用標籤 (如: kti, kar, kal, ko, tt, tte, kth)。調整不當可能影響 KTV ASS 的導出
+                                系統專用標籤 (如: kti, kar, kal, ko, tt, tte, kstyledef_* )。調整不當可能影響 KTV ASS 的導出
                             </span>
                             <button 
                                 onClick={addSystem}

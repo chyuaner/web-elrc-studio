@@ -138,6 +138,16 @@ function getLineEndTime(line: LyricLine): number {
   return (line.start || 0) + 2;
 }
 
+function getStyleColor(styleId: string | undefined, options: AssOptions): string {
+  switch (styleId?.toUpperCase()) {
+    case 'R': return hexToAssColor(options.color2);
+    case 'P': return hexToAssColor(options.color3);
+    case 'G': return hexToAssColor(options.chorusColor);
+    case 'B':
+    default: return hexToAssColor(options.primaryColor);
+  }
+}
+
 export function generateAss(
   lines: LyricLine[],
   metadata: LrcMetadata,
@@ -722,8 +732,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const fadeOut =
         displayEnd === truncatedBlockEnd && isEndRealInterlude ? fadeMs : 0;
 
-      let karaokeStr = "";
-      let karaokeKoStr = "";
+      let karaokeStrOutline = "";
+      let karaokeStrCore = "";
+      let karaokeStrTraditional = "";
+      
+      const lineAssColor = getStyleColor(line.style, options);
+      let lastCoreColor = lineAssColor;
+      
       const validWords = line.words.filter(
         (w) => w.text.trim().length > 0 || w.text === " ",
       );
@@ -785,18 +800,31 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           durCs = defaultLimitVal;
         }
 
+        const wAssColor = getStyleColor(w.style || line.style, options);
+        let colorTagCore = "";
+        let colorTagTraditional = "";
+        
+        if (wAssColor !== lastCoreColor) {
+           colorTagCore = `{\\1c${wAssColor}}`;
+           colorTagTraditional = `{\\1c${wAssColor}}`;
+           lastCoreColor = wAssColor;
+        }
+
         if (!w.text.trim()) {
-          karaokeStr += `{\\k${durCs}}${w.text}`;
-          karaokeKoStr += `{\\k${durCs}}${w.text}`;
+          karaokeStrOutline += `{\\k${durCs}}${w.text}`;
+          karaokeStrCore += `${colorTagCore}{\\k${durCs}}${w.text}`;
+          karaokeStrTraditional += `${colorTagTraditional}{\\k${durCs}}${w.text}`;
         } else {
           if (!ALWAYS_STRETCH_KARAOKE && durCs > defaultLimitVal) {
             const fillCs = defaultLimitVal;
             const delayCs = durCs - defaultLimitVal;
-            karaokeStr += `{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
-            karaokeKoStr += `{\\ko${fillCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
           } else {
-            karaokeStr += `{\\kf${durCs}}${w.text}`;
-            karaokeKoStr += `{\\ko${durCs}}${w.text}`;
+            karaokeStrOutline += `{\\kf${durCs}}${w.text}`;
+            karaokeStrCore += `${colorTagCore}{\\kf${durCs}}${w.text}`;
+            karaokeStrTraditional += `${colorTagTraditional}{\\kf${durCs}}${w.text}`;
           }
         }
       }
@@ -804,8 +832,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const startDelaySec = (line.start || displayStart) - displayStart;
       if (startDelaySec > 0) {
         const startDelayCs = Math.round(startDelaySec * 100);
-        karaokeStr = `{\\kf${startDelayCs}}${karaokeStr}`;
-        karaokeKoStr = `{\\ko${startDelayCs}}${karaokeKoStr}`;
+        karaokeStrOutline = `{\\kf${startDelayCs}}${karaokeStrOutline}`;
+        karaokeStrCore = `{\\kf${startDelayCs}}${karaokeStrCore}`;
+        karaokeStrTraditional = `{\\kf${startDelayCs}}${karaokeStrTraditional}`;
       }
 
       // 核心定位座標計算：解析目前樣式對應的對齊與位置
@@ -834,15 +863,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         karaokeOffsets.forEach(({ dx, dy }) => {
           // 外框層 (底層)：使用 \kf，未唱時為黑色 &H000000&，起唱漸變為白色外框 &HFFFFFF&
-          ass += `Dialogue: ${row},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX + dx},${baseY + dy})\\bord0\\shad0\\fs${fontSize}\\1c&HFFFFFF&\\2c&H000000&\\fad(${fadeIn},${fadeOut})}${karaokeStr}\n`;
+          ass += `Dialogue: ${row},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX + dx},${baseY + dy})\\bord0\\shad0\\fs${fontSize}\\1c&HFFFFFF&\\2c&H000000&\\fad(${fadeIn},${fadeOut})}${karaokeStrOutline}\n`;
         });
 
         // 核心唱詞本體層 (頂層)：疊在最中央，未唱時主體設為白色且不透明 \2c&HFFFFFF&\2a&H00&，起唱後漸變為設定的唱詞主體色
-        ass += `Dialogue: ${row + 2},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX},${baseY})\\bord0\\shad0\\fs${fontSize}\\1c${primaryAssColor}\\2c&HFFFFFF&\\2a&H00&\\fad(${fadeIn},${fadeOut})}${karaokeStr}\n`;
+        ass += `Dialogue: ${row + 2},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX},${baseY})\\bord0\\shad0\\fs${fontSize}\\1c${lineAssColor}\\2c&HFFFFFF&\\2a&H00&\\fad(${fadeIn},${fadeOut})}${karaokeStrCore}\n`;
       } else {
         // traditional 傳統單層模式：外框永遠是實心黑色 &H000000&，文字主體由白 (&HFFFFFF&) 漸變為設定色 (primaryAssColor)
         // 直接使用 ASS 內建的 \bord4\3c&H000000& 確保描邊，將 \2c 設為白色 \1c 設為唱完的 primaryAssColor
-        ass += `Dialogue: ${row},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX},${baseY})\\bord${border4Scaled}\\shad0\\fs${fontSize}\\1c${primaryAssColor}\\2c&HFFFFFF&\\3c&H000000&\\fad(${fadeIn},${fadeOut})}${karaokeStr}\n`;
+        ass += `Dialogue: ${row},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX},${baseY})\\bord${border4Scaled}\\shad0\\fs${fontSize}\\1c${lineAssColor}\\2c&HFFFFFF&\\3c&H000000&\\fad(${fadeIn},${fadeOut})}${karaokeStrTraditional}\n`;
       }
     }
   });

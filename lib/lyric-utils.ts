@@ -2,6 +2,7 @@ export interface LyricWord {
   text: string;
   start: number | null;
   end: number | null;
+  style?: "B" | "R" | "P" | "G" | string;
 }
 
 export interface LyricLine {
@@ -12,6 +13,7 @@ export interface LyricLine {
   raw?: string;
   isSingleLine?: boolean;
   ktvsp?: number | null;
+  style?: "B" | "R" | "P" | "G" | string;
 }
 
 export function generateId() {
@@ -79,8 +81,8 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       return match;
     }
     
-    // Skip KTV tags from being treated as metadata
-    if (trimmedKey.toLowerCase() === 'ktv' || trimmedKey.toLowerCase() === 'ktvsp') {
+    // Skip KTV/kstyle tags from being treated as standard metadata
+    if (trimmedKey.toLowerCase() === 'ktv' || trimmedKey.toLowerCase() === 'ktvsp' || trimmedKey.toLowerCase() === 'kstyle') {
       return match;
     }
     
@@ -98,8 +100,21 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       } else {
         metadata.klgno = val;
       }
+    } else if (finalKey.toLowerCase() === 'kstyledef') {
+       const separatorIdx = val.indexOf(':') > -1 ? val.indexOf(':') : val.indexOf('：');
+       if (separatorIdx > -1) {
+         const styleId = val.substring(0, separatorIdx).trim();
+         const prefix = val.substring(separatorIdx + 1).trim();
+         if (styleId && prefix) {
+           metadata[`kstyledef_${styleId}`] = prefix;
+         }
+       }
     } else {
       metadata[finalKey] = val;
+    }
+    
+    if (finalKey.toLowerCase() === 'kstyledef') {
+      return ''; // remove kstyledef definition line completely
     }
     
     return ''; // Remove the data block from the text
@@ -109,10 +124,11 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
   const result: LyricLine[] = [];
   
   const lineTimeRegex = /^\[(\d+:\d+(?:\.\d+)?)\]/;
-  const wordTimeRegex = /<(\d+:\d+(?:\.\d+)?)>([^<]*)/g;
+  const wordTimeRegex = /<([^>]+)>([^<]*)/g;
   
   let pendingSingleLine = false;
   let pendingKtvsp: number | null = null;
+  let currentStyle: string | undefined = undefined;
   
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -120,6 +136,13 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
     // Check if this line is [ktv:singleline]
     if (/^\[ktv\s*:\s*singleline\]$/i.test(line.trim())) {
       pendingSingleLine = true;
+      continue;
+    }
+    
+    // Check if this line is a global style block e.g [kstyle:B]
+    const styleBlockMatch = /^\[kstyle\s*[:：]\s*([^\]]+)\]$/i.exec(line.trim());
+    if (styleBlockMatch) {
+      currentStyle = styleBlockMatch[1].trim();
       continue;
     }
 
@@ -139,6 +162,26 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       cleanText = line.substring(match[0].length);
     }
     
+    let inlineStyleMatch;
+    while ((inlineStyleMatch = /^\[kstyle\s*[:：]\s*([^\]]+)\]/i.exec(cleanText)) !== null) {
+      currentStyle = inlineStyleMatch[1].trim();
+      cleanText = cleanText.substring(inlineStyleMatch[0].length);
+    }
+    
+    let matchedDefStyle: string | undefined = undefined;
+    const cleanTextWithoutWordTags = cleanText.replace(/<[^>]+>/g, '').trim();
+    for (const key of Object.keys(metadata)) {
+      if (key.startsWith('kstyledef_')) {
+        const prefix = metadata[key];
+        if (prefix && cleanTextWithoutWordTags.startsWith(prefix)) {
+           matchedDefStyle = key.substring('kstyledef_'.length);
+           break;
+        }
+      }
+    }
+    
+    const effectiveLineStyle = matchedDefStyle || currentStyle;
+    
     if (cleanText.includes('<') && cleanText.includes('>')) {
       isEnhanced = true;
     }
@@ -149,23 +192,36 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
       
       const firstTagIndex = cleanText.indexOf('<');
       if (firstTagIndex > 0) {
-        words.push({ text: cleanText.substring(0, firstTagIndex), start, end: null });
+        words.push({ text: cleanText.substring(0, firstTagIndex), start, end: null, style: effectiveLineStyle });
       }
       
+      let currentInlineStyle = effectiveLineStyle;
+      
       while ((m = wordTimeRegex.exec(cleanText)) !== null) {
-        const wStart = parseSeconds(m[1]);
+        const tagContent = m[1].trim();
         const wText = m[2];
-        words.push({ text: wText, start: wStart, end: null });
+        
+        if (tagContent.toLowerCase().startsWith('kstyle:') || tagContent.toLowerCase().startsWith('kstyle：')) {
+          currentInlineStyle = tagContent.substring(7).trim();
+          if (wText) {
+            words.push({ text: wText, start: null, end: null, style: currentInlineStyle });
+          }
+          continue;
+        }
+        
+        const wStart = parseSeconds(tagContent);
+        words.push({ text: wText, start: wStart, end: null, style: currentInlineStyle });
       }
       
       result.push({
         id: generateId(),
         start,
         end: null,
-        words: words.length > 0 ? words : splitWordsAegisub(cleanText.replace(/<\d+:\d+\.\d+>/g, '')),
-        raw: cleanText.replace(/<\d+:\d+\.\d+>/g, ''),
+        words: words.length > 0 ? words : splitWordsAegisub(cleanText.replace(/<[^>]+>/g, '')).map(w => ({...w, style: effectiveLineStyle})),
+        raw: cleanText.replace(/<[^>]+>/g, ''),
         isSingleLine: pendingSingleLine ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
+        style: effectiveLineStyle,
       });
       pendingSingleLine = false;
       pendingKtvsp = null;
@@ -174,10 +230,11 @@ export function parseRawLyrics(text: string): { lines: LyricLine[], metadata: Lr
         id: generateId(),
         start,
         end: null,
-        words: splitWordsAegisub(cleanText),
+        words: splitWordsAegisub(cleanText).map(w => ({ ...w, style: effectiveLineStyle })),
         raw: cleanText,
         isSingleLine: pendingSingleLine ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
+        style: effectiveLineStyle,
       });
       pendingSingleLine = false;
       pendingKtvsp = null;
@@ -210,12 +267,21 @@ export function exportLrc(lines: LyricLine[], metadata?: LrcMetadata, isEnhanced
   if (!isSimple && exportMetadata) {
     for (const [key, value] of Object.entries(exportMetadata)) {
        if (value) {
-         let encodedValue = value.replace(/\r?\n/g, '\\n');
-         encodedValue = encodedValue.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-         lrc += `[${key}:${encodedValue}]\n`;
+         if (key.startsWith('kstyledef_')) {
+            const styleId = key.substring('kstyledef_'.length);
+            let encodedValue = value.replace(/\r?\n/g, '\\n');
+            encodedValue = encodedValue.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+            lrc += `[kstyledef:${styleId}:${encodedValue}]\n`;
+         } else {
+            let encodedValue = value.replace(/\r?\n/g, '\\n');
+            encodedValue = encodedValue.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+            lrc += `[${key}:${encodedValue}]\n`;
+         }
        }
     }
   }
+  
+  let currentExportStyle: string | undefined = undefined;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -235,6 +301,11 @@ export function exportLrc(lines: LyricLine[], metadata?: LrcMetadata, isEnhanced
     if (line.ktvsp !== undefined && line.ktvsp !== null) {
       lrc += `[ktvsp:${formatTime(line.ktvsp, true)}]\n`;
     }
+    
+    if (line.style && line.style !== currentExportStyle) {
+      lrc += `[kstyle:${line.style}]\n`;
+      currentExportStyle = line.style;
+    }
 
     if (line.start === null) {
       lrc += `${line.words.map(w => w.text).join('')}\n`;
@@ -245,7 +316,14 @@ export function exportLrc(lines: LyricLine[], metadata?: LrcMetadata, isEnhanced
     
     if (isEnhanced) {
       let lineText = '';
+      let currentWordStyle = currentExportStyle;
       for (const w of line.words) {
+        if (w.style && w.style !== currentWordStyle) {
+          lineText += `<kstyle:${w.style}>`;
+          currentWordStyle = w.style;
+          currentExportStyle = w.style;
+        }
+        
         if (w.start !== null) {
           lineText += `<${formatTime(w.start, true)}>${w.text}`;
         } else {
