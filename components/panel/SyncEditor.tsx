@@ -453,38 +453,14 @@ export function SyncEditor() {
         onMergeToPrevious={handleMergeToPrevious}
         onLineContextMenu={(e: React.MouseEvent, globalIndex: number) => {
             e.preventDefault();
-            setActiveLineIndex(globalIndex);
-            setActiveWordIndex(0);
-            const { current: player } = playerRef;
-            if (player instanceof HTMLMediaElement && lines[globalIndex]?.start !== null) {
-                if (player.paused) {
-                    player.currentTime = lines[globalIndex].start!;
-                }
-            }
             setCtxMenu({ type: 'line', x: e.clientX, y: e.clientY, globalIndex });
         }}
         onWordContextMenu={(e: React.MouseEvent, globalIndex: number, wordIndex: number) => {
             e.preventDefault();
-            setActiveLineIndex(globalIndex);
-            setActiveWordIndex(wordIndex);
-            const { current: player } = playerRef;
-            if (player instanceof HTMLMediaElement && lines[globalIndex]?.words[wordIndex]?.start !== null) {
-                if (player.paused) {
-                    player.currentTime = lines[globalIndex].words[wordIndex].start!;
-                }
-            }
             setCtxMenu({ type: 'word', x: e.clientX, y: e.clientY, globalIndex, wordIndex });
         }}
         onTimeContextMenu={(e: React.MouseEvent, globalIndex: number) => {
             e.preventDefault();
-            setActiveLineIndex(globalIndex);
-            setActiveWordIndex(0);
-            const { current: player } = playerRef;
-            if (player instanceof HTMLMediaElement && lines[globalIndex]?.start !== null) {
-                if (player.paused) {
-                    player.currentTime = lines[globalIndex].start!;
-                }
-            }
             setCtxMenu({ type: 'time', x: e.clientX, y: e.clientY, globalIndex });
         }}
         openMoreMenu={(e: React.MouseEvent, globalIndex: number) => {
