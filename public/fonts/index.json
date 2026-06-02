@@ -18,6 +18,15 @@
     "sizeOffset": 8
   },
   {
+    "id": "taipei-sans-tc-bold",
+    "displayName": "台北黑體粗體 (Taipei Sans TC Beta)",
+    "systemName": "Taipei Sans TC Beta Bold",
+    "filename": "TaipeiSansTCBeta-Bold.ttf",
+    "license": "SIL Open Font License 1.1",
+    "officialUrl": "https://sites.google.com/view/jtfoundry/zh-tw",
+    "sizeOffset": -15
+  },
+  {
     "id": "taipei-sans-tc",
     "displayName": "台北黑體 (Taipei Sans TC Beta)",
     "systemName": "Taipei Sans TC Beta",
