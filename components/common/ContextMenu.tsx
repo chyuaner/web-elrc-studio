@@ -28,21 +28,60 @@ export function ContextMenu({ x, y, onClose, children, className = "" }: Context
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (el) {
-        const rect = el.getBoundingClientRect();
-        if (y + rect.height > window.innerHeight) {
-            el.style.top = 'auto';
-            el.style.bottom = `${window.innerHeight - y}px`;
+      // Temporary style resets to get accurate auto-measurements
+      el.style.maxHeight = '';
+      el.style.overflowY = '';
+      el.style.top = '0px';
+      el.style.left = '0px';
+      el.style.bottom = 'auto';
+      el.style.right = 'auto';
+      
+      const rect = el.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      
+      let finalMaxHeight = '';
+      let finalOverflowY = '';
+      let menuHeight = rect.height;
+      let menuWidth = rect.width;
+      
+      // If the menu height exceeds the viewport, constrain it so it's scrollable
+      if (menuHeight > viewportHeight - 20) {
+        finalMaxHeight = `${viewportHeight - 20}px`;
+        finalOverflowY = 'auto';
+        menuHeight = viewportHeight - 20;
+      }
+      
+      // Calculate top
+      let finalTop = y;
+      if (y + menuHeight > viewportHeight - 10) {
+        if (y - menuHeight >= 10) {
+          finalTop = y - menuHeight;
         } else {
-            el.style.top = `${y}px`;
-            el.style.bottom = 'auto';
+          // If it fits neither above nor below, find the position with the most space, 
+          // or just clamp it to stay perfectly centered/bounded within viewport edges
+          finalTop = Math.max(10, viewportHeight - menuHeight - 10);
         }
-        if (x + rect.width > window.innerWidth) {
-            el.style.left = 'auto';
-            el.style.right = '10px';
+      }
+      finalTop = Math.max(10, finalTop);
+      
+      // Calculate left
+      let finalLeft = x;
+      if (x + menuWidth > viewportWidth - 10) {
+        if (x - menuWidth >= 10) {
+          finalLeft = x - menuWidth;
         } else {
-            el.style.left = `${x}px`;
-            el.style.right = 'auto';
+          finalLeft = Math.max(10, viewportWidth - menuWidth - 10);
         }
+      }
+      finalLeft = Math.max(10, finalLeft);
+      
+      // Apply styles
+      if (finalMaxHeight) el.style.maxHeight = finalMaxHeight;
+      if (finalOverflowY) el.style.overflowY = finalOverflowY;
+      el.style.top = `${finalTop}px`;
+      el.style.left = `${finalLeft}px`;
+      el.style.visibility = 'visible';
     }
   }, [x, y]);
 
@@ -50,7 +89,7 @@ export function ContextMenu({ x, y, onClose, children, className = "" }: Context
     <div
       ref={menuRef}
       className={`fixed z-[9999] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded-lg shadow-lg py-1 min-w-[200px] text-xs text-[var(--app-text-primary)] ${className}`}
-      style={{ visibility: 'visible', left: x, top: y }}
+      style={{ visibility: 'hidden' }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
