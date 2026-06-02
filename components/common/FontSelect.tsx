@@ -25,6 +25,7 @@ export function FontSelect({ value, onChange, className }: FontSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [infoModalFont, setInfoModalFont] = useState<FontInfo | null>(null);
 
   useEffect(() => {
@@ -38,7 +39,10 @@ export function FontSelect({ value, onChange, className }: FontSelectProps) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const isInsideInput = containerRef.current && containerRef.current.contains(target);
+      const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+      if (!isInsideInput && !isInsideDropdown) {
          setIsOpen(false);
       }
     };
@@ -113,6 +117,7 @@ export function FontSelect({ value, onChange, className }: FontSelectProps) {
 
        {isOpen && mounted && createPortal(
          <div 
+           ref={dropdownRef}
            className="fixed max-h-60 overflow-y-auto bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-[99999] flex flex-col py-1 text-xs outline outline-1 outline-[rgba(0,0,0,0.1)] font-sans animate-in fade-in duration-100"
            style={{
              top: `${coords.top}px`,
