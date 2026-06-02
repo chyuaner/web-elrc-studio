@@ -222,9 +222,9 @@ export function generateAss(
   const styles = `[V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,${finalFontChain},${Math.round(20 * scale)},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
-Style: TopLeft,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,3,${(1.5 * scale).toFixed(1)},0,7,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
-Style: TopCenter,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,3,${(1.5 * scale).toFixed(1)},0,8,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
-Style: TopRight,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,3,${(1.5 * scale).toFixed(1)},0,9,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
+Style: TopLeft,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${(1.5 * scale).toFixed(1)},0,7,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
+Style: TopCenter,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${(1.5 * scale).toFixed(1)},0,8,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
+Style: TopRight,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${(1.5 * scale).toFixed(1)},0,9,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
 Style: BottomLeft,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,1,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV + dualRowSpacing},0
 Style: BottomCenter,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,2,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV},0
 Style: BottomRight,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,3,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV},0
@@ -637,20 +637,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           dotFadeIn = fadeMs;
         }
 
-        // 為了相容所有播放器對 ASS Vector Outlines 大小和 Opaque Border Style 3 的處理，
-        // 我們採用最穩定且效果最好的雙層同心圓繪製法 (Double-layer Concentric Circles)：
         const dotOuterColorAss = hexToAssColor(options.dotOuterColor || "#888888");
         const dotInnerColorAss = hexToAssColor(options.dotInnerColor || "#FFFFFF");
         const outerRadius = Math.round(fontSize * outerRatio);
         const innerRadius = Math.max(1, Math.round(fontSize * innerRatio));
 
-        // 1. 底層繪製稍微大一點、顏色可由用戶定義的圓形外框 (預設暗灰色)
-        const vecOuter = getDotsVector(dDots, outerRadius, dotSpacing);
-        ass += `Dialogue: 5,${formatAssTime(dotStart)},${formatAssTime(dotEnd)},TopLeft,,0,0,0,,{\\fad(${dotFadeIn},0)\\pos(${xPos},${yPos})\\c${dotOuterColorAss}&\\bord0\\shad0\\1a&H00&}{\\p1}${vecOuter}{\\p0}\n`;
+        // 為了相容所有播放器對 ASS Vector Outlines 大小和淡入動畫透明度的處理，
+        // 我們採用單層帶邊框繪製法 (Single-layer with Border)：
+        // 通過繪製一個半徑為 (outer+inner)/2 的圓形，並加上寬度為 (outer-inner) 的邊框，
+        // 可以實現完美的同心圓效果，且在淡入淡出時透明度表現一致，解決了雙層疊加導致的透明度異常問題。
+        const midRadius = (outerRadius + innerRadius) / 2;
+        const borderSize = outerRadius - innerRadius;
+        const vecDots = getDotsVector(dDots, midRadius, dotSpacing);
 
-        // 2. 頂層繪製稍微小一點、顏色可由用戶定義的圓形本體 (預設純白色)，疊加在相同位置，形成極為完美的圓形外邊框效果
-        const vecInner = getDotsVector(dDots, innerRadius, dotSpacing);
-        ass += `Dialogue: 6,${formatAssTime(dotStart)},${formatAssTime(dotEnd)},TopLeft,,0,0,0,,{\\fad(${dotFadeIn},0)\\pos(${xPos},${yPos})\\c${dotInnerColorAss}&\\bord0\\shad0\\1a&H00&}{\\p1}${vecInner}{\\p0}\n`;
+        // 使用 Default 樣式 (BorderStyle=1) 並配合 \an7 進行定位，確保 \bord 能正確產生外邊框而非背景框
+        ass += `Dialogue: 5,${formatAssTime(dotStart)},${formatAssTime(dotEnd)},Default,,0,0,0,,{\\an7\\fad(${dotFadeIn},0)\\pos(${xPos.toFixed(1)},${yPos.toFixed(1)})\\c${dotInnerColorAss}&\\3c${dotOuterColorAss}&\\bord${borderSize.toFixed(1)}\\shad0\\1a&H00&}{\\p1}${vecDots}{\\p0}\n`;
       }
     }
 
