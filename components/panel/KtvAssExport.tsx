@@ -41,7 +41,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     color3: "#800080", // Purple
     chorusColor: "#32AA17", // Green
     fontFamily: "Noto Sans CJK TC Medium",
-    fontSize: 135, // Default for BottomLeft
+    fontSize: 130, // Default for BottomLeft
     fontSizeOffset: 20, // Pre-offset for Noto Sans CJK TC Medium
     infoFontSize: 100, // Default for CenterInfo (song info, fontSize - 40)
     infoTitleFontSize: 125, // Default for red Title (fontSize - 10)
