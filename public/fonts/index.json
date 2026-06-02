@@ -21,6 +21,7 @@
     "id": "taipei-sans-tc-bold",
     "displayName": "台北黑體粗體 (Taipei Sans TC Beta)",
     "systemName": "Taipei Sans TC Beta Bold",
+    "disabled": true,
     "filename": "TaipeiSansTCBeta-Bold.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://sites.google.com/view/jtfoundry/zh-tw",
@@ -87,7 +88,7 @@
     "filename": "",
     "license": "macOS 內置字體",
     "officialUrl": "https://developer.apple.com/fonts/",
-    "sizeOffset": 0
+    "sizeOffset": -30
   },
   {
     "id": "ms-yahei",
@@ -96,7 +97,7 @@
     "filename": "",
     "license": "Windows 內置字體",
     "officialUrl": "https://docs.microsoft.com/en-us/typography/font-list/microsoft-yahei",
-    "sizeOffset": 0
+    "sizeOffset": 5
   },
   {
     "id": "ms-jhenghei",
@@ -105,6 +106,6 @@
     "filename": "",
     "license": "Windows 內置字體",
     "officialUrl": "https://docs.microsoft.com/en-us/typography/font-list/microsoft-jhenghei",
-    "sizeOffset": 0
+    "sizeOffset": 5
   }
 ]
