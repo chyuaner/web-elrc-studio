@@ -827,9 +827,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           if (!ALWAYS_STRETCH_KARAOKE && durCs > defaultLimitVal) {
             const fillCs = defaultLimitVal;
             const delayCs = durCs - defaultLimitVal;
-            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
-            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
-            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+            // Append a space ' ' to the delay tag so it's not an empty syllable.
+            // This prevents ASS renderers from collapsing the delay syllable and preserves timing.
+            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
+            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
+            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
           } else {
             karaokeStrOutline += `{\\kf${durCs}}${w.text}`;
             karaokeStrCore += `${colorTagCore}{\\kf${durCs}}${w.text}`;
