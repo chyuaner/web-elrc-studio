@@ -1,26 +1,26 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
 import { useEditor } from "@/components/base/EditorProvider";
-import WaveSurfer from "wavesurfer.js";
+import { Tooltip } from "@/components/common/Tooltip";
+import { formatTime } from "@/lib/lyric-utils";
 import {
-  Play,
-  Pause,
-  Square,
-  Rewind,
-  FastForward,
   ChevronLeft,
   ChevronRight,
-  Volume2,
-  VolumeX,
+  FastForward,
+  Music,
+  Pause,
+  Play,
+  Repeat,
+  Rewind,
   Settings2,
   SkipBack,
+  Square,
   StepForward,
-  Music,
-  Repeat,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
-import { formatTime } from "@/lib/lyric-utils";
-import { Tooltip } from "@/components/common/Tooltip";
+import React, { useEffect, useRef, useState } from "react";
+import WaveSurfer from "wavesurfer.js";
 
 // ── CSS 色彩解析用 常駐 Probe 元素 ───────────────────────────────────────
 // 問題：Canvas 2D API 不接受 CSS var() 字串，必須先用 getComputedStyle 解析成 rgb(...)。
@@ -69,8 +69,7 @@ function TimeDisplay({ className = "" }: { className?: string }) {
 
   useEffect(() => {
     const updateColor = () => {
-      colorRef.current =
-        getCssColor("var(--app-visualizer-color)") || "#444C56";
+      colorRef.current = getCssColor("var(--app-visualizer-color)") || "#444C56";
     };
     updateColor();
     const observer = new MutationObserver(updateColor);
@@ -94,9 +93,7 @@ function TimeDisplay({ className = "" }: { className?: string }) {
     const setupAudio = () => {
       if (!playerRef.current || audioCtxRef.current) return;
       try {
-        const audioCtx = new (
-          window.AudioContext || (window as any).webkitAudioContext
-        )();
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         audioCtxRef.current = audioCtx;
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 128;
@@ -137,12 +134,7 @@ function TimeDisplay({ className = "" }: { className?: string }) {
             // scale bar height: waveTopPercentage to 100 -> full height available
             const barHeight = (dataArray[i] / 255) * canvas.height;
             // "top peaks" -> draw from bottom up
-            ctx.fillRect(
-              i * barWidth,
-              canvas.height - barHeight,
-              barWidth - 1,
-              barHeight,
-            );
+            ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
           }
         }
       }
@@ -221,22 +213,14 @@ export function MediaPlayer() {
 
   const computeAudioSpecsText = () => {
     let formatDisplay =
-      audioSpecs?.format ||
-      (file ? file.name.split(".").pop()?.toUpperCase() : "") ||
-      "UNKNOWN";
-    let bitrateDisplay = audioSpecs?.bitrate
-      ? `${audioSpecs.bitrate} kb/s`
-      : "";
+      audioSpecs?.format || (file ? file.name.split(".").pop()?.toUpperCase() : "") || "UNKNOWN";
+    let bitrateDisplay = audioSpecs?.bitrate ? `${audioSpecs.bitrate} kb/s` : "";
     if (!audioSpecs?.bitrate && file && duration > 0) {
       const kbps = Math.round((file.size * 8) / duration / 1000);
       bitrateDisplay = `${kbps} kb/s`;
     }
-    let sampleRateDisplay = audioSpecs?.sampleRate
-      ? `${audioSpecs.sampleRate} Hz`
-      : "";
-    return [formatDisplay, sampleRateDisplay, bitrateDisplay]
-      .filter(Boolean)
-      .join(" · ");
+    let sampleRateDisplay = audioSpecs?.sampleRate ? `${audioSpecs.sampleRate} Hz` : "";
+    return [formatDisplay, sampleRateDisplay, bitrateDisplay].filter(Boolean).join(" · ");
   };
 
   const [hoverTime, setHoverTime] = useState<number | null>(null);
@@ -274,8 +258,7 @@ export function MediaPlayer() {
     // Theme change observer for WaveSurfer
     const updateColors = () => {
       if (waveSurferRef.current) {
-        const waveColor =
-          getCssColor("var(--app-visualizer-color)") || "#444C56";
+        const waveColor = getCssColor("var(--app-visualizer-color)") || "#444C56";
         const progressColor = getCssBgColor("var(--app-accent)") || "#F27D26";
         waveSurferRef.current.setOptions({
           waveColor,
@@ -311,10 +294,8 @@ export function MediaPlayer() {
     setIsWaveReady(false);
     if (fileUrl && playerRef.current) {
       // 使用常駐 probe 解析 CSS 色彩（避免 append/remove 干擾 React reconciler）
-      const initialWaveColor =
-        getCssColor("var(--app-visualizer-color)") || "#444C56";
-      const initialProgressColor =
-        getCssBgColor("var(--app-accent)") || "#F27D26";
+      const initialWaveColor = getCssColor("var(--app-visualizer-color)") || "#444C56";
+      const initialProgressColor = getCssBgColor("var(--app-accent)") || "#F27D26";
 
       waveSurferRef.current = WaveSurfer.create({
         container: containerRef.current!,
@@ -377,9 +358,10 @@ export function MediaPlayer() {
     let id: number;
     let lastTime = 0;
     const loop = (timestamp: number) => {
-      if (timestamp - lastTime > 66) { // ~15fps throttle
-         if (playerRef.current) setSyncCurrTime(playerRef.current.currentTime);
-         lastTime = timestamp;
+      if (timestamp - lastTime > 66) {
+        // ~15fps throttle
+        if (playerRef.current) setSyncCurrTime(playerRef.current.currentTime);
+        lastTime = timestamp;
       }
       id = requestAnimationFrame(loop);
     };
@@ -415,10 +397,7 @@ export function MediaPlayer() {
 
   const seekBy = (sec: number) => {
     if (playerRef.current) {
-      playerRef.current.currentTime = Math.max(
-        0,
-        playerRef.current.currentTime + sec,
-      );
+      playerRef.current.currentTime = Math.max(0, playerRef.current.currentTime + sec);
     }
   };
 
@@ -434,12 +413,12 @@ export function MediaPlayer() {
         const start = lines[i].start!;
         const windowStart = start - 5.5;
         const epsilon = 0.1;
-        
+
         if (curr >= windowStart - epsilon && curr < start - epsilon) {
           playerRef.current.currentTime = start;
           return;
         }
-        
+
         if (curr < windowStart - epsilon) {
           playerRef.current.currentTime = Math.max(0, windowStart);
           return;
@@ -483,9 +462,7 @@ export function MediaPlayer() {
       title: metadata?.title || file?.name || "Unknown Track",
       artist: metadata?.artist || "",
       album: metadata?.album || "",
-      artwork: metadata?.picture
-        ? [{ src: metadata.picture, type: metadata.format }]
-        : [],
+      artwork: metadata?.picture ? [{ src: metadata.picture, type: metadata.format }] : [],
     });
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
 
@@ -519,12 +496,9 @@ export function MediaPlayer() {
 
     try {
       // @ts-ignore
-      navigator.mediaSession.setActionHandler(
-        "playbackratechange" as any,
-        (details: any) => {
-          if (details.playbackRate) setPlaybackRate(details.playbackRate);
-        },
-      );
+      navigator.mediaSession.setActionHandler("playbackratechange" as any, (details: any) => {
+        if (details.playbackRate) setPlaybackRate(details.playbackRate);
+      });
     } catch (e) {}
 
     try {
@@ -538,9 +512,7 @@ export function MediaPlayer() {
     return (
       <div className="w-full h-48 bg-[var(--app-bg-base)] rounded flex flex-col items-center justify-center text-[var(--app-text-muted)] group">
         <Music className="w-16 h-16 mb-4 opacity-50 group-hover:opacity-80 transition-opacity" />
-        <span className="text-sm font-bold tracking-widest uppercase">
-          媒體尚未載入
-        </span>
+        <span className="text-sm font-bold tracking-widest uppercase">媒體尚未載入</span>
       </div>
     );
   }
@@ -550,8 +522,7 @@ export function MediaPlayer() {
     controls: false,
     loop: isLooping,
     crossOrigin: "anonymous" as const,
-    className:
-      "w-full rounded bg-black object-contain " + (isVideo ? "h-48" : "hidden"),
+    className: "w-full rounded bg-black object-contain " + (isVideo ? "h-48" : "hidden"),
     onDurationChange: (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const d = e.currentTarget.duration;
       // Ignore Infinity/NaN (FLAC streaming quirk); real duration is pre-cached from Rust
@@ -623,20 +594,13 @@ export function MediaPlayer() {
                 if (duration <= 0) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(
-                  0,
-                  Math.min(1, (e.clientX - rect.left) / rect.width),
-                );
-                if (playerRef.current)
-                  playerRef.current.currentTime = ratio * duration;
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                if (playerRef.current) playerRef.current.currentTime = ratio * duration;
               }}
               onPointerMove={(e) => {
                 if (duration <= 0) return;
                 const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(
-                  0,
-                  Math.min(1, (e.clientX - rect.left) / rect.width),
-                );
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                 setHoverTime(ratio * duration);
                 if (e.buttons === 1 && playerRef.current) {
                   playerRef.current.currentTime = ratio * duration;
@@ -685,12 +649,8 @@ export function MediaPlayer() {
           if (!el) return;
           const observer = new ResizeObserver((entries) => {
             const height =
-              entries[0].borderBoxSize?.[0]?.blockSize ||
-              entries[0].contentRect.height;
-            document.documentElement.style.setProperty(
-              "--media-controls-height",
-              `${height}px`,
-            );
+              entries[0].borderBoxSize?.[0]?.blockSize || entries[0].contentRect.height;
+            document.documentElement.style.setProperty("--media-controls-height", `${height}px`);
           });
           observer.observe(el);
           return () => observer.disconnect();
@@ -717,11 +677,7 @@ export function MediaPlayer() {
                   onClick={togglePlay}
                   className="flex items-center justify-center w-10 h-10 text-[var(--app-text-primary)] hover:bg-[var(--app-accent)] hover:text-white rounded-full transition-colors border border-[var(--app-border-light)] bg-[var(--app-bg-input)] shadow-sm"
                 >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Play className="w-5 h-5 ml-1" />
-                  )}
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
                 </button>
               </Tooltip>
 
@@ -774,10 +730,7 @@ export function MediaPlayer() {
                   <Rewind className="w-4 h-4" />
                 </button>
               </Tooltip>
-              <Tooltip
-                title={<div className="flex items-center gap-2">倒轉 -1s</div>}
-                delay={500}
-              >
+              <Tooltip title={<div className="flex items-center gap-2">倒轉 -1s</div>} delay={500}>
                 <button
                   onClick={() => seekBy(-1)}
                   className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)] rounded transition-colors"
@@ -785,10 +738,7 @@ export function MediaPlayer() {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               </Tooltip>
-              <Tooltip
-                title={<div className="flex items-center gap-2">快進 +1s</div>}
-                delay={500}
-              >
+              <Tooltip title={<div className="flex items-center gap-2">快進 +1s</div>} delay={500}>
                 <button
                   onClick={() => seekBy(1)}
                   className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)] rounded transition-colors"
@@ -816,11 +766,7 @@ export function MediaPlayer() {
               </Tooltip>
               {lines.length > 0 && (
                 <Tooltip
-                  title={
-                    <div className="flex items-center gap-2">
-                      跳到下一段歌詞
-                    </div>
-                  }
+                  title={<div className="flex items-center gap-2">跳到下一段歌詞</div>}
                   delay={500}
                 >
                   <button
@@ -844,9 +790,7 @@ export function MediaPlayer() {
 
           {/* Volume and Settings */}
           <div className="flex items-center justify-between gap-2 p-1.5 px-3 flex-grow w-full @[600px]:w-auto shrink-0">
-            <Tooltip
-              title={`音量: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
-            >
+            <Tooltip title={`音量: ${Math.round((isMuted ? 0 : volume) * 100)}%`}>
               <div className="flex items-center gap-1.5 flex-1 min-w-[80px] max-w-[120px]">
                 <button
                   onClick={() => setIsMuted(!isMuted)}
@@ -866,8 +810,7 @@ export function MediaPlayer() {
                   value={isMuted ? 0 : volume}
                   onChange={(e) => {
                     setVolume(parseFloat(e.target.value));
-                    if (isMuted && parseFloat(e.target.value) > 0)
-                      setIsMuted(false);
+                    if (isMuted && parseFloat(e.target.value) > 0) setIsMuted(false);
                   }}
                   className="w-full min-w-[40px] accent-[var(--app-accent)] h-1.5 rounded-lg outline-none bg-[var(--app-bg-input)] cursor-col-resize"
                 />
@@ -875,8 +818,8 @@ export function MediaPlayer() {
             </Tooltip>
 
             {/* Compact Time Display */}
-            <div 
-              className={`font-mono text-[13px] tracking-tighter text-[var(--app-accent)] flex-1 text-center font-bold tabular-nums pointer-events-none select-none ${isMobile && !isTall ? '' : 'hidden'}`}
+            <div
+              className={`font-mono text-[13px] tracking-tighter text-[var(--app-accent)] flex-1 text-center font-bold tabular-nums pointer-events-none select-none ${isMobile && !isTall ? "" : "hidden"}`}
             >
               {formatTime(syncCurrTime)}
             </div>
@@ -894,9 +837,7 @@ export function MediaPlayer() {
               >
                 <button
                   onClick={() =>
-                    setPlaybackRate(
-                      Math.max(0.25, Number((playbackRate - 0.05).toFixed(2))),
-                    )
+                    setPlaybackRate(Math.max(0.25, Number((playbackRate - 0.05).toFixed(2))))
                   }
                   className="p-1 text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)] rounded transition-colors"
                 >
@@ -923,9 +864,7 @@ export function MediaPlayer() {
               >
                 <button
                   onClick={() =>
-                    setPlaybackRate(
-                      Math.min(2.0, Number((playbackRate + 0.05).toFixed(2))),
-                    )
+                    setPlaybackRate(Math.min(2.0, Number((playbackRate + 0.05).toFixed(2))))
                   }
                   className="p-1 text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)] rounded transition-colors"
                 >
@@ -962,9 +901,7 @@ export function MediaPlayer() {
                     <input
                       type="number"
                       value={audioLatency}
-                      onChange={(e) =>
-                        setAudioLatency(parseInt(e.target.value) || 0)
-                      }
+                      onChange={(e) => setAudioLatency(parseInt(e.target.value) || 0)}
                       className="w-16 text-center text-xs bg-transparent outline-none text-[var(--app-text-primary)] font-mono"
                     />
                     <button

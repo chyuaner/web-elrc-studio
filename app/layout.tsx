@@ -1,39 +1,41 @@
-import type {Metadata, Viewport} from 'next';
-import { Noto_Sans_TC } from 'next/font/google';
-import './globals.css'; // Global styles
+import type { Metadata, Viewport } from "next";
+import { Noto_Sans_TC } from "next/font/google";
+import "./globals.css"; // Global styles
 
 const notoSansTC = Noto_Sans_TC({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-sans-tc',
-  display: 'swap',
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-sans-tc",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: 'Enhanced LRC Studio',
-  description: 'A desktop-like web app for syncing lyrics',
-  manifest: '/manifest.json',
+  title: "Enhanced LRC Studio",
+  description: "A desktop-like web app for syncing lyrics",
+  manifest: "/manifest.json",
   icons: {
-    icon: '/icon.svg',
+    icon: "/icon.svg",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f0f2f5' },
-    { media: '(prefers-color-scheme: dark)', color: '#16191E' },
+    { media: "(prefers-color-scheme: light)", color: "#f0f2f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#16191E" },
   ],
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  viewportFit: 'cover',
+  viewportFit: "cover",
 };
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={notoSansTC.variable}>
       <head>
-        <script dangerouslySetInnerHTML={{__html: `
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
           (function() {
             const isTauri = typeof window !== 'undefined' && (
               window.__TAURI__ || 
@@ -75,7 +77,9 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
                 }
             }
           })()
-        `}} />
+        `,
+          }}
+        />
       </head>
       <body suppressHydrationWarning>{children}</body>
     </html>

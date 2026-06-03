@@ -1,29 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { BaseDialog } from "@/components/dialog/BaseDialog";
 import { useEditor } from "@/components/base/EditorProvider";
-import { generateAss, AssOptions } from "@/lib/ass-generator";
+import { FontSelect } from "@/components/common/FontSelect";
+import { BaseDialog } from "@/components/dialog/BaseDialog";
+import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
+import { useI18n } from "@/hooks/useI18n";
+import { AssOptions, generateAss } from "@/lib/ass-generator";
+import { formatTime, parseSeconds } from "@/lib/lyric-utils";
 import {
-  Download,
-  SlidersHorizontal,
-  Settings2,
-  Image as ImageIcon,
+  Check,
   ChevronDown,
   ChevronRight,
-  Film,
-  Copy,
-  Check,
-  X,
-  Trash2,
-  EyeOff,
-  Plus,
   Clock,
+  Copy,
+  Download,
+  EyeOff,
+  Film,
+  Image as ImageIcon,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
 } from "lucide-react";
-import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
-import { formatTime, parseSeconds } from "@/lib/lyric-utils";
-import { FontSelect } from "@/components/common/FontSelect";
-import { useI18n } from "@/hooks/useI18n";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const SHOW_INTERNAL_TEST_PARAMS = true;
 
@@ -32,9 +30,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
   const initialTTE = lrcMetadata.TTE || lrcMetadata.tte;
   const hasCustomTime = !!initialTT;
   const parsedStart = hasCustomTime ? parseSeconds(initialTT) || 1 : 1;
-  const parsedEnd = initialTTE
-    ? parseSeconds(initialTTE) || parsedStart + 6
-    : parsedStart + 6;
+  const parsedEnd = initialTTE ? parseSeconds(initialTTE) || parsedStart + 6 : parsedStart + 6;
 
   return {
     primaryColor: "#2A04C8", // Blue
@@ -104,14 +100,12 @@ export function KtvAssExport() {
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
   const [copiedFeedback, setCopiedFeedback] = useState(false);
-  const [interludeLogoFileName, setInterludeLogoFileName] = useState<
-    string | null
-  >(null);
+  const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const [options, setOptions] = useState<
-    Omit<AssOptions, "interludeThreshold">
-  >(() => getDefaultAssOptions(lrcMetadata));
+  const [options, setOptions] = useState<Omit<AssOptions, "interludeThreshold">>(() =>
+    getDefaultAssOptions(lrcMetadata),
+  );
 
   const [newExcludeStart, setNewExcludeStart] = useState("");
   const [newExcludeEnd, setNewExcludeEnd] = useState("");
@@ -156,9 +150,7 @@ export function KtvAssExport() {
     }
 
     const newItem = `${start}-${end}`;
-    const prevList = options.klgno
-      ? options.klgno.split(";").filter(Boolean)
-      : [];
+    const prevList = options.klgno ? options.klgno.split(";").filter(Boolean) : [];
 
     if (prevList.includes(newItem)) {
       showToast("此不顯示時段已存在");
@@ -176,9 +168,7 @@ export function KtvAssExport() {
   };
 
   const handleRemoveExcludeInterval = (idxToRemove: number) => {
-    const prevList = options.klgno
-      ? options.klgno.split(";").filter(Boolean)
-      : [];
+    const prevList = options.klgno ? options.klgno.split(";").filter(Boolean) : [];
     const filtered = prevList.filter((_, idx) => idx !== idxToRemove);
     const newList = filtered.join(";");
     const updated = { ...options, klgno: newList };
@@ -189,9 +179,7 @@ export function KtvAssExport() {
 
   const originalVideoName = audioFileName || "video.mp4";
   const baseName = useMemo(() => {
-    return audioFileName
-      ? audioFileName.replace(/\.[^/.]+$/, "")
-      : lrcMetadata.ti || "KTV";
+    return audioFileName ? audioFileName.replace(/\.[^/.]+$/, "") : lrcMetadata.ti || "KTV";
   }, [audioFileName, lrcMetadata.ti]);
   const assFilename = `${baseName}.ass`;
   const outputVideoName = `【KTV】${originalVideoName}`;
@@ -208,12 +196,9 @@ export function KtvAssExport() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOptions((prev) => {
-      const metadataTitle =
-        lrcMetadata.kti !== undefined ? lrcMetadata.kti : "";
-      const metadataArtist =
-        lrcMetadata.kar !== undefined ? lrcMetadata.kar : "";
-      const metadataAlbum =
-        lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
+      const metadataTitle = lrcMetadata.kti !== undefined ? lrcMetadata.kti : "";
+      const metadataArtist = lrcMetadata.kar !== undefined ? lrcMetadata.kar : "";
+      const metadataAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const metadataCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
 
       if (
@@ -249,11 +234,7 @@ export function KtvAssExport() {
         const w = videoElement.videoWidth;
         const h = videoElement.videoHeight;
         if (w > 0 && h > 0) {
-          if (
-            !detectedVideo ||
-            detectedVideo.width !== w ||
-            detectedVideo.height !== h
-          ) {
+          if (!detectedVideo || detectedVideo.width !== w || detectedVideo.height !== h) {
             setDetectedVideo({ width: w, height: h });
             setOptions((o) => {
               if (o.playResX !== w || o.playResY !== h) {
@@ -295,16 +276,11 @@ export function KtvAssExport() {
     });
   }, [lines, lrcMetadata, options, dualLineGapSec, duration]);
 
-  const handleInterludeLogoUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleInterludeLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (
-      !file.name.toLowerCase().endsWith(".svg") &&
-      file.type !== "image/svg+xml"
-    ) {
+    if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") {
       showToast("請選擇 SVG 格式的 Logo 圖檔");
       return;
     }
@@ -400,21 +376,9 @@ export function KtvAssExport() {
   };
 
   const handleImportFromTags = () => {
-    const title =
-      metadata?.title ||
-      metadata?.rawTags?.TITLE ||
-      metadata?.rawTags?.title ||
-      "";
-    const artist =
-      metadata?.artist ||
-      metadata?.rawTags?.ARTIST ||
-      metadata?.rawTags?.artist ||
-      "";
-    const album =
-      metadata?.album ||
-      metadata?.rawTags?.ALBUM ||
-      metadata?.rawTags?.album ||
-      "";
+    const title = metadata?.title || metadata?.rawTags?.TITLE || metadata?.rawTags?.title || "";
+    const artist = metadata?.artist || metadata?.rawTags?.ARTIST || metadata?.rawTags?.artist || "";
+    const album = metadata?.album || metadata?.rawTags?.ALBUM || metadata?.rawTags?.album || "";
     const updated = {
       ...options,
       songInfoTitle: title,
@@ -432,27 +396,12 @@ export function KtvAssExport() {
     const album = lrcMetadata.al || "";
 
     // 把所有的LRC屬性「自訂標籤」（排除本系統專用的標籤）也一起填入「自訂內容」
-    const predefinedKeys = [
-      "ti",
-      "ar",
-      "al",
-      "au",
-      "by",
-      "offset",
-      "re",
-      "ve",
-      "length",
-      "tool",
-    ];
+    const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length", "tool"];
     const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg"];
 
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
-      if (
-        !predefinedKeys.includes(key) &&
-        !sysKeysList.includes(key.toLowerCase()) &&
-        value
-      ) {
+      if (!predefinedKeys.includes(key) && !sysKeysList.includes(key.toLowerCase()) && value) {
         if (
           !key.toLowerCase().startsWith("kstyledef_") &&
           key.toLowerCase() !== "kstyle" &&
@@ -483,9 +432,7 @@ export function KtvAssExport() {
     if (newOptions.customStartInfoTime) {
       updatedMeta.TT = formatTime(newOptions.startInfoStartTime, true);
       const isExactly6s =
-        Math.abs(
-          newOptions.startInfoEndTime - (newOptions.startInfoStartTime + 6),
-        ) < 0.005;
+        Math.abs(newOptions.startInfoEndTime - (newOptions.startInfoStartTime + 6)) < 0.005;
       if (isExactly6s) {
         delete updatedMeta.TTE;
         delete updatedMeta.tte;
@@ -649,9 +596,7 @@ export function KtvAssExport() {
       const extTTE = lrcMetadata.TTE || lrcMetadata.tte;
       const hasExtCustom = !!extTT;
       const extStart = hasExtCustom ? parseSeconds(extTT) || 1 : 1;
-      const extEnd = extTTE
-        ? parseSeconds(extTTE) || extStart + 6
-        : extStart + 6;
+      const extEnd = extTTE ? parseSeconds(extTTE) || extStart + 6 : extStart + 6;
 
       // 歌曲資訊完全「不要」自動從預設的LRC標籤(ti, ar, al)匯入，只在明確設定了專用屬性(kti, kar, kal)時才讀取
       // 如此一來可完美支援使用者刻意將主唱與專輯留空的需求
@@ -660,8 +605,7 @@ export function KtvAssExport() {
       const loadedAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const loadedCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
       const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
-      const loadedKlgno =
-        lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
+      const loadedKlgno = lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -699,9 +643,7 @@ export function KtvAssExport() {
     <div className="flex flex-col h-full bg-[var(--app-bg-main)] overflow-hidden">
       {/* Title Bar inside Tab */}
       <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-base)] border-b border-[var(--app-border-base)] flex items-center justify-between">
-        <h2 className="text-sm font-bold text-[var(--app-text-primary)]">
-          KTV ASS 輸出
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--app-text-primary)]">KTV ASS 輸出</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
@@ -744,14 +686,11 @@ export function KtvAssExport() {
                           playResX: v.videoWidth,
                           playResY: v.videoHeight,
                         });
-                        showToast(
-                          `已套用影片原始比例：${v.videoWidth} x ${v.videoHeight}`,
-                        );
+                        showToast(`已套用影片原始比例：${v.videoWidth} x ${v.videoHeight}`);
                       }}
                       className="text-[10px] text-[var(--app-accent)] hover:underline font-medium flex items-center gap-1 bg-[var(--app-bg-base)] border border-[var(--app-border-light)] rounded px-2 py-0.5"
                     >
-                      🎯 套用影片原始大小 ({detectedVideo.width}x
-                      {detectedVideo.height})
+                      🎯 套用影片原始大小 ({detectedVideo.width}x{detectedVideo.height})
                     </button>
                   )}
                 </div>
@@ -766,17 +705,13 @@ export function KtvAssExport() {
                         value={
                           options.playResX === 1920 && options.playResY === 1080
                             ? "1920x1080"
-                            : options.playResX === 1280 &&
-                                options.playResY === 720
+                            : options.playResX === 1280 && options.playResY === 720
                               ? "1280x720"
-                              : options.playResX === 1440 &&
-                                  options.playResY === 1080
+                              : options.playResX === 1440 && options.playResY === 1080
                                 ? "1440x1080"
-                                : options.playResX === 960 &&
-                                    options.playResY === 720
+                                : options.playResX === 960 && options.playResY === 720
                                   ? "960x720"
-                                  : options.playResX === 2560 &&
-                                      options.playResY === 1080
+                                  : options.playResX === 2560 && options.playResY === 1080
                                     ? "2560x1080"
                                     : "custom"
                         }
@@ -792,17 +727,11 @@ export function KtvAssExport() {
                         }}
                         className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs"
                       >
-                        <option value="1920x1080">
-                          16:9 FHD (1920 x 1080)
-                        </option>
+                        <option value="1920x1080">16:9 FHD (1920 x 1080)</option>
                         <option value="1280x720">16:9 HD (1280 x 720)</option>
                         <option value="1440x1080">4:3 FHD (1440 x 1080)</option>
-                        <option value="960x720">
-                          4:3 Standard (960 x 720)
-                        </option>
-                        <option value="2560x1080">
-                          21:9 UltraWide (2560 x 1080)
-                        </option>
+                        <option value="960x720">4:3 Standard (960 x 720)</option>
+                        <option value="2560x1080">21:9 UltraWide (2560 x 1080)</option>
                         <option value="custom">自訂比例大小</option>
                       </select>
                     </div>
@@ -868,9 +797,7 @@ export function KtvAssExport() {
                       max="15"
                       step="0.5"
                       value={dualLineGapSec}
-                      onChange={(e) =>
-                        setDualLineGapSec(parseFloat(e.target.value))
-                      }
+                      onChange={(e) => setDualLineGapSec(parseFloat(e.target.value))}
                       onMouseUp={() =>
                         commitLrcMetadata(
                           { ...lrcMetadata, kth: dualLineGapSec.toString() },
@@ -946,9 +873,7 @@ export function KtvAssExport() {
                         <input
                           type="color"
                           value={options.color2}
-                          onChange={(e) =>
-                            setOptions({ ...options, color2: e.target.value })
-                          }
+                          onChange={(e) => setOptions({ ...options, color2: e.target.value })}
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
@@ -964,9 +889,7 @@ export function KtvAssExport() {
                         <input
                           type="color"
                           value={options.color3}
-                          onChange={(e) =>
-                            setOptions({ ...options, color3: e.target.value })
-                          }
+                          onChange={(e) => setOptions({ ...options, color3: e.target.value })}
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
@@ -1020,9 +943,7 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(
-                                options.songInfoTitleColor || "#BC2600"
-                              ).toUpperCase()}
+                              {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1043,9 +964,7 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(
-                                options.songInfoArtistColor || "#2A04C8"
-                              ).toUpperCase()}
+                              {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1113,10 +1032,8 @@ export function KtvAssExport() {
                             setOptions({
                               ...options,
                               fontSize: newSize,
-                              infoFontSize:
-                                (options.infoFontSize || 110) + diff,
-                              infoTitleFontSize:
-                                (options.infoTitleFontSize || 140) + diff,
+                              infoFontSize: (options.infoFontSize || 110) + diff,
+                              infoTitleFontSize: (options.infoTitleFontSize || 140) + diff,
                             });
                           }}
                           className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
@@ -1228,9 +1145,7 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(
-                                options.dotOuterColor || "#DEDDDA"
-                              ).toUpperCase()}
+                              {(options.dotOuterColor || "#DEDDDA").toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1251,9 +1166,7 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(
-                                options.dotInnerColor || "#FFFFFF"
-                              ).toUpperCase()}
+                              {(options.dotInnerColor || "#FFFFFF").toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1265,9 +1178,7 @@ export function KtvAssExport() {
                             外圓形半徑比例
                           </span>
                           <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotOuterSize !== undefined
-                              ? options.dotOuterSize
-                              : 0.28}
+                            {options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
                           </span>
                         </div>
                         <input
@@ -1275,11 +1186,7 @@ export function KtvAssExport() {
                           min="0.1"
                           max="0.5"
                           step="0.01"
-                          value={
-                            options.dotOuterSize !== undefined
-                              ? options.dotOuterSize
-                              : 0.28
-                          }
+                          value={options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1296,9 +1203,7 @@ export function KtvAssExport() {
                             內圓形半徑比例 (小於外圓形)
                           </span>
                           <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotInnerSize !== undefined
-                              ? options.dotInnerSize
-                              : 0.26}
+                            {options.dotInnerSize !== undefined ? options.dotInnerSize : 0.26}
                           </span>
                         </div>
                         <input
@@ -1306,11 +1211,7 @@ export function KtvAssExport() {
                           min="0.05"
                           max="0.4"
                           step="0.01"
-                          value={
-                            options.dotInnerSize !== undefined
-                              ? options.dotInnerSize
-                              : 0.26
-                          }
+                          value={options.dotInnerSize !== undefined ? options.dotInnerSize : 0.26}
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1327,9 +1228,7 @@ export function KtvAssExport() {
                             小白圓間距比例
                           </span>
                           <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotSpacing !== undefined
-                              ? options.dotSpacing
-                              : 0.75}
+                            {options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
                           </span>
                         </div>
                         <input
@@ -1337,11 +1236,7 @@ export function KtvAssExport() {
                           min="0.5"
                           max="1.2"
                           step="0.01"
-                          value={
-                            options.dotSpacing !== undefined
-                              ? options.dotSpacing
-                              : 0.75
-                          }
+                          value={options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1374,9 +1269,7 @@ export function KtvAssExport() {
                   {testParamsOpen && (
                     <div className="grid grid-cols-2 gap-2 text-[10px] bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] p-3 rounded animate-in fade-in duration-200">
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          行間距 (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">行間距 (px)</label>
                         <input
                           type="number"
                           value={options.dualRowSpacing}
@@ -1390,9 +1283,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          左右邊距 LR (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">左右邊距 LR (px)</label>
                         <input
                           type="number"
                           value={options.dualRowMarginL}
@@ -1408,9 +1299,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          上下邊距 V (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">上下邊距 V (px)</label>
                         <input
                           type="number"
                           value={options.dualRowMarginV}
@@ -1424,9 +1313,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          資訊字體
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">資訊字體</label>
                         <input
                           type="number"
                           value={options.infoFontSize}
@@ -1440,26 +1327,21 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          標題字體
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">標題字體</label>
                         <input
                           type="number"
                           value={options.infoTitleFontSize}
                           onChange={(e) =>
                             setOptions({
                               ...options,
-                              infoTitleFontSize:
-                                parseInt(e.target.value) || 150,
+                              infoTitleFontSize: parseInt(e.target.value) || 150,
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          字體補正 (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">字體補正 (px)</label>
                         <input
                           type="number"
                           value={options.fontSizeOffset || 0}
@@ -1474,9 +1356,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          間奏緩衝 (s)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">間奏緩衝 (s)</label>
                         <input
                           type="number"
                           step="0.1"
@@ -1491,9 +1371,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          觸發索引
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">觸發索引</label>
                         <input
                           type="number"
                           value={options.nextTriggerIndex}
@@ -1507,17 +1385,13 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col col-span-2">
-                        <label className="text-[var(--app-text-muted)]">
-                          淡出模式
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">淡出模式</label>
                         <select
                           value={options.row2FadeoutMode}
                           onChange={(e) =>
                             setOptions({
                               ...options,
-                              row2FadeoutMode: e.target.value as
-                                | "immediate"
-                                | "delayed",
+                              row2FadeoutMode: e.target.value as "immediate" | "delayed",
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"
@@ -1527,9 +1401,7 @@ export function KtvAssExport() {
                         </select>
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          淡入淡出時間 (s)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">淡入淡出時間 (s)</label>
                         <input
                           type="number"
                           step="0.1"
@@ -1544,9 +1416,7 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          延遲顯示資訊門檻 (s)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">延遲顯示資訊門檻 (s)</label>
                         <input
                           type="number"
                           step="1"
@@ -1561,16 +1431,10 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          Logo 最大寬度 (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">Logo 最大寬度 (px)</label>
                         <input
                           type="number"
-                          value={
-                            options.logoMaxWidth !== undefined
-                              ? options.logoMaxWidth
-                              : 450
-                          }
+                          value={options.logoMaxWidth !== undefined ? options.logoMaxWidth : 450}
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1581,16 +1445,10 @@ export function KtvAssExport() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-[var(--app-text-muted)]">
-                          Logo 最大高度 (px)
-                        </label>
+                        <label className="text-[var(--app-text-muted)]">Logo 最大高度 (px)</label>
                         <input
                           type="number"
-                          value={
-                            options.logoMaxHeight !== undefined
-                              ? options.logoMaxHeight
-                              : 300
-                          }
+                          value={options.logoMaxHeight !== undefined ? options.logoMaxHeight : 300}
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1615,8 +1473,7 @@ export function KtvAssExport() {
                           onChange={(e) =>
                             setOptions({
                               ...options,
-                              logoMinInterludeGap:
-                                parseFloat(e.target.value) || 0,
+                              logoMinInterludeGap: parseFloat(e.target.value) || 0,
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono"
@@ -1657,10 +1514,7 @@ export function KtvAssExport() {
                     標題
                   </span>
                   <textarea
-                    rows={Math.max(
-                      1,
-                      (options.songInfoTitle || "").split("\n").length,
-                    )}
+                    rows={Math.max(1, (options.songInfoTitle || "").split("\n").length)}
                     value={options.songInfoTitle}
                     onChange={(e) => {
                       const updated = {
@@ -1677,10 +1531,7 @@ export function KtvAssExport() {
                     主唱
                   </span>
                   <textarea
-                    rows={Math.max(
-                      1,
-                      (options.songInfoArtist || "").split("\n").length,
-                    )}
+                    rows={Math.max(1, (options.songInfoArtist || "").split("\n").length)}
                     value={options.songInfoArtist}
                     onChange={(e) => {
                       const updated = {
@@ -1697,10 +1548,7 @@ export function KtvAssExport() {
                     專輯
                   </span>
                   <textarea
-                    rows={Math.max(
-                      1,
-                      (options.songInfoAlbum || "").split("\n").length,
-                    )}
+                    rows={Math.max(1, (options.songInfoAlbum || "").split("\n").length)}
                     value={options.songInfoAlbum}
                     onChange={(e) => {
                       const updated = {
@@ -1782,8 +1630,7 @@ export function KtvAssExport() {
                 </label>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
                   僅支援 SVG 向量格式，匯出時會轉為 ASS
-                  內嵌向量圖。目前測試階段固定顯示於左上角（左距
-                  dualRowMarginL、上距
+                  內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距
                   dualRowMarginV，等比例縮小至最大寬高範圍）。
                 </p>
                 <div className="flex items-center gap-2 mt-1">
@@ -1816,15 +1663,13 @@ export function KtvAssExport() {
                             type="button"
                             onClick={() => {
                               try {
-                                const blob = new Blob(
-                                  [options.interludeLogoSvg!],
-                                  { type: "image/svg+xml;charset=utf-8" },
-                                );
+                                const blob = new Blob([options.interludeLogoSvg!], {
+                                  type: "image/svg+xml;charset=utf-8",
+                                });
                                 const url = URL.createObjectURL(blob);
                                 const link = document.createElement("a");
                                 link.href = url;
-                                link.download =
-                                  interludeLogoFileName || "publisher_logo.svg";
+                                link.download = interludeLogoFileName || "publisher_logo.svg";
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -1862,12 +1707,10 @@ export function KtvAssExport() {
                 className="flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]"
               >
                 <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示
-                  Logo 時段
+                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示 Logo 時段
                 </label>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                  可自訂特定時間戳範圍不要出現任何
-                  Logo，時間戳核心顯示如歌詞不受影響。
+                  可自訂特定時間戳範圍不要出現任何 Logo，時間戳核心顯示如歌詞不受影響。
                 </p>
 
                 {/* 新增區段 */}
@@ -1923,9 +1766,7 @@ export function KtvAssExport() {
                         <div className="flex items-center gap-2 text-[var(--app-text-primary)]">
                           <Clock className="w-3.5 h-3.5 text-orange-400/70" />
                           <span>{interval.startStr}</span>
-                          <span className="text-[var(--app-text-muted)]">
-                            ➔
-                          </span>
+                          <span className="text-[var(--app-text-muted)]">➔</span>
                           <span>{interval.endStr}</span>
                         </div>
                         <button
@@ -1974,8 +1815,7 @@ export function KtvAssExport() {
           <div className="flex flex-col min-h-[300px] max-h-[500px] overflow-hidden lg:relative border-t border-[var(--app-border-light)]">
             <RawTextDisplay
               customText={
-                assContent ||
-                "; 沒有包含同步時間標籤的歌詞資料。請先到「逐字同步」頁尾打節拍。"
+                assContent || "; 沒有包含同步時間標籤的歌詞資料。請先到「逐字同步」頁尾打節拍。"
               }
               hideKaraokePreview={true}
               customLeftControls={
@@ -1997,8 +1837,7 @@ export function KtvAssExport() {
         onClose={() => setBurnVideoDialogOpen(false)}
         title={
           <span className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-[var(--app-accent)]" /> 壓製成新影片
-            (利用 FFmpeg)
+            <Film className="w-4 h-4 text-[var(--app-accent)]" /> 壓製成新影片 (利用 FFmpeg)
           </span>
         }
         maxWidthClass="max-w-2xl"
@@ -2014,12 +1853,10 @@ export function KtvAssExport() {
         <div className="text-xs sm:text-sm text-[var(--app-text-secondary)] leading-relaxed space-y-4">
           <p>
             要將字幕<strong>永久壓製固定 (Hardsub)</strong>在您的 MV
-            影片中，最有效率且畫質最好的方式是使用免費開源工具{" "}
-            <strong>FFmpeg</strong>。
+            影片中，最有效率且畫質最好的方式是使用免費開源工具 <strong>FFmpeg</strong>。
           </p>
           <p className="bg-[var(--app-accent)]/10 text-[var(--app-accent)] p-3 rounded border border-[var(--app-accent)]/30">
-            ⚠️ <strong>開始前提醒：</strong>請確認您已點擊上方{" "}
-            <strong>「下載 .ass 檔」</strong>{" "}
+            ⚠️ <strong>開始前提醒：</strong>請確認您已點擊上方 <strong>「下載 .ass 檔」</strong>{" "}
             按鈕將字幕檔案儲存到本機，並與您的原始影片放置在
             <strong>同一個資料夾</strong>中。
           </p>
@@ -2031,17 +1868,11 @@ export function KtvAssExport() {
               </label>
               <select
                 value={ffmpegMode}
-                onChange={(e) =>
-                  setFfmpegMode(e.target.value as "cpu" | "nvidia")
-                }
+                onChange={(e) => setFfmpegMode(e.target.value as "cpu" | "nvidia")}
                 className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)]"
               >
-                <option value="cpu">
-                  💻 CPU 模式 (適合任何電腦，畫質好，速度一般)
-                </option>
-                <option value="nvidia">
-                  ⚡ Nvidia 模式 (適合顯卡支援 CUDA，極速壓製)
-                </option>
+                <option value="cpu">💻 CPU 模式 (適合任何電腦，畫質好，速度一般)</option>
+                <option value="nvidia">⚡ Nvidia 模式 (適合顯卡支援 CUDA，極速壓製)</option>
               </select>
             </div>
 
@@ -2082,13 +1913,10 @@ export function KtvAssExport() {
           </div>
 
           <div className="space-y-1.5 border-t border-[var(--app-border-base)] pt-3 text-xs text-[var(--app-text-muted)] space-y-1">
-            <p className="font-semibold text-[var(--app-text-primary)]">
-              💡 執行步驟：
-            </p>
+            <p className="font-semibold text-[var(--app-text-primary)]">💡 執行步驟：</p>
             <ol className="list-decimal pl-5 space-y-1 text-[var(--app-text-secondary)]">
               <li>
-                打開您電腦的終端機 App (Windows 為{" "}
-                <strong>CMD / PowerShell</strong>，Mac/Linux 為{" "}
+                打開您電腦的終端機 App (Windows 為 <strong>CMD / PowerShell</strong>，Mac/Linux 為{" "}
                 <strong>Terminal</strong>)。
               </li>
               <li>
@@ -2096,8 +1924,8 @@ export function KtvAssExport() {
               </li>
               <li>複製並貼上上方的指令，然後按下 Enter 開始壓製。</li>
               <li>
-                壓製完成後，即可於同個資料夾中獲得檔名開頭為{" "}
-                <strong>【KTV】</strong> 的全新壓製影片！
+                壓製完成後，即可於同個資料夾中獲得檔名開頭為 <strong>【KTV】</strong>{" "}
+                的全新壓製影片！
               </li>
             </ol>
           </div>

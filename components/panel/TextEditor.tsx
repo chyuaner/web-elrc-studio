@@ -1,16 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useEditor } from "@/components/base/EditorProvider";
-import {
-  parseRawLyrics,
-  exportLrc,
-  splitWordsAegisub,
-} from "@/lib/lyric-utils";
 import { LineNumberedTextarea } from "@/components/common/LineNumberedTextarea";
-import { useI18n } from "@/hooks/useI18n";
 import { useDialogs } from "@/components/dialog/DialogProvider";
-import { Search, X, ChevronUp, ChevronDown, Replace, ReplaceAll } from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
+import { exportLrc, parseRawLyrics } from "@/lib/lyric-utils";
+import { ChevronDown, ChevronUp, Replace, ReplaceAll, Search, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export function TextEditor() {
   const {
@@ -41,104 +37,104 @@ export function TextEditor() {
 
   const matches = useMemo(() => {
     if (!searchText) return [];
-    
+
     let sourceText = text;
     let mapping: number[] | null = null;
-    
+
     if (ignoreTimeTags) {
-       mapping = [];
-       sourceText = "";
-       const tagRegex = /(?:\[\d{2}:\d{2}(?:\.\d{2,3})?\])|(?:<\d{2}:\d{2}(?:\.\d{2,3})?>)/g;
-       let lastIndex = 0;
-       let match;
-       while ((match = tagRegex.exec(text)) !== null) {
-          for(let i = lastIndex; i < match.index; i++) {
-             sourceText += text[i];
-             mapping.push(i);
-          }
-          lastIndex = tagRegex.lastIndex;
-       }
-       for(let i = lastIndex; i < text.length; i++) {
+      mapping = [];
+      sourceText = "";
+      const tagRegex = /(?:\[\d{2}:\d{2}(?:\.\d{2,3})?\])|(?:<\d{2}:\d{2}(?:\.\d{2,3})?>)/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = tagRegex.exec(text)) !== null) {
+        for (let i = lastIndex; i < match.index; i++) {
           sourceText += text[i];
           mapping.push(i);
-       }
-       mapping.push(text.length);
+        }
+        lastIndex = tagRegex.lastIndex;
+      }
+      for (let i = lastIndex; i < text.length; i++) {
+        sourceText += text[i];
+        mapping.push(i);
+      }
+      mapping.push(text.length);
     }
-    
+
     const lowerSource = sourceText.toLowerCase();
     const lowerSearch = searchText.toLowerCase();
-    const newMatches: {start: number, end: number}[] = [];
+    const newMatches: { start: number; end: number }[] = [];
     let startIndex = 0;
     while (true) {
       const index = lowerSource.indexOf(lowerSearch, startIndex);
       if (index === -1) break;
-      
+
       const matchEnd = index + searchText.length;
       let finalStart = ignoreTimeTags && mapping ? mapping[index] : index;
       let finalEnd = ignoreTimeTags && mapping ? mapping[matchEnd] : matchEnd;
 
       if (ignoreTimeTags && !selectWholeLine) {
-          let hasContentOnRight = false;
-          let tempEnd = finalEnd;
-          while (tempEnd < text.length && text[tempEnd] !== '\n' && text[tempEnd] !== '\r') {
-              if (text[tempEnd] !== ' ' && text[tempEnd] !== '\t') {
-                  hasContentOnRight = true;
-                  break;
-              }
-              tempEnd++;
+        let hasContentOnRight = false;
+        let tempEnd = finalEnd;
+        while (tempEnd < text.length && text[tempEnd] !== "\n" && text[tempEnd] !== "\r") {
+          if (text[tempEnd] !== " " && text[tempEnd] !== "\t") {
+            hasContentOnRight = true;
+            break;
           }
+          tempEnd++;
+        }
 
-          while (finalStart > 0) {
-              const charBefore = text[finalStart - 1];
-              if (charBefore === '>' || charBefore === ']') {
-                  const openChar = charBefore === '>' ? '<' : '[';
-                  let tagStart = finalStart - 1;
-                  while (tagStart >= 0 && text[tagStart] !== openChar) {
-                      tagStart--;
-                  }
-                  if (tagStart >= 0) {
-                      const tagText = text.substring(tagStart, finalStart);
-                      if (/^[<\[]\d{2}:\d{2}(?:\.\d{2,3})?[>\]]$/.test(tagText)) {
-                          if (openChar === '[' && hasContentOnRight) {
-                              break;
-                          }
-                          finalStart = tagStart;
-                          continue;
-                      }
-                  }
+        while (finalStart > 0) {
+          const charBefore = text[finalStart - 1];
+          if (charBefore === ">" || charBefore === "]") {
+            const openChar = charBefore === ">" ? "<" : "[";
+            let tagStart = finalStart - 1;
+            while (tagStart >= 0 && text[tagStart] !== openChar) {
+              tagStart--;
+            }
+            if (tagStart >= 0) {
+              const tagText = text.substring(tagStart, finalStart);
+              if (/^[<\[]\d{2}:\d{2}(?:\.\d{2,3})?[>\]]$/.test(tagText)) {
+                if (openChar === "[" && hasContentOnRight) {
+                  break;
+                }
+                finalStart = tagStart;
+                continue;
               }
-              break;
+            }
           }
+          break;
+        }
       }
 
       if (selectWholeLine) {
-          while (finalStart > 0 && text[finalStart - 1] !== '\n') {
-              finalStart--;
-          }
-          while (finalEnd < text.length && text[finalEnd] !== '\n') {
-              finalEnd++;
-          }
-          if (finalEnd < text.length && text[finalEnd] === '\n') {
-              finalEnd++;
-          }
+        while (finalStart > 0 && text[finalStart - 1] !== "\n") {
+          finalStart--;
+        }
+        while (finalEnd < text.length && text[finalEnd] !== "\n") {
+          finalEnd++;
+        }
+        if (finalEnd < text.length && text[finalEnd] === "\n") {
+          finalEnd++;
+        }
       }
 
       newMatches.push({ start: finalStart, end: finalEnd });
       startIndex = index + searchText.length;
     }
 
-    const mergedMatches: { start: number, end: number }[] = [];
+    const mergedMatches: { start: number; end: number }[] = [];
     for (const match of newMatches) {
-        if (mergedMatches.length === 0) {
-            mergedMatches.push(match);
+      if (mergedMatches.length === 0) {
+        mergedMatches.push(match);
+      } else {
+        const lastMatch = mergedMatches[mergedMatches.length - 1];
+        if (match.start <= lastMatch.end) {
+          lastMatch.end = Math.max(lastMatch.end, match.end);
         } else {
-            const lastMatch = mergedMatches[mergedMatches.length - 1];
-            if (match.start <= lastMatch.end) {
-                lastMatch.end = Math.max(lastMatch.end, match.end);
-            } else {
-                mergedMatches.push(match);
-            }
+          mergedMatches.push(match);
         }
+      }
     }
     return mergedMatches;
   }, [text, searchText, ignoreTimeTags, selectWholeLine]);
@@ -150,7 +146,6 @@ export function TextEditor() {
         setCurrentMatchIndex(matches.length - 1);
       }
     } else {
-       
       setCurrentMatchIndex(0);
     }
   }, [matches.length, currentMatchIndex]);
@@ -160,7 +155,7 @@ export function TextEditor() {
     const match = matches[index];
     if (!match) return;
     const textarea = textareaRef.current;
-    
+
     textarea.focus();
     textarea.setSelectionRange(match.start, match.end);
 
@@ -169,10 +164,7 @@ export function TextEditor() {
     const targetRow = textUpToMatch.split("\n").length - 1;
 
     const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight || "24") || 24;
-    textarea.scrollTop = Math.max(
-      0,
-      targetRow * lineHeight - textarea.clientHeight / 2,
-    );
+    textarea.scrollTop = Math.max(0, targetRow * lineHeight - textarea.clientHeight / 2);
   };
 
   const handleNextMatch = () => {
@@ -199,8 +191,8 @@ export function TextEditor() {
     textRef.current = newText;
     isDirty.current = true;
     saveChanges(newText);
-    
-    // It will auto-recalculate matches. 
+
+    // It will auto-recalculate matches.
   };
 
   const handleReplaceAll = () => {
@@ -219,7 +211,8 @@ export function TextEditor() {
 
   useEffect(() => {
     // Sync from lines to text if not dirty OR if the textarea does not have focus
-    const isFocused = typeof document !== 'undefined' && document.activeElement === textareaRef.current;
+    const isFocused =
+      typeof document !== "undefined" && document.activeElement === textareaRef.current;
     if (!isDirty.current || !isFocused) {
       let newText = exportLrc(lines, lrcMetadata, true, false); // force ELRC
 
@@ -243,10 +236,7 @@ export function TextEditor() {
           (match, rawKey) => {
             let trimmedKey = rawKey.trim();
             if (/^\d+$/.test(trimmedKey)) return match;
-            if (
-              trimmedKey.toLowerCase() === "ktv" ||
-              trimmedKey.toLowerCase() === "ktvsp"
-            )
+            if (trimmedKey.toLowerCase() === "ktv" || trimmedKey.toLowerCase() === "ktvsp")
               return match;
             // Return only newlines to keep line count synced
             return match.replace(/[^\n]/g, "");
@@ -264,8 +254,7 @@ export function TextEditor() {
           if (!lineText.trim()) continue;
 
           if (/^\[ktv\s*:\s*singleline\]$/i.test(lineText.trim())) continue;
-          if (/^\[ktvsp\s*:\s*(\d+:\d+(?:\.\d+)?)\]$/i.exec(lineText.trim()))
-            continue;
+          if (/^\[ktvsp\s*:\s*(\d+:\d+(?:\.\d+)?)\]$/i.exec(lineText.trim())) continue;
 
           currentLineIndex++;
           if (currentLineIndex === lineIndex) {
@@ -283,18 +272,11 @@ export function TextEditor() {
 
         const textarea = textareaRef.current;
         textarea.focus();
-        textarea.setSelectionRange(
-          pos,
-          pos + (originalLines[targetRow]?.length || 0),
-        );
+        textarea.setSelectionRange(pos, pos + (originalLines[targetRow]?.length || 0));
 
         // Hack to scroll into view
-        const lineHeight =
-          parseInt(window.getComputedStyle(textarea).lineHeight || "24") || 24;
-        textarea.scrollTop = Math.max(
-          0,
-          targetRow * lineHeight - textarea.clientHeight / 2,
-        );
+        const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight || "24") || 24;
+        textarea.scrollTop = Math.max(0, targetRow * lineHeight - textarea.clientHeight / 2);
       }
     };
     window.addEventListener("focus-raw-text-line", handler);
@@ -305,22 +287,25 @@ export function TextEditor() {
     const searchHandler = (e: any) => {
       const selectedHtmlText = e.detail?.text || "";
       const shouldIgnoreTags = e.detail?.ignoreTimeTags;
-      
+
       let searchTextToUse = selectedHtmlText;
       // also check if textarea has selection, if it was directly selected
       if (!searchTextToUse && textareaRef.current) {
-         const t = textareaRef.current;
-         if (t.selectionStart !== t.selectionEnd) {
-             searchTextToUse = t.value.substring(t.selectionStart, t.selectionEnd);
-         }
+        const t = textareaRef.current;
+        if (t.selectionStart !== t.selectionEnd) {
+          searchTextToUse = t.value.substring(t.selectionStart, t.selectionEnd);
+        }
       }
 
       if (shouldIgnoreTags) {
-         searchTextToUse = searchTextToUse.replace(/(?:\[\d{2}:\d{2}(?:\.\d{2,3})?\])|(?:<\d{2}:\d{2}(?:\.\d{2,3})?>)/g, "");
+        searchTextToUse = searchTextToUse.replace(
+          /(?:\[\d{2}:\d{2}(?:\.\d{2,3})?\])|(?:<\d{2}:\d{2}(?:\.\d{2,3})?>)/g,
+          "",
+        );
       }
-      
+
       if (searchTextToUse) {
-         setSearchText(searchTextToUse);
+        setSearchText(searchTextToUse);
       }
       setIsSearchOpen(true);
       setTimeout(() => {
@@ -362,7 +347,7 @@ export function TextEditor() {
   };
 
   const saveChangesRef = useRef(saveChanges);
-   
+
   useEffect(() => {
     saveChangesRef.current = saveChanges;
   }, [saveChanges]);
@@ -383,12 +368,14 @@ export function TextEditor() {
       setIsResponsiveTall(window.innerWidth >= 1024 || window.innerHeight > 1110);
     };
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return (
-    <div className={`flex flex-col flex-1 ${isResponsiveTall ? 'min-h-0 h-full' : 'min-h-[50vh]'} bg-[var(--app-bg-panel-alt)]`}>
+    <div
+      className={`flex flex-col flex-1 ${isResponsiveTall ? "min-h-0 h-full" : "min-h-[50vh]"} bg-[var(--app-bg-panel-alt)]`}
+    >
       <div className="p-2 bg-[var(--app-bg-panel)] border-b border-[var(--app-border-base)] flex flex-wrap gap-2 items-center justify-between shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-3 py-1 bg-[var(--app-border-base)] rounded text-[10px] font-bold uppercase tracking-widest border border-[var(--app-border-light)] text-[var(--app-text-secondary)]">
@@ -416,13 +403,12 @@ export function TextEditor() {
           >
             套用變更
           </button>
-          
+
           <div className="w-px bg-[var(--app-border-light)] opacity-50 my-1 mx-1"></div>
 
           <button
             onClick={async () => {
-              const { convertToTraditional } =
-                await import("@/lib/chinese-conv");
+              const { convertToTraditional } = await import("@/lib/chinese-conv");
               setText((t) => {
                 const next = convertToTraditional(t);
                 isDirty.current = true;
@@ -436,8 +422,7 @@ export function TextEditor() {
           </button>
           <button
             onClick={async () => {
-              const { convertToSimplified } =
-                await import("@/lib/chinese-conv");
+              const { convertToSimplified } = await import("@/lib/chinese-conv");
               setText((t) => {
                 const next = convertToSimplified(t);
                 isDirty.current = true;
@@ -456,12 +441,7 @@ export function TextEditor() {
             onClick={() => {
               setText((t) => {
                 const parsed = parseRawLyrics(t);
-                const next = exportLrc(
-                  parsed.lines,
-                  parsed.metadata,
-                  false,
-                  false,
-                );
+                const next = exportLrc(parsed.lines, parsed.metadata, false, false);
                 isDirty.current = true;
                 setTimeout(() => saveChanges(next), 0);
                 return next;
@@ -480,10 +460,7 @@ export function TextEditor() {
                   if (value) metaStr += `[${key}:${value}]\n`;
                 }
                 const next =
-                  metaStr +
-                  parsed.lines
-                    .map((l) => l.words.map((w) => w.text).join(""))
-                    .join("\n");
+                  metaStr + parsed.lines.map((l) => l.words.map((w) => w.text).join("")).join("\n");
                 isDirty.current = true;
                 setTimeout(() => saveChanges(next), 0);
                 return next;
@@ -525,7 +502,7 @@ export function TextEditor() {
                 </span>
               )}
             </div>
-            
+
             <button
               onClick={handlePrevMatch}
               disabled={matches.length === 0}
@@ -558,27 +535,27 @@ export function TextEditor() {
 
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer mr-2 select-none">
-              <input 
-                type="checkbox" 
-                checked={ignoreTimeTags} 
+              <input
+                type="checkbox"
+                checked={ignoreTimeTags}
                 onChange={(e) => {
                   setIgnoreTimeTags(e.target.checked);
                   textareaRef.current?.focus();
-                }} 
-                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer" 
+                }}
+                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
               />
               無視時間標籤 (ELRC)
             </label>
 
             <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer mr-2 select-none">
-              <input 
-                type="checkbox" 
-                checked={selectWholeLine} 
+              <input
+                type="checkbox"
+                checked={selectWholeLine}
                 onChange={(e) => {
                   setSelectWholeLine(e.target.checked);
                   textareaRef.current?.focus();
-                }} 
-                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer" 
+                }}
+                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
               />
               選取整行
             </label>

@@ -1,16 +1,16 @@
-'use client';
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+"use client";
+import { X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 const invokeTauri = async (cmd: string, args?: Record<string, unknown>) => {
-  if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-      try {
-          const { invoke } = await import('@tauri-apps/api/core');
-          return await invoke(cmd, args);
-      } catch (e) {
-          console.error(e);
-      }
+  if (typeof window !== "undefined" && (window as any).__TAURI__) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return await invoke(cmd, args);
+    } catch (e) {
+      console.error(e);
+    }
   }
 };
 
@@ -31,8 +31,8 @@ export function BaseDialog({
   title,
   children,
   footer,
-  maxWidthClass = 'max-w-xl',
-  className = '',
+  maxWidthClass = "max-w-xl",
+  className = "",
   closeOnOverlayClick = true,
 }: BaseDialogProps) {
   const [mounted, setMounted] = useState(false);
@@ -44,48 +44,48 @@ export function BaseDialog({
 
   useEffect(() => {
     if (isOpen) {
-      invokeTauri('set_titlebar_buttons_enabled', { enabled: false });
+      invokeTauri("set_titlebar_buttons_enabled", { enabled: false });
     } else {
-      invokeTauri('set_titlebar_buttons_enabled', { enabled: true });
+      invokeTauri("set_titlebar_buttons_enabled", { enabled: true });
     }
     return () => {
-      invokeTauri('set_titlebar_buttons_enabled', { enabled: true });
+      invokeTauri("set_titlebar_buttons_enabled", { enabled: true });
     };
   }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === "Escape" && isOpen) {
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
   if (!isOpen || !mounted) return null;
 
   const dialogContent = (
-    <div 
+    <div
       className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 app-region-no-drag font-sans"
       style={{
-        paddingLeft: 'max(1rem, var(--app-safe-area-left))',
-        paddingRight: 'max(1rem, var(--app-safe-area-right))',
-        paddingTop: 'max(1rem, var(--app-safe-area-top))',
-        paddingBottom: 'max(1rem, var(--app-safe-area-bottom))'
+        paddingLeft: "max(1rem, var(--app-safe-area-left))",
+        paddingRight: "max(1rem, var(--app-safe-area-right))",
+        paddingTop: "max(1rem, var(--app-safe-area-top))",
+        paddingBottom: "max(1rem, var(--app-safe-area-bottom))",
       }}
       onClick={closeOnOverlayClick ? onClose : undefined}
     >
-      <div 
+      <div
         className={`bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded-xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 ${className}`}
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         role="dialog"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--app-border-base)] bg-[var(--app-bg-panel-alt)] shrink-0 select-none">
           <div className="text-sm sm:text-base font-bold text-[var(--app-text-primary)] flex items-center gap-2">
             {title}
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] p-1.5 rounded-full hover:bg-[var(--app-bg-hover)] transition-colors"
             title="關閉"
@@ -93,10 +93,8 @@ export function BaseDialog({
             <X className="w-5 h-5" />
           </button>
         </div>
-        
-        <div className="p-6 overflow-y-auto flex-1 flex flex-col min-h-0">
-          {children}
-        </div>
+
+        <div className="p-6 overflow-y-auto flex-1 flex flex-col min-h-0">{children}</div>
 
         {footer && (
           <div className="px-6 py-4 border-t border-[var(--app-border-base)] flex justify-end shrink-0 gap-3 bg-[var(--app-bg-panel-alt)] rounded-b-xl select-none">

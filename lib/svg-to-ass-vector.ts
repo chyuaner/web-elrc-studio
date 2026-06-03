@@ -38,9 +38,7 @@ function parseCssColor(value: string): string | undefined {
   const v = value.trim().toLowerCase();
   if (v === "none" || v === "transparent") return undefined;
   if (v.startsWith("#")) return hexToAssColor(v);
-  const rgbMatch = v.match(
-    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/,
-  );
+  const rgbMatch = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (rgbMatch) {
     const r = parseInt(rgbMatch[1]).toString(16).padStart(2, "0");
     const g = parseInt(rgbMatch[2]).toString(16).padStart(2, "0");
@@ -113,8 +111,7 @@ function applyTransform(x: number, y: number, t: Transform): [number, number] {
 
 function parseTransformAttr(value: string): Transform {
   let result = { ...IDENTITY };
-  const fnRegex =
-    /(matrix|translate|scale|rotate)\s*\(([^)]+)\)/g;
+  const fnRegex = /(matrix|translate|scale|rotate)\s*\(([^)]+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = fnRegex.exec(value)) !== null) {
     const nums = m[2]
@@ -214,9 +211,7 @@ function arcToCubics(
     rySq = ry * ry;
   }
   const sign = largeArc === sweep ? -1 : 1;
-  const sq =
-    (rxSq * rySq - rxSq * y1pSq - rySq * x1pSq) /
-    (rxSq * y1pSq + rySq * x1pSq);
+  const sq = (rxSq * rySq - rxSq * y1pSq - rySq * x1pSq) / (rxSq * y1pSq + rySq * x1pSq);
   const coef = sign * Math.sqrt(Math.max(0, sq));
   const cxp = (coef * rx * y1p) / ry;
   const cyp = (-coef * ry * x1p) / rx;
@@ -231,12 +226,7 @@ function arcToCubics(
   };
   const theta1 = angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
   let delta =
-    angle(
-      (x1p - cxp) / rx,
-      (y1p - cyp) / ry,
-      (-x1p - cxp) / rx,
-      (-y1p - cyp) / ry,
-    ) % (2 * Math.PI);
+    angle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry) % (2 * Math.PI);
   if (!sweep && delta > 0) delta -= 2 * Math.PI;
   if (sweep && delta < 0) delta += 2 * Math.PI;
   const segments = Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 2)));
@@ -253,8 +243,7 @@ function arcToCubics(
     const sinT2 = Math.sin(t2);
     const ex = cx + rx * cosPhi * cosT2 - ry * sinPhi * sinT2;
     const ey = cy + rx * sinPhi * cosT2 + ry * cosPhi * sinT2;
-    const alpha =
-      (4 / 3) * Math.tan((t2 - t1) / 4);
+    const alpha = (4 / 3) * Math.tan((t2 - t1) / 4);
     const c1x = curX + alpha * (-rx * cosPhi * sinT1 - ry * sinPhi * cosT1);
     const c1y = curY + alpha * (-rx * sinPhi * sinT1 + ry * cosPhi * cosT1);
     const c2x = ex + alpha * (rx * cosPhi * sinT2 + ry * sinPhi * cosT2);
@@ -266,10 +255,7 @@ function arcToCubics(
   return result;
 }
 
-function svgPathToAss(
-  d: string,
-  transform: Transform,
-): string {
+function svgPathToAss(d: string, transform: Transform): string {
   const tokens = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g);
   if (!tokens) return "";
 
@@ -299,14 +285,7 @@ function svgPathToAss(
     const [nx, ny] = tx(x, y);
     parts.push(`l ${nx} ${ny}`);
   };
-  const emitCubic = (
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    x: number,
-    y: number,
-  ) => {
+  const emitCubic = (x1: number, y1: number, x2: number, y2: number, x: number, y: number) => {
     const [nx1, ny1] = tx(x1, y1);
     const [nx2, ny2] = tx(x2, y2);
     const [nx, ny] = tx(x, y);
@@ -419,17 +398,7 @@ function svgPathToAss(
         const sweep = readNum() !== 0;
         const x = rel ? cx + readNum() : readNum();
         const y = rel ? cy + readNum() : readNum();
-        const cubics = arcToCubics(
-          cx,
-          cy,
-          rx,
-          ry,
-          rot,
-          largeArc,
-          sweep,
-          x,
-          y,
-        );
+        const cubics = arcToCubics(cx, cy, rx, ry, rot, largeArc, sweep, x, y);
         for (const c of cubics) {
           emitCubic(c[0], c[1], c[2], c[3], c[4], c[5]);
         }
@@ -452,14 +421,7 @@ function svgPathToAss(
   return parts.join(" ");
 }
 
-function rectToPath(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  rx = 0,
-  ry = 0,
-): string {
+function rectToPath(x: number, y: number, w: number, h: number, rx = 0, ry = 0): string {
   if (rx === 0 && ry === 0) {
     return `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
   }
@@ -483,8 +445,7 @@ function getElementStyles(
       if (props) {
         if (props.fill) result.fill = props.fill;
         if (props.stroke) result.stroke = props.stroke;
-        if (props["stroke-width"])
-          result.strokeWidth = parseFloat(props["stroke-width"]);
+        if (props["stroke-width"]) result.strokeWidth = parseFloat(props["stroke-width"]);
       }
     });
   }
@@ -493,8 +454,7 @@ function getElementStyles(
     const inline = parseInlineStyle(styleAttr);
     if (inline.fill) result.fill = inline.fill;
     if (inline.stroke) result.stroke = inline.stroke;
-    if (inline["stroke-width"])
-      result.strokeWidth = parseFloat(inline["stroke-width"]);
+    if (inline["stroke-width"]) result.strokeWidth = parseFloat(inline["stroke-width"]);
   }
   if (el.getAttribute("fill")) result.fill = el.getAttribute("fill")!;
   if (el.getAttribute("stroke")) result.stroke = el.getAttribute("stroke")!;
@@ -517,17 +477,12 @@ function collectElements(
     let transform = inheritedTransform;
     const transformAttr = child.getAttribute("transform");
     if (transformAttr) {
-      transform = multiplyTransform(
-        inheritedTransform,
-        parseTransformAttr(transformAttr),
-      );
+      transform = multiplyTransform(inheritedTransform, parseTransformAttr(transformAttr));
     }
 
     const styles = getElementStyles(child, cssClasses);
     const fillAss = styles.fill ? parseCssColor(styles.fill) : undefined;
-    const strokeAss = styles.stroke
-      ? parseCssColor(styles.stroke)
-      : undefined;
+    const strokeAss = styles.stroke ? parseCssColor(styles.stroke) : undefined;
     const strokeWidth = styles.strokeWidth ?? 1;
     const fillIsNone = styles.fill === "none";
     const strokeIsNone = styles.stroke === "none" || !strokeAss;

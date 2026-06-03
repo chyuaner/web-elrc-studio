@@ -1,66 +1,66 @@
-import { LyricLine } from './lyric-utils';
+import { LyricLine } from "./lyric-utils";
 
 export function computeEffectiveStyles(lines: LyricLine[]) {
-    const lineStyles: (string | undefined)[] = [];
-    const wordStyles: (string | undefined)[][] = [];
-    const lineIsBoundary: boolean[] = [];
-    const wordIsBoundary: boolean[][] = [];
-    
-    let currentStyle: string | undefined = undefined;
+  const lineStyles: (string | undefined)[] = [];
+  const wordStyles: (string | undefined)[][] = [];
+  const lineIsBoundary: boolean[] = [];
+  const wordIsBoundary: boolean[][] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        let pLineBoundary = line.style !== undefined;
-        let effectiveLineStyle = currentStyle;
-        if (line.style) {
-            if (line.style === 'N') currentStyle = undefined;
-            else currentStyle = line.style;
-            effectiveLineStyle = currentStyle;
-        }
+  let currentStyle: string | undefined = undefined;
 
-        lineStyles.push(effectiveLineStyle);
-        lineIsBoundary.push(pLineBoundary);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-        const currentWordStyles: (string | undefined)[] = [];
-        const currentWordBoundaries: boolean[] = [];
-        let currentWordPropagatedStyle = effectiveLineStyle;
-
-        for (let j = 0; j < line.words.length; j++) {
-            const word = line.words[j];
-            let pWordBoundary = word.style !== undefined;
-            
-            if (word.style) {
-                if (word.style === 'N') {
-                    currentWordPropagatedStyle = undefined;
-                    currentStyle = undefined;
-                } else {
-                    currentWordPropagatedStyle = word.style;
-                    currentStyle = word.style;
-                }
-            }
-            
-            currentWordStyles.push(currentWordPropagatedStyle);
-            currentWordBoundaries.push(pWordBoundary);
-        }
-
-        wordStyles.push(currentWordStyles);
-        wordIsBoundary.push(currentWordBoundaries);
+    let pLineBoundary = line.style !== undefined;
+    let effectiveLineStyle = currentStyle;
+    if (line.style) {
+      if (line.style === "N") currentStyle = undefined;
+      else currentStyle = line.style;
+      effectiveLineStyle = currentStyle;
     }
-    return { lineStyles, wordStyles, lineIsBoundary, wordIsBoundary };
+
+    lineStyles.push(effectiveLineStyle);
+    lineIsBoundary.push(pLineBoundary);
+
+    const currentWordStyles: (string | undefined)[] = [];
+    const currentWordBoundaries: boolean[] = [];
+    let currentWordPropagatedStyle = effectiveLineStyle;
+
+    for (let j = 0; j < line.words.length; j++) {
+      const word = line.words[j];
+      let pWordBoundary = word.style !== undefined;
+
+      if (word.style) {
+        if (word.style === "N") {
+          currentWordPropagatedStyle = undefined;
+          currentStyle = undefined;
+        } else {
+          currentWordPropagatedStyle = word.style;
+          currentStyle = word.style;
+        }
+      }
+
+      currentWordStyles.push(currentWordPropagatedStyle);
+      currentWordBoundaries.push(pWordBoundary);
+    }
+
+    wordStyles.push(currentWordStyles);
+    wordIsBoundary.push(currentWordBoundaries);
+  }
+  return { lineStyles, wordStyles, lineIsBoundary, wordIsBoundary };
 }
 
 export function createEffectiveLines(lines: LyricLine[]): LyricLine[] {
-     const effectiveStyles = computeEffectiveStyles(lines);
-     return lines.map((line, i) => {
-         const newLine = { ...line } as any;
-         newLine.style = effectiveStyles.lineStyles[i];
-         newLine._isStyleBoundary = effectiveStyles.lineIsBoundary[i];
-         newLine.words = line.words.map((w, j) => ({
-             ...w,
-             style: effectiveStyles.wordStyles[i][j],
-             _isStyleBoundary: effectiveStyles.wordIsBoundary[i][j]
-         }));
-         return newLine;
-     });
+  const effectiveStyles = computeEffectiveStyles(lines);
+  return lines.map((line, i) => {
+    const newLine = { ...line } as any;
+    newLine.style = effectiveStyles.lineStyles[i];
+    newLine._isStyleBoundary = effectiveStyles.lineIsBoundary[i];
+    newLine.words = line.words.map((w, j) => ({
+      ...w,
+      style: effectiveStyles.wordStyles[i][j],
+      _isStyleBoundary: effectiveStyles.wordIsBoundary[i][j],
+    }));
+    return newLine;
+  });
 }

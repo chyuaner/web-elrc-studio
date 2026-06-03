@@ -1,9 +1,6 @@
-import { LyricLine, LrcMetadata, parseSeconds } from "./lyric-utils";
-import { createEffectiveLines, computeEffectiveStyles } from "./compute-styles";
-import {
-  parseSvgToAssVector,
-  scaleAssVectorPath,
-} from "./svg-to-ass-vector";
+import { createEffectiveLines } from "./compute-styles";
+import { LrcMetadata, LyricLine, parseSeconds } from "./lyric-utils";
+import { parseSvgToAssVector, scaleAssVectorPath } from "./svg-to-ass-vector";
 
 export interface AssOptions {
   primaryColor: string; // hex
@@ -65,14 +62,12 @@ const LOGO_MIN_INTERLUDE_GAP = 9.0;
 // 1. 歌詞邊框渲染模式 (LYRICS_OUTLINE_MODE)
 //    - 'simulated-dual-layer': 雙層模擬追光白邊模式（未唱白色+黑色外框，起唱漸變為設定主體色+白色外框）。
 //    - 'traditional': 傳統單層黑色邊框模式（外框永遠為完美實心黑色，歌詞本體由白字漸變為設定的主體色）。
-const LYRICS_OUTLINE_MODE: "simulated-dual-layer" | "traditional" =
-  "simulated-dual-layer";
+const LYRICS_OUTLINE_MODE: "simulated-dual-layer" | "traditional" = "simulated-dual-layer";
 
 // 2. 歌曲資訊 (前奏/間奏開始資訊) 外框構造模式 (INFO_OUTLINE_MODE)
 //    - 'simulated-dual-layer': 雙層模擬白色粗外框模式（文字本體為紅色/藍色，背底微調多層純白外框，呈現粗白描邊效果）。
 //    - 'traditional': 傳統單層黑色描邊模式（文字本體為紅色/藍色，邊框為實心黑色）。
-const INFO_OUTLINE_MODE: "simulated-dual-layer" | "traditional" =
-  "simulated-dual-layer";
+const INFO_OUTLINE_MODE: "simulated-dual-layer" | "traditional" = "simulated-dual-layer";
 
 // 3. 仿雙層邊框粗細設定 (SIMULATED_OUTLINE_WIDTH)
 //    適用於 'simulated-dual-layer' 模式，單位為像素，預設為 3。數值越大外框越粗，反之越細。
@@ -141,12 +136,17 @@ function getLineEndTime(line: LyricLine): number {
 
 function getStyleColor(styleId: string | undefined, options: AssOptions): string {
   switch (styleId?.toUpperCase()) {
-    case 'R': return hexToAssColor(options.color2);
-    case 'P': return hexToAssColor(options.color3);
-    case 'G': return hexToAssColor(options.chorusColor);
-    case 'T': return hexToAssColor('#9ca3af');
-    case 'B':
-    default: return hexToAssColor(options.primaryColor);
+    case "R":
+      return hexToAssColor(options.color2);
+    case "P":
+      return hexToAssColor(options.color3);
+    case "G":
+      return hexToAssColor(options.chorusColor);
+    case "T":
+      return hexToAssColor("#9ca3af");
+    case "B":
+    default:
+      return hexToAssColor(options.primaryColor);
   }
 }
 
@@ -169,40 +169,30 @@ export function generateAss(
   const totalFontSize = options.fontSize + (options.fontSizeOffset || 0);
   const fontSize = Math.round(totalFontSize * scale);
   const dualRowSpacing = Math.round(
-    (options.dualRowSpacing !== undefined ? options.dualRowSpacing : 30) *
-      scale,
+    (options.dualRowSpacing !== undefined ? options.dualRowSpacing : 30) * scale,
   );
   const dualRowMarginL = Math.round(
-    (options.dualRowMarginL !== undefined ? options.dualRowMarginL : 150) *
-      scale,
+    (options.dualRowMarginL !== undefined ? options.dualRowMarginL : 150) * scale,
   );
   const dualRowMarginR = Math.round(
-    (options.dualRowMarginR !== undefined ? options.dualRowMarginR : 150) *
-      scale,
+    (options.dualRowMarginR !== undefined ? options.dualRowMarginR : 150) * scale,
   );
   const dualRowMarginV = Math.round(
-    (options.dualRowMarginV !== undefined ? options.dualRowMarginV : 50) *
-      scale,
+    (options.dualRowMarginV !== undefined ? options.dualRowMarginV : 50) * scale,
   );
 
   const infoTitleFontSize = Math.round(
-    ((options.infoTitleFontSize || options.fontSize - 10) +
-      (options.fontSizeOffset || 0)) *
-      scale,
+    ((options.infoTitleFontSize || options.fontSize - 10) + (options.fontSizeOffset || 0)) * scale,
   );
   const infoFontSize = Math.round(
-    ((options.infoFontSize || options.fontSize - 40) +
-      (options.fontSizeOffset || 0)) *
-      scale,
+    ((options.infoFontSize || options.fontSize - 40) + (options.fontSizeOffset || 0)) * scale,
   );
 
   const margin48Scaled = Math.round(48 * scale);
   const outlineWidth = Math.max(
     1,
     Math.round(
-      (options.simulatedOutlineWidth !== undefined
-        ? options.simulatedOutlineWidth
-        : 3) * scale,
+      (options.simulatedOutlineWidth !== undefined ? options.simulatedOutlineWidth : 3) * scale,
     ),
   );
   const border4Scaled = Math.max(1, Math.round(4 * scale));
@@ -213,9 +203,7 @@ export function generateAss(
   // Font Fallback 機制: ASS 格式的 Style 是使用逗號 (,) 分隔各個欄位的，不能在 Fontname 裡面包含逗號，否則會導致後面的 Fontsize 解析為 0，造成字體完全無法顯示！
   // Subtitle 渲染器 (如 VSFilter, libass) 底層本身就有作業系統層級的 glyph fallback 機制。
   // 我們這邊只能指定單一的首選字體名稱。
-  const primaryFont = options.fontFamily
-    ? options.fontFamily.trim()
-    : "Noto Sans TC";
+  const primaryFont = options.fontFamily ? options.fontFamily.trim() : "Noto Sans TC";
   const finalFontChain = primaryFont;
 
   // 樣式設定
@@ -261,8 +249,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const prevIsSingle = i > 0 && !!validLines[i - 1].isSingleLine;
 
     const shouldCut =
-      (currentPara.length > 0 &&
-        line.start! - prevEnd >= options.interludeThreshold) ||
+      (currentPara.length > 0 && line.start! - prevEnd >= options.interludeThreshold) ||
       (currentPara.length > 0 && !!line.isSingleLine) ||
       (currentPara.length > 0 && line.ktvsp != null) ||
       prevIsSingle;
@@ -279,14 +266,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   let infoStart = 0.5;
   let infoEnd = DEFAULT_INFO_STAY_TIME;
   if (!options.customStartInfoTime) {
-    if (
-      paragraphs.length > 0 &&
-      paragraphs[0][0].start! < DEFAULT_INFO_STAY_TIME
-    ) {
-      const firstParaEnd = getLineEndTime(
-        paragraphs[0][paragraphs[0].length - 1],
-      );
-      const delayedStart = firstParaEnd + options.interludeBuffer + options.fadeInOutTime + INTRO_DELAY_BUFFER_TIME;
+    if (paragraphs.length > 0 && paragraphs[0][0].start! < DEFAULT_INFO_STAY_TIME) {
+      const firstParaEnd = getLineEndTime(paragraphs[0][paragraphs[0].length - 1]);
+      const delayedStart =
+        firstParaEnd + options.interludeBuffer + options.fadeInOutTime + INTRO_DELAY_BUFFER_TIME;
       if (delayedStart > options.introDelayLimit) {
         infoStart = 0.5;
         infoEnd = DEFAULT_INFO_STAY_TIME;
@@ -298,9 +281,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       infoStart = 0.5;
       infoEnd = Math.min(
         DEFAULT_INFO_STAY_TIME,
-        paragraphs.length > 0
-          ? paragraphs[0][0].start!
-          : DEFAULT_INFO_STAY_TIME,
+        paragraphs.length > 0 ? paragraphs[0][0].start! : DEFAULT_INFO_STAY_TIME,
       );
     }
   } else {
@@ -321,48 +302,48 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const dotDuration = 1.0;
   paragraphs.forEach((p, idx) => {
     const prevEnd =
-      idx > 0
-        ? getLineEndTime(paragraphs[idx - 1][paragraphs[idx - 1].length - 1])
-        : 0;
+      idx > 0 ? getLineEndTime(paragraphs[idx - 1][paragraphs[idx - 1].length - 1]) : 0;
     const gap = p[0].start! - prevEnd;
 
     let maxAdvance = p[0].start!;
     if (idx > 0) maxAdvance = gap;
     if (p[0].ktvsp != null) maxAdvance = p[0].start! - p[0].ktvsp;
 
-    const isRealInterlude = idx === 0 ? true : (gap >= options.interludeThreshold || p[0].ktvsp != null);
+    const isRealInterlude =
+      idx === 0 ? true : gap >= options.interludeThreshold || p[0].ktvsp != null;
 
     let dotCount = 0;
     if (isRealInterlude && maxAdvance > 1.0) {
       dotCount = Math.min(4, Math.floor(maxAdvance - 1.0));
-      while (dotCount > 0 && dotCount * dotDuration + 1.0 + options.fadeInOutTime > maxAdvance + 0.1) {
-          dotCount--;
+      while (
+        dotCount > 0 &&
+        dotCount * dotDuration + 1.0 + options.fadeInOutTime > maxAdvance + 0.1
+      ) {
+        dotCount--;
       }
     }
 
     let actualAdvance = 0;
     if (p[0].ktvsp != null) {
-       actualAdvance = maxAdvance;
+      actualAdvance = maxAdvance;
     } else {
-       if (dotCount > 0) {
-         actualAdvance = dotCount * dotDuration + 1.0 + options.fadeInOutTime;
-       } else {
-         actualAdvance = Math.min(2.0 + options.fadeInOutTime, maxAdvance);
-       }
+      if (dotCount > 0) {
+        actualAdvance = dotCount * dotDuration + 1.0 + options.fadeInOutTime;
+      } else {
+        actualAdvance = Math.min(2.0 + options.fadeInOutTime, maxAdvance);
+      }
     }
 
     const blockDisplayStart = Math.max(prevEnd, p[0].start! - actualAdvance);
-    const blockDisplayEnd = getLineEndTime(p[p.length - 1]) + options.interludeBuffer + options.fadeInOutTime;
+    const blockDisplayEnd =
+      getLineEndTime(p[p.length - 1]) + options.interludeBuffer + options.fadeInOutTime;
     const truncatedBlockEnd =
       idx < paragraphs.length - 1
         ? Math.min(blockDisplayEnd, paragraphs[idx + 1][0].start! - 0.1)
         : blockDisplayEnd;
 
     // 判斷兩者時間區間是否有交集 [infoStart, infoEnd] 與 [blockDisplayStart, truncatedBlockEnd]
-    if (
-      Math.max(infoStart, blockDisplayStart) <
-      Math.min(infoEnd, truncatedBlockEnd)
-    ) {
+    if (Math.max(infoStart, blockDisplayStart) < Math.min(infoEnd, truncatedBlockEnd)) {
       overlapsWithLyrics = true;
     }
   });
@@ -436,9 +417,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   if (overlapsWithLyrics && artistAlbum.length > 0) {
     // 計算歌曲詳細資訊的實際總高度 (包括新加 of 空行)
     const detailHeight = artistAlbum.length * detailFontSize;
-    titleY = Math.round(
-      detailBottomY - detailHeight - Math.round(40 * scale) - titleSize / 2,
-    );
+    titleY = Math.round(detailBottomY - detailHeight - Math.round(40 * scale) - titleSize / 2);
   }
 
   const offsets = [
@@ -503,42 +482,41 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   // 第一階段 (Pass 1)：計算所有段落的 raw 資訊
   const pInfos = paragraphs.map((p, idx) => {
     const prevEnd =
-      idx > 0
-        ? getLineEndTime(paragraphs[idx - 1][paragraphs[idx - 1].length - 1])
-        : 0;
+      idx > 0 ? getLineEndTime(paragraphs[idx - 1][paragraphs[idx - 1].length - 1]) : 0;
     const gap = p[0].start! - prevEnd;
 
     const isRealInterlude =
-      idx === 0
-        ? true
-        : (gap >= options.interludeThreshold || p[0].ktvsp != null);
+      idx === 0 ? true : gap >= options.interludeThreshold || p[0].ktvsp != null;
 
-    let maxAdvance = p[0].start!; 
+    let maxAdvance = p[0].start!;
     if (idx > 0) maxAdvance = gap;
-    
+
     // 如果有指定 ktvsp，強制重寫這段歌詞能提早進場的時間
     if (p[0].ktvsp != null) {
-       maxAdvance = p[0].start! - p[0].ktvsp;
+      maxAdvance = p[0].start! - p[0].ktvsp;
     }
 
     let dotCount = 0;
     if (isRealInterlude && maxAdvance > 1.0) {
       dotCount = Math.min(4, Math.floor(maxAdvance - 1.0));
       // 確保扣掉淡入淡出時間後，dot 不會過早出現而超出強制範圍太多
-      while (dotCount > 0 && dotCount * dotDuration + 1.0 + options.fadeInOutTime > maxAdvance + 0.1) {
-          dotCount--;
+      while (
+        dotCount > 0 &&
+        dotCount * dotDuration + 1.0 + options.fadeInOutTime > maxAdvance + 0.1
+      ) {
+        dotCount--;
       }
     }
 
     let actualAdvance = 0;
     if (p[0].ktvsp != null) {
-       actualAdvance = maxAdvance;
+      actualAdvance = maxAdvance;
     } else {
-       if (dotCount > 0) {
-         actualAdvance = dotCount * dotDuration + 1.0 + options.fadeInOutTime;
-       } else {
-         actualAdvance = Math.min(2.0 + options.fadeInOutTime, maxAdvance);
-       }
+      if (dotCount > 0) {
+        actualAdvance = dotCount * dotDuration + 1.0 + options.fadeInOutTime;
+      } else {
+        actualAdvance = Math.min(2.0 + options.fadeInOutTime, maxAdvance);
+      }
     }
 
     const blockDisplayStart = Math.max(prevEnd, p[0].start! - actualAdvance);
@@ -576,10 +554,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return pInfos[idx + 1].blockDisplayStart;
       } else {
         // 否則，依照一般的 max 消失限制 (但多留時間不要重疊到下一個的 start)
-        return Math.min(
-          info.blockDisplayEnd,
-          pInfos[idx + 1].p[0].start! - 0.1,
-        );
+        return Math.min(info.blockDisplayEnd, pInfos[idx + 1].p[0].start! - 0.1);
       }
     } else {
       return info.blockDisplayEnd;
@@ -588,12 +563,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   paragraphs.forEach((p, idx) => {
     const pInfo = pInfos[idx];
-    const {
-      blockDisplayStart,
-      dotCount,
-      isStartRealInterlude,
-      isEndRealInterlude,
-    } = pInfo;
+    const { blockDisplayStart, dotCount, isStartRealInterlude, isEndRealInterlude } = pInfo;
     const truncatedBlockEnd = finalTruncatedBlockEnds[idx];
 
     // 產生倒數小白圓的 Events
@@ -616,13 +586,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         // BottomLeft 座標，小白圓發端對齊 BottomLeft 歌詞的起始位置（外外多出 15px 左右與第一行歌詞對齊）
         xPos = currentMarginL + offset15 + dotRadius;
         // 離第一排歌詞上緣 offset20
-        yPos =
-          playResY -
-          currentMarginV -
-          fontSize -
-          dotRadius -
-          offset20 -
-          dualRowSpacing;
+        yPos = playResY - currentMarginV - fontSize - dotRadius - offset20 - dualRowSpacing;
       }
 
       for (let d = 0; d < dotCount; d++) {
@@ -670,15 +634,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       } else if (i >= 2) {
         if (i % 2 === 0) {
           const prevLine = p[i - 1];
-          const trigIdx = Math.min(
-            options.nextTriggerIndex,
-            prevLine.words.length - 1,
-          );
+          const trigIdx = Math.min(options.nextTriggerIndex, prevLine.words.length - 1);
           const trigWord = prevLine.words[trigIdx];
-          start =
-            trigWord && trigWord.start !== null
-              ? trigWord.start
-              : getLineEndTime(prevLine);
+          start = trigWord && trigWord.start !== null ? trigWord.start : getLineEndTime(prevLine);
         } else {
           const prevSameRowLine = p[i - 2];
           start = getLineEndTime(prevSameRowLine);
@@ -725,33 +683,25 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const isReallyCentered = isCentered || isSingleLine;
 
       const row = isReallyCentered ? 2 : i % 2 === 0 ? 1 : 2;
-      const style = isReallyCentered
-        ? "BottomCenter"
-        : row === 1
-          ? "BottomLeft"
-          : "BottomRight";
+      const style = isReallyCentered ? "BottomCenter" : row === 1 ? "BottomLeft" : "BottomRight";
 
-      const fadeIn =
-        displayStart === blockDisplayStart && isStartRealInterlude ? fadeMs : 0;
-      const fadeOut =
-        displayEnd === truncatedBlockEnd && isEndRealInterlude ? fadeMs : 0;
+      const fadeIn = displayStart === blockDisplayStart && isStartRealInterlude ? fadeMs : 0;
+      const fadeOut = displayEnd === truncatedBlockEnd && isEndRealInterlude ? fadeMs : 0;
 
       let karaokeStrOutline = "";
       let karaokeStrCore = "";
       let karaokeStrTraditional = "";
-      
+
       const primaryAssColor = hexToAssColor(options.primaryColor);
       const lineAssColor = getStyleColor(line.style, options);
       let lastCoreColor = lineAssColor;
-      
+
       if (lineAssColor !== primaryAssColor) {
         karaokeStrCore += `{\\1c${lineAssColor}}`;
         karaokeStrTraditional += `{\\1c${lineAssColor}}`;
       }
-      
-      const validWords = line.words.filter(
-        (w) => w.text.trim().length > 0 || w.text === " ",
-      );
+
+      const validWords = line.words.filter((w) => w.text.trim().length > 0 || w.text === " ");
 
       for (let wIdx = 0; wIdx < validWords.length; wIdx++) {
         const w = validWords[wIdx];
@@ -789,9 +739,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
               // BUT, if the next line starts in less than 30 cs, align to the next line's start
               const lineGlobalIdx = validLines.indexOf(line);
               const nextLineInSong =
-                lineGlobalIdx !== -1
-                  ? validLines[lineGlobalIdx + 1]
-                  : undefined;
+                lineGlobalIdx !== -1 ? validLines[lineGlobalIdx + 1] : undefined;
 
               if (nextLineInSong && nextLineInSong.start !== null) {
                 const gapToNextLine = nextLineInSong.start - w.start;
@@ -813,11 +761,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const wAssColor = getStyleColor(w.style || line.style, options);
         let colorTagCore = "";
         let colorTagTraditional = "";
-        
+
         if (wAssColor !== lastCoreColor) {
-           colorTagCore = `{\\1c${wAssColor}}`;
-           colorTagTraditional = `{\\1c${wAssColor}}`;
-           lastCoreColor = wAssColor;
+          colorTagCore = `{\\1c${wAssColor}}`;
+          colorTagTraditional = `{\\1c${wAssColor}}`;
+          lastCoreColor = wAssColor;
         }
 
         if (!w.text.trim()) {
@@ -894,10 +842,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if (graphic) {
       const maxLogoW = Math.round((options.logoMaxWidth ?? DEFAULT_LOGO_MAX_WIDTH) * scale);
       const maxLogoH = Math.round((options.logoMaxHeight ?? DEFAULT_LOGO_MAX_HEIGHT) * scale);
-      const fitScale = Math.min(
-        maxLogoW / graphic.width,
-        maxLogoH / graphic.height,
-      );
+      const fitScale = Math.min(maxLogoW / graphic.width, maxLogoH / graphic.height);
       const logoX = dualRowMarginL;
       const logoY = dualRowMarginV;
 
@@ -910,12 +855,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       // 2. Interludes and Outro
       for (let idx = 0; idx < paragraphs.length; idx++) {
         const logoStart = finalTruncatedBlockEnds[idx] + INTRO_DELAY_BUFFER_TIME;
-        
+
         if (idx < paragraphs.length - 1) {
           // It's an interlude between two paragraphs
           const pNextStart = pInfos[idx + 1].p[0].start!;
           const pPrevEnd = getLineEndTime(paragraphs[idx][paragraphs[idx].length - 1]);
-          
+
           const minGap = options.logoMinInterludeGap ?? LOGO_MIN_INTERLUDE_GAP;
           if (pNextStart - pPrevEnd >= minGap) {
             const logoEnd = pInfos[idx + 1].blockDisplayStart - INTRO_DELAY_BUFFER_TIME;
@@ -929,9 +874,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const logoEnd = options.songDuration;
             logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: 1000 }); // "最後1秒會再淡出"
           } else if (!options.songDuration) {
-             // Fallback if no songDuration available
-             const logoEnd = logoStart + 10.0;
-             logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+            // Fallback if no songDuration available
+            const logoEnd = logoStart + 10.0;
+            logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
           }
         }
       }
@@ -951,16 +896,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const scaledPath = scaleAssVectorPath(item.path, fitScale);
         for (const appearance of logoAppearances) {
           if (appearance.start >= appearance.end) continue;
-          
+
           const startStr = formatAssTime(appearance.start);
           const endStr = formatAssTime(appearance.end);
           const fadeText = `\\fad(${fadeMs},${appearance.fadeOutDuration})`;
-          
+
           if (item.strokeOnly && item.strokeColor) {
-            const bord = Math.max(
-              1,
-              Math.round((item.strokeWidth || 1) * fitScale),
-            );
+            const bord = Math.max(1, Math.round((item.strokeWidth || 1) * fitScale));
             ass += `Dialogue: 3,${startStr},${endStr},TopLeft,,0,0,0,,{\\an7\\pos(${logoX},${logoY})${fadeText}\\1a&HFF&\\3c${item.strokeColor}&\\bord${bord}\\shad0}{\\p1}${scaledPath}{\\p0}\n`;
           } else if (item.fillColor) {
             ass += `Dialogue: 3,${startStr},${endStr},TopLeft,,0,0,0,,{\\an7\\pos(${logoX},${logoY})${fadeText}\\c${item.fillColor}&\\bord0\\shad0\\1a&H00&}{\\p1}${scaledPath}{\\p0}\n`;
@@ -1032,6 +974,5 @@ function applyExclusions(
     result = nextResult;
   }
 
-  return result.filter(item => item.end - item.start > 0.1);
+  return result.filter((item) => item.end - item.start > 0.1);
 }
-

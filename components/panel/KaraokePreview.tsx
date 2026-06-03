@@ -1,14 +1,26 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useEditor } from '@/components/base/EditorProvider';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useSyncHotkeys } from '@/components/base/useSyncHotkeys';
+import { useEditor } from "@/components/base/EditorProvider";
+import { useSyncHotkeys } from "@/components/base/useSyncHotkeys";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 
-import { createEffectiveLines } from '@/lib/compute-styles';
+import { createEffectiveLines } from "@/lib/compute-styles";
 
 export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean }) {
-  const { lines: rawLines, activeLineIndex, activeWordIndex, trackAssignments, paragraphStarts, dualLineGapSec, syncMode, autoScrollEnabled, playerRef, isPlaying, touchUIMode } = useEditor();
+  const {
+    lines: rawLines,
+    activeLineIndex,
+    activeWordIndex,
+    trackAssignments,
+    paragraphStarts,
+    dualLineGapSec,
+    syncMode,
+    autoScrollEnabled,
+    playerRef,
+    isPlaying,
+    touchUIMode,
+  } = useEditor();
   const lines = React.useMemo(() => createEffectiveLines(rawLines), [rawLines]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -19,15 +31,16 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
   useEffect(() => {
     const handleResize = () => setIsTall(window.innerHeight > 1110);
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
     let rafId: number;
     let lastTime = 0;
     const updateTime = (timestamp: number) => {
-      if (timestamp - lastTime > 33) { // ~30fps throttle
+      if (timestamp - lastTime > 33) {
+        // ~30fps throttle
         if (playerRef.current) {
           setCurrentTime(playerRef.current.currentTime);
         }
@@ -45,9 +58,9 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
 
   const firstStampedIndex = React.useMemo(() => {
     for (let i = 0; i < lines.length; i++) {
-       if (lines[i].start !== null) {
-          return i;
-       }
+      if (lines[i].start !== null) {
+        return i;
+      }
     }
     return -1;
   }, [lines]);
@@ -64,58 +77,62 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
   };
 
   if (lines.length > 0) {
-      if (firstStampedIndex !== -1 && currentTime <= lines[firstStampedIndex].start!) {
-          previewLineIndex = firstStampedIndex;
-      } else if (activeLineIndex + 1 < lines.length) {
-         const nextLine = lines[activeLineIndex + 1];
-         const currentLineEndTime = getLineEndTime(activeLineIndex);
-         if (paragraphStarts[activeLineIndex + 1] && nextLine.start !== null && currentTime >= currentLineEndTime) {
-             const gap = nextLine.start - currentTime;
-             if (gap > 0 && gap <= dualLineGapSec) {
-                 previewLineIndex = activeLineIndex + 1;
-             }
-         }
+    if (firstStampedIndex !== -1 && currentTime <= lines[firstStampedIndex].start!) {
+      previewLineIndex = firstStampedIndex;
+    } else if (activeLineIndex + 1 < lines.length) {
+      const nextLine = lines[activeLineIndex + 1];
+      const currentLineEndTime = getLineEndTime(activeLineIndex);
+      if (
+        paragraphStarts[activeLineIndex + 1] &&
+        nextLine.start !== null &&
+        currentTime >= currentLineEndTime
+      ) {
+        const gap = nextLine.start - currentTime;
+        if (gap > 0 && gap <= dualLineGapSec) {
+          previewLineIndex = activeLineIndex + 1;
+        }
       }
+    }
   }
 
   if (lines.length > 0) {
-      let paraStart = previewLineIndex;
-      while (paraStart > 0 && !paragraphStarts[paraStart]) paraStart--;
+    let paraStart = previewLineIndex;
+    while (paraStart > 0 && !paragraphStarts[paraStart]) paraStart--;
 
-      let paraEnd = previewLineIndex + 1;
-      while (paraEnd < lines.length && !paragraphStarts[paraEnd]) paraEnd++;
+    let paraEnd = previewLineIndex + 1;
+    while (paraEnd < lines.length && !paragraphStarts[paraEnd]) paraEnd++;
 
-      const activeTrack = trackAssignments[previewLineIndex] || 0;
+    const activeTrack = trackAssignments[previewLineIndex] || 0;
 
-      if (activeTrack === 0) {
-          const pairIndex = previewLineIndex + 1;
-          if (pairIndex < paraEnd) {
-              topIndex = previewLineIndex;
-              bottomIndex = pairIndex;
-          } else {
-              topIndex = -1;
-              bottomIndex = previewLineIndex;
-          }
+    if (activeTrack === 0) {
+      const pairIndex = previewLineIndex + 1;
+      if (pairIndex < paraEnd) {
+        topIndex = previewLineIndex;
+        bottomIndex = pairIndex;
       } else {
-          bottomIndex = previewLineIndex;
-          const nextTop = previewLineIndex + 1;
-          
-          if (nextTop < paraEnd) {
-              const nextTopIsAlone = (nextTop + 1 >= paraEnd);
-              if (nextTopIsAlone) {
-                  topIndex = previewLineIndex - 1;
-              } else {
-                  topIndex = nextTop;
-              }
-          } else {
-              topIndex = previewLineIndex - 1;
-          }
+        topIndex = -1;
+        bottomIndex = previewLineIndex;
       }
+    } else {
+      bottomIndex = previewLineIndex;
+      const nextTop = previewLineIndex + 1;
+
+      if (nextTop < paraEnd) {
+        const nextTopIsAlone = nextTop + 1 >= paraEnd;
+        if (nextTopIsAlone) {
+          topIndex = previewLineIndex - 1;
+        } else {
+          topIndex = nextTop;
+        }
+      } else {
+        topIndex = previewLineIndex - 1;
+      }
+    }
   }
 
   if (lines.length > 0 && lines[previewLineIndex]?.isSingleLine) {
-      topIndex = -1;
-      bottomIndex = previewLineIndex;
+    topIndex = -1;
+    bottomIndex = previewLineIndex;
   }
 
   const isTopOnly = topIndex !== -1 && bottomIndex === -1;
@@ -139,118 +156,189 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
       const newWidth = document.body.clientWidth - e.clientX - 16; // minus padding
       setTouchBtnWidth(Math.max(80, Math.min(document.body.clientWidth * 0.7, newWidth)));
     };
-    
+
     const onPointerUp = () => {
       if (dragRef.current) {
         dragRef.current = false;
-        document.body.style.cursor = 'default';
-        document.body.classList.remove('is-dragging-resizer');
+        document.body.style.cursor = "default";
+        document.body.classList.remove("is-dragging-resizer");
       }
     };
-    
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
     return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
     };
   }, []);
 
   const getStyleClasses = (style?: string) => {
-      switch (style?.toUpperCase()) {
-         case 'B': return { past: 'text-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]', current: 'text-blue-100 border-blue-500', future: 'text-blue-500/40', wordBg: 'bg-blue-500/20' };
-         case 'R': return { past: 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]', current: 'text-red-100 border-red-500', future: 'text-red-500/40', wordBg: 'bg-red-500/20' };
-         case 'P': return { past: 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]', current: 'text-purple-100 border-purple-500', future: 'text-purple-500/40', wordBg: 'bg-purple-500/20' };
-         case 'G': return { past: 'text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]', current: 'text-green-100 border-green-500', future: 'text-green-500/40', wordBg: 'bg-green-500/20' };
-         case 'T': return { past: 'text-gray-500 drop-shadow-[0_0_8px_rgba(107,114,128,0.8)]', current: 'text-gray-100 border-gray-500', future: 'text-gray-500/40', wordBg: 'bg-gray-500/20' };
-         default: return { past: 'text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)]', current: 'text-[var(--app-text-primary)] border-[var(--app-accent)]', future: 'text-[var(--app-text-muted)]', wordBg: 'bg-[var(--app-accent)]/20' };
-      }
+    switch (style?.toUpperCase()) {
+      case "B":
+        return {
+          past: "text-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]",
+          current: "text-blue-100 border-blue-500",
+          future: "text-blue-500/40",
+          wordBg: "bg-blue-500/20",
+        };
+      case "R":
+        return {
+          past: "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]",
+          current: "text-red-100 border-red-500",
+          future: "text-red-500/40",
+          wordBg: "bg-red-500/20",
+        };
+      case "P":
+        return {
+          past: "text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]",
+          current: "text-purple-100 border-purple-500",
+          future: "text-purple-500/40",
+          wordBg: "bg-purple-500/20",
+        };
+      case "G":
+        return {
+          past: "text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]",
+          current: "text-green-100 border-green-500",
+          future: "text-green-500/40",
+          wordBg: "bg-green-500/20",
+        };
+      case "T":
+        return {
+          past: "text-gray-500 drop-shadow-[0_0_8px_rgba(107,114,128,0.8)]",
+          current: "text-gray-100 border-gray-500",
+          future: "text-gray-500/40",
+          wordBg: "bg-gray-500/20",
+        };
+      default:
+        return {
+          past: "text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)]",
+          current: "text-[var(--app-text-primary)] border-[var(--app-accent)]",
+          future: "text-[var(--app-text-muted)]",
+          wordBg: "bg-[var(--app-accent)]/20",
+        };
+    }
   };
 
   const getWordColor = (lineIdx: number, wordIdx: number) => {
-      const line = lines[lineIdx];
-      const word = line?.words[wordIdx];
-      const effectiveStyle = word?.style || line?.style;
-      const theme = getStyleClasses(effectiveStyle);
+    const line = lines[lineIdx];
+    const word = line?.words[wordIdx];
+    const effectiveStyle = word?.style || line?.style;
+    const theme = getStyleClasses(effectiveStyle);
 
-      if (lineIdx < activeLineIndex) {
-          return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-      } else if (lineIdx === activeLineIndex) {
-          const isLineSynced = lines[lineIdx].words.every((w: any) => w.start === null);
-          if (syncMode === 'line' || isLineSynced) {
-              return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
-          }
-          if (wordIdx < activeWordIndex) {
-              return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-          } else if (wordIdx === activeWordIndex) {
-              return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
-          } else {
-              return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
-          }
-      } else {
-          return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+    if (lineIdx < activeLineIndex) {
+      return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
+    } else if (lineIdx === activeLineIndex) {
+      const isLineSynced = lines[lineIdx].words.every((w: any) => w.start === null);
+      if (syncMode === "line" || isLineSynced) {
+        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
       }
+      if (wordIdx < activeWordIndex) {
+        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
+      } else if (wordIdx === activeWordIndex) {
+        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+      } else {
+        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+      }
+    } else {
+      return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+    }
   };
 
   let dotsCount = 0;
 
-  if (autoScrollEnabled && lines.length > 0 && lines[previewLineIndex]?.start !== null && paragraphStarts[previewLineIndex]) {
-      let prevEnd = 0;
-      if (previewLineIndex > 0) {
-          prevEnd = getLineEndTime(previewLineIndex - 1);
+  if (
+    autoScrollEnabled &&
+    lines.length > 0 &&
+    lines[previewLineIndex]?.start !== null &&
+    paragraphStarts[previewLineIndex]
+  ) {
+    let prevEnd = 0;
+    if (previewLineIndex > 0) {
+      prevEnd = getLineEndTime(previewLineIndex - 1);
+    }
+
+    const realGap = lines[previewLineIndex].start! - prevEnd;
+    const isRealInterlude =
+      previewLineIndex === 0
+        ? lines[previewLineIndex].start! >= dualLineGapSec
+        : realGap >= dualLineGapSec;
+
+    if (isRealInterlude && currentTime >= prevEnd) {
+      const start = lines[previewLineIndex].start!;
+      const timeLeft = start - currentTime;
+      if (timeLeft > 0) {
+        dotsCount = Math.max(0, Math.min(4, Math.ceil(timeLeft - 1)));
       }
-      
-      const realGap = lines[previewLineIndex].start! - prevEnd;
-      const isRealInterlude = previewLineIndex === 0 ? (lines[previewLineIndex].start! >= dualLineGapSec) : (realGap >= dualLineGapSec);
-      
-      if (isRealInterlude && currentTime >= prevEnd) {
-          const start = lines[previewLineIndex].start!;
-          const timeLeft = start - currentTime;
-          if (timeLeft > 0) {
-              dotsCount = Math.max(0, Math.min(4, Math.ceil(timeLeft - 1)));
-          }
-      }
+    }
   }
 
   const DotNode = (
-      <svg width="1em" height="1em" viewBox="0 0 24 24" className="drop-shadow-sm overflow-visible inline-block align-text-bottom mx-1">
-         <circle cx="12" cy="12" r="15" fill="white" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--app-border-light)' }} />
-      </svg>
+    <svg
+      width="1em"
+      height="1em"
+      viewBox="0 0 24 24"
+      className="drop-shadow-sm overflow-visible inline-block align-text-bottom mx-1"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="15"
+        fill="white"
+        stroke="currentColor"
+        strokeWidth="2"
+        style={{ color: "var(--app-border-light)" }}
+      />
+    </svg>
   );
 
   return (
-    <div 
-      className={`flex flex-col border-t border-b border-[var(--app-border-base)] bg-[var(--app-bg-panel-alt)] shrink-0 ${isTall ? 'static shadow-none' : 'sticky lg:static shadow-sm lg:shadow-none'} z-[35]`}
-      style={{ top: isTall ? undefined : 'calc(var(--media-controls-height, 0px))' }}
+    <div
+      className={`flex flex-col border-t border-b border-[var(--app-border-base)] bg-[var(--app-bg-panel-alt)] shrink-0 ${isTall ? "static shadow-none" : "sticky lg:static shadow-sm lg:shadow-none"} z-[35]`}
+      style={{ top: isTall ? undefined : "calc(var(--media-controls-height, 0px))" }}
     >
       <div className="flex justify-center items-center px-4 py-2 relative">
-        <label className="text-[10px] text-[var(--app-text-muted)] uppercase font-bold tracking-widest text-center cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <label
+          className="text-[10px] text-[var(--app-text-muted)] uppercase font-bold tracking-widest text-center cursor-pointer"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
           Karaoke Preview
         </label>
-        <button onClick={() => setIsCollapsed(!isCollapsed)} className="absolute right-4 text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)] transition-colors p-1">
-           {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute right-4 text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)] transition-colors p-1"
+        >
+          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
       </div>
-      
+
       {!isCollapsed && (
         <div className="flex px-4 pb-4 gap-4 relative">
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-            <div className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isTopOnly ? 'justify-center' : 'justify-start'} ${topIsActive ? '' : 'opacity-70'}`}>
+            <div
+              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isTopOnly ? "justify-center" : "justify-start"} ${topIsActive ? "" : "opacity-70"}`}
+            >
               <div className="relative w-full">
                 {lines[topIndex] ? (
                   <>
                     {topIsActive && dotsCount > 0 && (
-                        <span className={`absolute bottom-full mb-3 flex gap-2 ${isTopOnly ? 'left-1/2 -translate-x-1/2' : 'left-0'}`}>
-                           {[...Array(dotsCount)].map((_, i) => <React.Fragment key={i}>{DotNode}</React.Fragment>)}
-                        </span>
+                      <span
+                        className={`absolute bottom-full mb-3 flex gap-2 ${isTopOnly ? "left-1/2 -translate-x-1/2" : "left-0"}`}
+                      >
+                        {[...Array(dotsCount)].map((_, i) => (
+                          <React.Fragment key={i}>{DotNode}</React.Fragment>
+                        ))}
+                      </span>
                     )}
                     <div className="overflow-hidden w-full">
-                      <p className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopOnly ? 'justify-center text-center' : 'justify-start text-left'}`}>
+                      <p
+                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopOnly ? "justify-center text-center" : "justify-start text-left"}`}
+                      >
                         {lines[topIndex].words.map((w: any, i: number) => (
                           <span key={i} className={getWordColor(topIndex, i)}>
-                            {w.text || (i === lines[topIndex].words.length - 1 ? '⏎' : '')}
+                            {w.text || (i === lines[topIndex].words.length - 1 ? "⏎" : "")}
                           </span>
                         ))}
                       </p>
@@ -259,9 +347,11 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                 ) : (
                   <>
                     {topIsActive && dotsCount > 0 && (
-                        <span className="absolute bottom-full mb-3 left-0 flex gap-2">
-                           {[...Array(dotsCount)].map((_, i) => <React.Fragment key={i}>{DotNode}</React.Fragment>)}
-                        </span>
+                      <span className="absolute bottom-full mb-3 left-0 flex gap-2">
+                        {[...Array(dotsCount)].map((_, i) => (
+                          <React.Fragment key={i}>{DotNode}</React.Fragment>
+                        ))}
+                      </span>
                     )}
                     <div className="overflow-hidden w-full">
                       <p className="text-xl md:text-2xl font-bold w-full h-full flex items-center justify-start flex-nowrap whitespace-nowrap">
@@ -272,82 +362,96 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                 )}
               </div>
             </div>
-  
-            <div className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isBottomOnly ? 'justify-center' : 'justify-end'} ${bottomIsActive ? '' : 'opacity-70'}`}>
+
+            <div
+              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isBottomOnly ? "justify-center" : "justify-end"} ${bottomIsActive ? "" : "opacity-70"}`}
+            >
               <div className="relative w-full">
                 {lines[bottomIndex] ? (
                   <>
                     {bottomIsActive && dotsCount > 0 && (
-                         <span className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? 'left-1/2 -translate-x-1/2' : 'right-0'}`}>
-                            {[...Array(dotsCount)].map((_, i) => <React.Fragment key={i}>{DotNode}</React.Fragment>)}
-                         </span>
+                      <span
+                        className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? "left-1/2 -translate-x-1/2" : "right-0"}`}
+                      >
+                        {[...Array(dotsCount)].map((_, i) => (
+                          <React.Fragment key={i}>{DotNode}</React.Fragment>
+                        ))}
+                      </span>
                     )}
                     <div className="overflow-hidden w-full">
-                      <p className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomOnly ? 'justify-center text-center' : 'justify-end text-right'}`}>
+                      <p
+                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomOnly ? "justify-center text-center" : "justify-end text-right"}`}
+                      >
                         {lines[bottomIndex].words.map((w: any, i: number) => (
-                           <span key={i} className={getWordColor(bottomIndex, i)}>
-                             {w.text || (i === lines[bottomIndex].words.length - 1 ? '⏎' : '')}
-                           </span>
+                          <span key={i} className={getWordColor(bottomIndex, i)}>
+                            {w.text || (i === lines[bottomIndex].words.length - 1 ? "⏎" : "")}
+                          </span>
                         ))}
                       </p>
                     </div>
                   </>
                 ) : (
-                   <>
-                     {bottomIsActive && dotsCount > 0 && (
-                         <span className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? 'left-1/2 -translate-x-1/2' : 'right-0'}`}>
-                            {[...Array(dotsCount)].map((_, i) => <React.Fragment key={i}>{DotNode}</React.Fragment>)}
-                         </span>
-                     )}
-                     <div className="overflow-hidden w-full">
-                       <p className={`text-xl md:text-2xl font-bold w-full h-full flex items-center flex-nowrap whitespace-nowrap ${isBottomOnly ? 'justify-center' : 'justify-end'}`}>
-                         &nbsp;
-                       </p>
-                     </div>
-                   </>
+                  <>
+                    {bottomIsActive && dotsCount > 0 && (
+                      <span
+                        className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? "left-1/2 -translate-x-1/2" : "right-0"}`}
+                      >
+                        {[...Array(dotsCount)].map((_, i) => (
+                          <React.Fragment key={i}>{DotNode}</React.Fragment>
+                        ))}
+                      </span>
+                    )}
+                    <div className="overflow-hidden w-full">
+                      <p
+                        className={`text-xl md:text-2xl font-bold w-full h-full flex items-center flex-nowrap whitespace-nowrap ${isBottomOnly ? "justify-center" : "justify-end"}`}
+                      >
+                        &nbsp;
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           </div>
-          
+
           {touchUIMode && !hideTouchUI && (
             <>
-              <div 
+              <div
                 className="w-4 -ml-2 -mr-2 cursor-col-resize flex justify-center items-center hover:bg-[var(--app-border-light)] hover:opacity-50 transition-colors z-10 touch-none"
                 onPointerDown={(e) => {
                   dragRef.current = true;
                   e.currentTarget.setPointerCapture(e.pointerId);
-                  document.body.style.cursor = 'col-resize';
-                  document.body.classList.add('is-dragging-resizer');
+                  document.body.style.cursor = "col-resize";
+                  document.body.classList.add("is-dragging-resizer");
                 }}
               >
                 <div className="w-1 h-8 rounded-full bg-[var(--app-text-muted)] opacity-30"></div>
               </div>
               <div style={{ width: touchBtnWidth }} className="shrink-0 flex flex-col gap-2">
-                 <button 
-                   autoFocus={false}
-                   onClick={(e) => {
-                       e.preventDefault();
-                       e.currentTarget.blur();
-                       syncMode === 'line' ? handleLineStamp() : handleWordStamp();
-                   }} 
-                   className="flex-1 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] active:bg-[var(--app-accent-hover)] text-black rounded-lg shadow font-extrabold text-xl md:text-3xl select-none transition-all flex items-center justify-center -outline-offset-2 touch-manipulation focus:outline-none"
-                 >
-                   打點
-                 </button>
-                 {syncMode === 'word' && (
-                   <button 
-                     autoFocus={false}
-                     onClick={(e) => {
-                         e.preventDefault();
-                         e.currentTarget.blur();
-                         handleWordNextLine();
-                     }}
-                     className="h-[3rem] bg-[var(--app-bg-panel)] hover:bg-[var(--app-bg-hover)] active:bg-[var(--app-border-base)] text-[var(--app-text-primary)] rounded-lg shadow font-extrabold text-lg md:text-xl border border-[var(--app-border-base)] select-none transition-all flex items-center justify-center -outline-offset-2 touch-manipulation focus:outline-none"
-                   >
-                     換行
-                   </button>
-                 )}
+                <button
+                  autoFocus={false}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                    syncMode === "line" ? handleLineStamp() : handleWordStamp();
+                  }}
+                  className="flex-1 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] active:bg-[var(--app-accent-hover)] text-black rounded-lg shadow font-extrabold text-xl md:text-3xl select-none transition-all flex items-center justify-center -outline-offset-2 touch-manipulation focus:outline-none"
+                >
+                  打點
+                </button>
+                {syncMode === "word" && (
+                  <button
+                    autoFocus={false}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                      handleWordNextLine();
+                    }}
+                    className="h-[3rem] bg-[var(--app-bg-panel)] hover:bg-[var(--app-bg-hover)] active:bg-[var(--app-border-base)] text-[var(--app-text-primary)] rounded-lg shadow font-extrabold text-lg md:text-xl border border-[var(--app-border-base)] select-none transition-all flex items-center justify-center -outline-offset-2 touch-manipulation focus:outline-none"
+                  >
+                    換行
+                  </button>
+                )}
               </div>
             </>
           )}

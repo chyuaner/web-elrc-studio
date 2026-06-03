@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
 import { useEditor } from "@/components/base/EditorProvider";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function usePlaybackActions() {
   const {
@@ -68,10 +68,7 @@ export function usePlaybackActions() {
   const seekBy = useCallback(
     (sec: number) => {
       if (playerRef.current) {
-        playerRef.current.currentTime = Math.max(
-          0,
-          playerRef.current.currentTime + sec,
-        );
+        playerRef.current.currentTime = Math.max(0, playerRef.current.currentTime + sec);
       }
     },
     [playerRef],
@@ -85,11 +82,7 @@ export function usePlaybackActions() {
     if (!playerRef.current) return;
     const curr = playerRef.current.currentTime;
     for (let i = 0; i < lines.length; i++) {
-      if (
-        paragraphStarts[i] &&
-        lines[i].start !== null &&
-        lines[i].start! > curr + 1.0
-      ) {
+      if (paragraphStarts[i] && lines[i].start !== null && lines[i].start! > curr + 1.0) {
         playerRef.current.currentTime = Math.max(0, lines[i].start! - 5.5);
         break;
       }
@@ -124,9 +117,7 @@ export function usePlaybackActions() {
       title: metadata?.title || file?.name || "Unknown Track",
       artist: metadata?.artist || "",
       album: metadata?.album || "",
-      artwork: metadata?.picture
-        ? [{ src: metadata.picture, type: metadata.format }]
-        : [],
+      artwork: metadata?.picture ? [{ src: metadata.picture, type: metadata.format }] : [],
     });
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
 
@@ -151,12 +142,9 @@ export function usePlaybackActions() {
 
     try {
       // @ts-ignore
-      navigator.mediaSession.setActionHandler(
-        "playbackratechange" as any,
-        (details: any) => {
-          if (details.playbackRate) setPlaybackRate(details.playbackRate);
-        },
-      );
+      navigator.mediaSession.setActionHandler("playbackratechange" as any, (details: any) => {
+        if (details.playbackRate) setPlaybackRate(details.playbackRate);
+      });
     } catch (e) {}
 
     try {

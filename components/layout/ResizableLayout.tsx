@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect, MouseEvent } from "react";
-import { MediaPlayer } from "@/components/panel/MediaPlayer";
-import { LeftPanelInfo } from "@/components/panel/LeftPanelInfo";
 import { EditorView } from "@/components/layout/EditorView";
+import { LeftPanelInfo } from "@/components/panel/LeftPanelInfo";
+import { MediaPlayer } from "@/components/panel/MediaPlayer";
+import React, { useEffect, useRef, useState } from "react";
 
 export function ResizableLayout() {
   const [leftWidth, setLeftWidth] = useState(380);
@@ -60,11 +60,7 @@ export function ResizableLayout() {
     >
       {/* Left side: Media Player Component and Info Tabs */}
       <div
-        style={
-          isMobile
-            ? undefined
-            : { width: `${leftWidth}px`, minWidth: `${leftWidth}px` }
-        }
+        style={isMobile ? undefined : { width: `${leftWidth}px`, minWidth: `${leftWidth}px` }}
         className={
           isMobile && !isTall
             ? "contents"

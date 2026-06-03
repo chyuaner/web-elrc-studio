@@ -21,19 +21,19 @@ export const defaultI18n = {
   noLyrics: "無歌詞",
   embeddedTag: "內嵌標籤",
   export: "匯出",
-  
+
   // Dialogs
   confirmDiscardMedia: "確定要捨棄目前的媒體檔案嗎？",
   confirmDiscardLyrics: "確定要捨棄目前的歌詞嗎？",
   confirmEmbeddedLyrics: "載入內嵌歌詞將會捨棄目前的歌詞。是否繼續？",
   promptShiftTime: "將接下來的時間軸平移 X 秒 (例如 0.5 或 -1.2)：",
-  
+
   // Editor View
   tabText: "編輯原始文字",
   tabSync: "動態歌詞編輯",
   tabDualSync: "雙行動態歌詞編輯",
   tabRaw: "預覽",
-  
+
   // Left Panel
   tabMetadata: "音樂資訊",
   tabInstructions: "操作說明",
@@ -70,7 +70,7 @@ export const defaultI18n = {
   advanceLineLabel: "提前換行",
   advanceLineSub: "(逐字模式)",
   noMetadata: "尚未載入資訊。請載入音檔以讀取 ID3 標籤。",
-  
+
   // Sync Editor
   syncModeLine: "行同步",
   syncModeWord: "逐字同步",
@@ -94,7 +94,7 @@ export const defaultI18n = {
   action: "操作",
   editText: "編輯文字",
   clearTimestamps: "清除時間戳",
-  deleteLine: "刪除行"
+  deleteLine: "刪除行",
 };
 
 export type I18nDict = typeof defaultI18n;
@@ -105,12 +105,12 @@ export const AppI18n = {
   get: () => currentI18n,
   set: (newI18n: Partial<I18nDict>) => {
     currentI18n = { ...currentI18n, ...newI18n };
-    if (typeof window !== 'undefined') {
-       window.dispatchEvent(new CustomEvent('app-i18n-update'));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("app-i18n-update"));
     }
-  }
+  },
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   (window as any).AppI18n = AppI18n;
 }

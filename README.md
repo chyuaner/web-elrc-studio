@@ -8,21 +8,21 @@
 
 ```css
 :root {
-  --app-bg-base: #0F1115;       /* 應用程式主背景 */
-  --app-bg-panel: #1A1D23;      /* 頂部/面板背景 */
-  --app-bg-panel-alt: #16191E;  /* 側邊欄/預覽區背景 */
-  --app-bg-input: #08090C;      /* 輸入框背景 */
-  --app-bg-hover: #3D444D;      /* hover 狀態背景 */
-  --app-border-base: #2D333B;   /* 邊框基底色 */
-  --app-border-light: #444C56;  /* 亮部邊框色 */
-  --app-text-primary: #ffffff;  /* 主要文字色 */
-  --app-text-secondary: #E0E0E0;/* 次要文字色 */
-  --app-text-muted: #7D8590;    /* 靜音/輔助文字色 */
-  --app-accent: #F27D26;        /* 強調色 (橘) */
-  --app-accent-hover: #E26D16;  /* 強調色 hover */
+  --app-bg-base: #0f1115; /* 應用程式主背景 */
+  --app-bg-panel: #1a1d23; /* 頂部/面板背景 */
+  --app-bg-panel-alt: #16191e; /* 側邊欄/預覽區背景 */
+  --app-bg-input: #08090c; /* 輸入框背景 */
+  --app-bg-hover: #3d444d; /* hover 狀態背景 */
+  --app-border-base: #2d333b; /* 邊框基底色 */
+  --app-border-light: #444c56; /* 亮部邊框色 */
+  --app-text-primary: #ffffff; /* 主要文字色 */
+  --app-text-secondary: #e0e0e0; /* 次要文字色 */
+  --app-text-muted: #7d8590; /* 靜音/輔助文字色 */
+  --app-accent: #f27d26; /* 強調色 (橘) */
+  --app-accent-hover: #e26d16; /* 強調色 hover */
 
   /* 作業系統原生視窗控制按鈕預留空間 */
-  --titlebar-left-padding: 0px; 
+  --titlebar-left-padding: 0px;
   --titlebar-right-padding: 0px;
 }
 ```
@@ -35,11 +35,12 @@
 
 ```javascript
 // 在 Tauri 中，如果是 macOS，為左側設定預留空間；若是 Windows，為右側設定。
-document.documentElement.style.setProperty('--titlebar-left-padding', '70px'); // 例如 macOS
+document.documentElement.style.setProperty("--titlebar-left-padding", "70px"); // 例如 macOS
 // document.documentElement.style.setProperty('--titlebar-right-padding', '120px'); // 例如 Windows
 ```
 
 此外，頂部工具列已經使用了可以被拖曳的 `app-region-drag` class，你可以在你的 global CSS 內進一步加上 Tauri 特定的拖曳宣告 (如果版本需要的話):
+
 ```css
 /* Tauri drag region 範例 */
 .app-region-drag {
@@ -76,6 +77,7 @@ document.documentElement.style.setProperty('--titlebar-left-padding', '70px'); /
   - `shiftTime()`: 開啟全域時間平移調整對話框。
 
 ### Tauri 呼叫範例 (Rust 呼叫 Web)：
+
 ```rust
 // 觸發前端載入音檔對話框
 window.eval("if (window.AppCommands && window.AppCommands.loadMedia) window.AppCommands.loadMedia();");
@@ -85,4 +87,5 @@ window.eval("if (window.AppCommands && window.AppCommands.undo) window.AppComman
 ```
 
 ---
+
 此設計將視圖邏輯、狀態管理與外部控制邏輯拆分，為未來跨平台與桌面端封裝提供最高彈性！

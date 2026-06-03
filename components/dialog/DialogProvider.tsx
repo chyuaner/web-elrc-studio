@@ -1,6 +1,6 @@
-'use client';
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { BaseDialog } from './BaseDialog';
+"use client";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { BaseDialog } from "./BaseDialog";
 
 type DialogContextType = {
   alert: (msg: string) => Promise<void>;
@@ -12,9 +12,9 @@ const DialogContext = createContext<DialogContextType | null>(null);
 
 // Safely call Tauri's invoke only in a Tauri context
 const invokeTauri = async (cmd: string, args?: Record<string, unknown>) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
+    const { invoke } = await import("@tauri-apps/api/core");
     await invoke(cmd, args);
   } catch {
     // Not in Tauri context or command not found — silently ignore
@@ -23,21 +23,28 @@ const invokeTauri = async (cmd: string, args?: Record<string, unknown>) => {
 
 export function useDialogs() {
   const ctx = useContext(DialogContext);
-  if (!ctx) throw new Error('useDialogs must be used within DialogProvider');
+  if (!ctx) throw new Error("useDialogs must be used within DialogProvider");
   return ctx;
 }
 
 export function DialogProvider({ children }: { children: ReactNode }) {
   const [alertState, setAlertState] = useState<{ msg: string; resolve: () => void } | null>(null);
-  const [confirmState, setConfirmState] = useState<{ msg: string; resolve: (val: boolean) => void } | null>(null);
-  const [promptState, setPromptState] = useState<{ msg: string; defaultVal: string; resolve: (val: string | null) => void } | null>(null);
-  const [promptInput, setPromptInput] = useState('');
+  const [confirmState, setConfirmState] = useState<{
+    msg: string;
+    resolve: (val: boolean) => void;
+  } | null>(null);
+  const [promptState, setPromptState] = useState<{
+    msg: string;
+    defaultVal: string;
+    resolve: (val: string | null) => void;
+  } | null>(null);
+  const [promptInput, setPromptInput] = useState("");
 
   // Whenever a dialog opens or closes, sync the Linux GTK titlebar button sensitivity.
   // On non-Linux or non-Tauri platforms this is a no-op (invokeTauri handles that gracefully).
   useEffect(() => {
     const dialogOpen = alertState !== null || confirmState !== null || promptState !== null;
-    invokeTauri('set_titlebar_buttons_enabled', { enabled: !dialogOpen });
+    invokeTauri("set_titlebar_buttons_enabled", { enabled: !dialogOpen });
   }, [alertState, confirmState, promptState]);
 
   const alert = (msg: string) => {
@@ -52,7 +59,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const prompt = (msg: string, defaultVal = '') => {
+  const prompt = (msg: string, defaultVal = "") => {
     return new Promise<string | null>((resolve) => {
       setPromptInput(defaultVal);
       setPromptState({ msg, defaultVal, resolve });
@@ -83,7 +90,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   return (
     <DialogContext.Provider value={{ alert, confirm, prompt }}>
       {children}
-      
+
       {/* Alert Modal */}
       <BaseDialog
         isOpen={alertState !== null}
@@ -92,9 +99,11 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         maxWidthClass="max-w-sm"
         closeOnOverlayClick={false}
       >
-        <p className="text-[var(--app-text-secondary)] mb-6 whitespace-pre-wrap text-sm leading-relaxed">{alertState?.msg}</p>
+        <p className="text-[var(--app-text-secondary)] mb-6 whitespace-pre-wrap text-sm leading-relaxed">
+          {alertState?.msg}
+        </p>
         <div className="flex justify-end">
-          <button 
+          <button
             onClick={handleAlertClose}
             className="px-5 py-2 rounded bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-semibold text-xs transition-colors"
           >
@@ -102,7 +111,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           </button>
         </div>
       </BaseDialog>
-      
+
       {/* Confirm Modal */}
       <BaseDialog
         isOpen={confirmState !== null}
@@ -111,15 +120,17 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         maxWidthClass="max-w-sm"
         closeOnOverlayClick={false}
       >
-        <p className="text-[var(--app-text-secondary)] mb-6 whitespace-pre-wrap text-sm leading-relaxed">{confirmState?.msg}</p>
+        <p className="text-[var(--app-text-secondary)] mb-6 whitespace-pre-wrap text-sm leading-relaxed">
+          {confirmState?.msg}
+        </p>
         <div className="flex justify-end gap-3">
-          <button 
+          <button
             onClick={() => handleConfirmClose(false)}
             className="px-4 py-2 rounded text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-border-base)] font-semibold transition-colors"
           >
             取消
           </button>
-          <button 
+          <button
             onClick={() => handleConfirmClose(true)}
             className="px-5 py-2 rounded bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-semibold text-xs transition-colors"
           >
@@ -136,26 +147,28 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         maxWidthClass="max-w-sm"
         closeOnOverlayClick={false}
       >
-        <p className="text-[var(--app-text-secondary)] mb-4 text-sm leading-relaxed">{promptState?.msg}</p>
-        <input 
-          type="text" 
+        <p className="text-[var(--app-text-secondary)] mb-4 text-sm leading-relaxed">
+          {promptState?.msg}
+        </p>
+        <input
+          type="text"
           autoFocus
           className="w-full bg-[var(--app-bg-base)] border border-[var(--app-border-base)] rounded p-2 text-[var(--app-text-primary)] mb-6 outline-none focus:border-[var(--app-accent)] transition-colors font-mono text-xs"
           value={promptInput}
           onChange={(e) => setPromptInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handlePromptClose(true);
-            if (e.key === 'Escape') handlePromptClose(false);
+            if (e.key === "Enter") handlePromptClose(true);
+            if (e.key === "Escape") handlePromptClose(false);
           }}
         />
         <div className="flex justify-end gap-3">
-          <button 
+          <button
             onClick={() => handlePromptClose(false)}
             className="px-4 py-2 rounded text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-border-base)] font-semibold transition-colors"
           >
             取消
           </button>
-          <button 
+          <button
             onClick={() => handlePromptClose(true)}
             className="px-5 py-2 rounded bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-semibold text-xs transition-colors"
           >

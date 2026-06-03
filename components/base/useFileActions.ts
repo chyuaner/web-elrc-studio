@@ -1,9 +1,9 @@
-import { useCallback, useRef, useEffect } from "react";
 import { useEditor } from "@/components/base/EditorProvider";
-import { parseRawLyrics, exportLrc, exportSrt } from "@/lib/lyric-utils";
-import { extractFlacMetadata } from "@/lib/media-utils";
 import { useDialogs } from "@/components/dialog/DialogProvider";
 import { useI18n } from "@/hooks/useI18n";
+import { exportLrc, exportSrt, parseRawLyrics } from "@/lib/lyric-utils";
+import { extractFlacMetadata } from "@/lib/media-utils";
+import { useCallback } from "react";
 
 export function useFileActions() {
   const {
@@ -58,10 +58,7 @@ export function useFileActions() {
         if (!electronAPI || skipAutoLoadLyrics) return false;
         try {
           const parsed = await electronAPI.pathParse(audioPath);
-          const lrcPath = await electronAPI.pathJoin(
-            parsed.dir,
-            parsed.name + ".lrc",
-          );
+          const lrcPath = await electronAPI.pathJoin(parsed.dir, parsed.name + ".lrc");
           if (await electronAPI.fsExists(lrcPath)) {
             if (lines.length > 0) {
               const confirmed = await dialogs.confirm(
@@ -96,9 +93,7 @@ export function useFileActions() {
           try {
             const parsedMetadata = await mm.parseBlob(f);
             setAudioSpecs({
-              format:
-                parsedMetadata.format?.container ||
-                f.name.split(".").pop()?.toUpperCase(),
+              format: parsedMetadata.format?.container || f.name.split(".").pop()?.toUpperCase(),
               bitrate: parsedMetadata.format?.bitrate
                 ? Math.round(parsedMetadata.format.bitrate / 1000).toString()
                 : undefined,
@@ -113,26 +108,17 @@ export function useFileActions() {
           setAudioSpecs({ format: f.name.split(".").pop()?.toUpperCase() });
         });
 
-      if (
-        f.name.toLowerCase().endsWith(".flac") &&
-        typeof window !== "undefined"
-      ) {
+      if (f.name.toLowerCase().endsWith(".flac") && typeof window !== "undefined") {
         try {
           const slice = f.slice(0, 20 * 1024 * 1024);
           const arrayBuffer = await slice.arrayBuffer();
           const { tags, covers } = extractFlacMetadata(arrayBuffer);
           let foundLyrics =
-            tags.get("LYRICS") ||
-            tags.get("UNSYNCEDLYRICS") ||
-            tags.get("UNSYNCED LYRICS");
+            tags.get("LYRICS") || tags.get("UNSYNCEDLYRICS") || tags.get("UNSYNCED LYRICS");
 
           if (!foundLyrics) {
             for (const [key, value] of tags.entries()) {
-              if (
-                key === "LYRICS" ||
-                key.startsWith("LYRICS:") ||
-                key.startsWith("©LYR")
-              ) {
+              if (key === "LYRICS" || key.startsWith("LYRICS:") || key.startsWith("©LYR")) {
                 foundLyrics = value;
                 break;
               }
@@ -162,12 +148,7 @@ export function useFileActions() {
               const parsed = parseRawLyrics(foundLyrics);
               resetHistory(parsed.lines, parsed.metadata);
               showToast('已從 "Embedded Tag" 載入歌詞');
-            } else if (
-              !foundLyrics &&
-              autoLoadLyrics &&
-              !skipAutoLoadLyrics &&
-              getFilePath(f)
-            ) {
+            } else if (!foundLyrics && autoLoadLyrics && !skipAutoLoadLyrics && getFilePath(f)) {
               await checkAndLoadSiblingLrc(getFilePath(f));
             }
             return;
@@ -181,15 +162,13 @@ export function useFileActions() {
         const jsmediatags = require("jsmediatags");
         jsmediatags.read(f, {
           onSuccess: async function (tag: any) {
-            const { title, artist, album, year, comment, track, picture } =
-              tag.tags;
+            const { title, artist, album, year, comment, track, picture } = tag.tags;
 
             let picUrl = null;
             if (picture) {
               try {
                 const base64String = picture.data.reduce(
-                  (acc: string, byte: number) =>
-                    acc + String.fromCharCode(byte),
+                  (acc: string, byte: number) => acc + String.fromCharCode(byte),
                   "",
                 );
                 picUrl = `data:${picture.format};base64,${window.btoa(base64String)}`;
@@ -208,11 +187,7 @@ export function useFileActions() {
             if (!foundLyrics) {
               for (const key of Object.keys(tag.tags)) {
                 const k = key.toLowerCase();
-                if (
-                  k === "lyrics" ||
-                  k.startsWith("lyrics:") ||
-                  k.startsWith("©lyr")
-                ) {
+                if (k === "lyrics" || k.startsWith("lyrics:") || k.startsWith("©lyr")) {
                   foundLyrics =
                     typeof tag.tags[key] === "string"
                       ? tag.tags[key]
@@ -222,11 +197,7 @@ export function useFileActions() {
               }
             }
 
-            if (
-              foundLyrics &&
-              typeof foundLyrics !== "string" &&
-              foundLyrics.data
-            ) {
+            if (foundLyrics && typeof foundLyrics !== "string" && foundLyrics.data) {
               foundLyrics = foundLyrics.data;
             }
             if (typeof foundLyrics !== "string") {
@@ -239,9 +210,7 @@ export function useFileActions() {
               album,
               year,
               track,
-              comment:
-                comment?.text ||
-                (typeof comment === "string" ? comment : undefined),
+              comment: comment?.text || (typeof comment === "string" ? comment : undefined),
               format: picture?.format,
               picture: picUrl,
               lyric: foundLyrics,
@@ -259,12 +228,7 @@ export function useFileActions() {
               const parsed = parseRawLyrics(foundLyrics);
               resetHistory(parsed.lines, parsed.metadata);
               showToast('已從 "Embedded Tag" 載入歌詞');
-            } else if (
-              !foundLyrics &&
-              autoLoadLyrics &&
-              !skipAutoLoadLyrics &&
-              getFilePath(f)
-            ) {
+            } else if (!foundLyrics && autoLoadLyrics && !skipAutoLoadLyrics && getFilePath(f)) {
               await checkAndLoadSiblingLrc(getFilePath(f));
             }
           },
@@ -323,10 +287,7 @@ export function useFileActions() {
               const parsedPath = await electronAPI.pathParse(filePath);
               const exts = [".flac", ".mp3", ".m4a", ".wav", ".mp4"];
               for (const ext of exts) {
-                const mediaPath = await electronAPI.pathJoin(
-                  parsedPath.dir,
-                  parsedPath.name + ext,
-                );
+                const mediaPath = await electronAPI.pathJoin(parsedPath.dir, parsedPath.name + ext);
                 if (await electronAPI.fsExists(mediaPath)) {
                   const currentMediaPath = getFilePath(file);
                   if (currentMediaPath === mediaPath) {
@@ -395,20 +356,11 @@ export function useFileActions() {
       if (format === "srt") {
         lrcText = exportSrt(lines, duration);
       } else {
-        lrcText = exportLrc(
-          lines,
-          lrcMetadata,
-          format === "enhanced",
-          format === "simple",
-        );
+        lrcText = exportLrc(lines, lrcMetadata, format === "enhanced", format === "simple");
       }
 
       let defaultName = "lyrics.lrc";
-      if (
-        lyricFileName &&
-        lyricFileName !== "Embedded Tag" &&
-        lyricFileName !== "New Lyrics"
-      ) {
+      if (lyricFileName && lyricFileName !== "Embedded Tag" && lyricFileName !== "New Lyrics") {
         defaultName = lyricFileName;
       } else if (audioFileName) {
         defaultName = audioFileName.replace(/\.[^/.]+$/, "") + ".lrc";
@@ -457,10 +409,8 @@ export function useFileActions() {
         if (result.canceled) return;
       }
 
-      const isTauri =
-        typeof window !== "undefined" && (window as any).__TAURI__;
-      const isCapacitor =
-        typeof window !== "undefined" && !!(window as any).Capacitor;
+      const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
+      const isCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor;
       if (isTauri) {
         try {
           if (saveType === "embedded" && file) {
@@ -473,31 +423,17 @@ export function useFileActions() {
               const arrayBuffer = await file.arrayBuffer();
               let blob: Blob;
               if (lowerName.endsWith(".flac")) {
-                const { embedLyricsIntoFlac } =
-                  await import("@/lib/flac-utils");
-                blob = embedLyricsIntoFlac(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                const { embedLyricsIntoFlac } = await import("@/lib/flac-utils");
+                blob = embedLyricsIntoFlac(arrayBuffer, lrcText, format === "enhanced");
               } else {
                 const { embedLyricsIntoM4a } = await import("@/lib/m4a-utils");
-                blob = embedLyricsIntoM4a(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                blob = embedLyricsIntoM4a(arrayBuffer, lrcText, format === "enhanced");
               }
-              const bytes = Array.from(
-                new Uint8Array(await blob.arrayBuffer()),
-              );
-              await (window as any).__TAURI__.core.invoke(
-                "save_binary_dialog",
-                {
-                  bytes,
-                  defaultName: file.name,
-                },
-              );
+              const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+              await (window as any).__TAURI__.core.invoke("save_binary_dialog", {
+                bytes,
+                defaultName: file.name,
+              });
             }
           } else {
             await (window as any).__TAURI__.core.invoke("save_lyrics_dialog", {
@@ -511,8 +447,7 @@ export function useFileActions() {
         }
       } else if (isCapacitor) {
         try {
-          const { Filesystem, Directory, Encoding } =
-            await import("@capacitor/filesystem");
+          const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
           const { Share } = await import("@capacitor/share");
 
           if (saveType === "embedded" && file) {
@@ -525,20 +460,11 @@ export function useFileActions() {
               const arrayBuffer = await file.arrayBuffer();
               let blob: Blob;
               if (lowerName.endsWith(".flac")) {
-                const { embedLyricsIntoFlac } =
-                  await import("@/lib/flac-utils");
-                blob = embedLyricsIntoFlac(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                const { embedLyricsIntoFlac } = await import("@/lib/flac-utils");
+                blob = embedLyricsIntoFlac(arrayBuffer, lrcText, format === "enhanced");
               } else {
                 const { embedLyricsIntoM4a } = await import("@/lib/m4a-utils");
-                blob = embedLyricsIntoM4a(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                blob = embedLyricsIntoM4a(arrayBuffer, lrcText, format === "enhanced");
               }
 
               const reader = new FileReader();
@@ -556,10 +482,7 @@ export function useFileActions() {
                     url: writeResult.uri,
                   });
                 } catch (e) {
-                  console.error(
-                    "Capacitor write/share embedded file failed",
-                    e,
-                  );
+                  console.error("Capacitor write/share embedded file failed", e);
                   alert("無法嵌入並儲存媒體檔案");
                 }
               };
@@ -592,20 +515,11 @@ export function useFileActions() {
               const arrayBuffer = await file.arrayBuffer();
               let blob: Blob;
               if (lowerName.endsWith(".flac")) {
-                const { embedLyricsIntoFlac } =
-                  await import("@/lib/flac-utils");
-                blob = embedLyricsIntoFlac(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                const { embedLyricsIntoFlac } = await import("@/lib/flac-utils");
+                blob = embedLyricsIntoFlac(arrayBuffer, lrcText, format === "enhanced");
               } else {
                 const { embedLyricsIntoM4a } = await import("@/lib/m4a-utils");
-                blob = embedLyricsIntoM4a(
-                  arrayBuffer,
-                  lrcText,
-                  format === "enhanced",
-                );
+                blob = embedLyricsIntoM4a(arrayBuffer, lrcText, format === "enhanced");
               }
 
               const url = URL.createObjectURL(blob);
@@ -674,9 +588,7 @@ export function useFileActions() {
     async (metadata: any) => {
       if (metadata?.lyric) {
         if (lines.length > 0) {
-          const confirmed = await dialogs.confirm(
-            "載入內嵌歌詞將會覆蓋目前的歌詞。確定要繼續嗎？",
-          );
+          const confirmed = await dialogs.confirm("載入內嵌歌詞將會覆蓋目前的歌詞。確定要繼續嗎？");
           if (!confirmed) return;
         }
         const parsed = parseRawLyrics(metadata.lyric);
@@ -686,14 +598,7 @@ export function useFileActions() {
         showToast('已從 "Embedded Tag" 載入歌詞');
       }
     },
-    [
-      lines.length,
-      dialogs,
-      resetHistory,
-      setLyricFileName,
-      setLyricFile,
-      showToast,
-    ],
+    [lines.length, dialogs, resetHistory, setLyricFileName, setLyricFile, showToast],
   );
 
   const loadSiblingMediaForLyrics = useCallback(async () => {
@@ -711,10 +616,7 @@ export function useFileActions() {
         let mediaLoaded = false;
         let loadedMediaName = "";
         for (const ext of exts) {
-          const mediaPath = await electronAPI.pathJoin(
-            parsedPath.dir,
-            parsedPath.name + ext,
-          );
+          const mediaPath = await electronAPI.pathJoin(parsedPath.dir, parsedPath.name + ext);
           if (await electronAPI.fsExists(mediaPath)) {
             const currentMediaPath = getFilePath(file);
             if (currentMediaPath === mediaPath) {
@@ -745,9 +647,7 @@ export function useFileActions() {
         if (mediaLoaded) {
           showToast(`已自動載入媒體 "${loadedMediaName}"`);
         } else {
-          dialogs.alert(
-            "找不到與歌詞檔同名的媒體檔案 (.flac, .mp3, .m4a, .wav, .mp4)",
-          );
+          dialogs.alert("找不到與歌詞檔同名的媒體檔案 (.flac, .mp3, .m4a, .wav, .mp4)");
         }
       } catch (e) {
         console.error(e);

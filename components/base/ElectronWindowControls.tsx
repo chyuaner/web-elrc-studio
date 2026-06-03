@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type ElectronAPI = {
   shell?: { useCustomWindowControls?: boolean };
@@ -10,16 +10,16 @@ type ElectronAPI = {
   windowClose?: () => void;
   getWindowState?: () => Promise<{ isMaximized?: boolean; isFullScreen?: boolean }>;
   onWindowStateChange?: (
-    cb: (state: { isMaximized?: boolean; isFullScreen?: boolean }) => void
+    cb: (state: { isMaximized?: boolean; isFullScreen?: boolean }) => void,
   ) => () => void;
 };
 
 function getElectronAPI(): ElectronAPI | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   return (window as unknown as { electronAPI?: ElectronAPI }).electronAPI ?? null;
 }
 
-export function ElectronWindowControls({ className = '' }: { className?: string }) {
+export function ElectronWindowControls({ className = "" }: { className?: string }) {
   const [ready, setReady] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -44,7 +44,7 @@ export function ElectronWindowControls({ className = '' }: { className?: string 
   if (!show) return null;
 
   const btnClass =
-    'flex items-center justify-center w-[24px] h-[24px] rounded-full border-none bg-[var(--app-winctrl-bg)] text-[var(--app-text-secondary)] hover:bg-[var(--app-winctrl-hover)] transition-colors disabled:opacity-40 disabled:pointer-events-none app-region-no-drag shrink-0';
+    "flex items-center justify-center w-[24px] h-[24px] rounded-full border-none bg-[var(--app-winctrl-bg)] text-[var(--app-text-secondary)] hover:bg-[var(--app-winctrl-hover)] transition-colors disabled:opacity-40 disabled:pointer-events-none app-region-no-drag shrink-0";
   const closeClass = btnClass;
 
   return (
@@ -64,8 +64,8 @@ export function ElectronWindowControls({ className = '' }: { className?: string 
       <button
         type="button"
         className={btnClass}
-        aria-label={isMaximized ? '還原' : '最大化'}
-        title={isMaximized ? '還原' : '最大化'}
+        aria-label={isMaximized ? "還原" : "最大化"}
+        title={isMaximized ? "還原" : "最大化"}
         onClick={() => api.windowToggleMaximize?.()}
       >
         {isMaximized ? (

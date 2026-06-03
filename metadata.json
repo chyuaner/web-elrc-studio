@@ -2,7 +2,5 @@
   "name": "LRC Maker",
   "description": "Professional LRC Lyric Editor with line-by-line and Enhanced LRC word-by-word timestamping.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+out
+build
+release
+package-lock.json
+*.ttf
+*.png
+*.ico
+*.icns

@@ -1,7 +1,6 @@
-'use client';
-import React from 'react';
-import { LrcMetadataEditor } from '@/components/panel/LrcMetadataEditor';
-import { BaseDialog } from './BaseDialog';
+"use client";
+import { LrcMetadataEditor } from "@/components/panel/LrcMetadataEditor";
+import { BaseDialog } from "./BaseDialog";
 
 export function LrcMetadataDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (

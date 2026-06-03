@@ -1,33 +1,31 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
 import { useEditor } from "@/components/base/EditorProvider";
-import { parseRawLyrics, exportLrc, exportSrt } from "@/lib/lyric-utils";
+import { ElectronWindowControls } from "@/components/base/ElectronWindowControls";
+import { UndoRedoControls } from "@/components/common/UndoRedo";
+import { AboutDialog } from "@/components/dialog/AboutDialog";
+import { useDialogs } from "@/components/dialog/DialogProvider";
+import { LrcMetadataDialog } from "@/components/dialog/LrcMetadataDialog";
+import { useI18n } from "@/hooks/useI18n";
+import { AppCommands } from "@/lib/app-commands";
+import { parseRawLyrics } from "@/lib/lyric-utils";
 import {
-  Music,
-  Download,
   ChevronDown,
-  X,
+  Download,
+  Edit2,
   FileText,
+  Film,
+  Hand,
   Maximize,
   Moon,
-  Tag,
-  Edit2,
-  Hand,
   MoreVertical,
+  Music,
   RotateCw,
-  Film,
+  Tag,
+  X,
 } from "lucide-react";
-import { UndoRedoControls } from "@/components/common/UndoRedo";
-import { useDialogs } from "@/components/dialog/DialogProvider";
-import { AppCommands } from "@/lib/app-commands";
-import { Tooltip } from "@/components/common/Tooltip";
-import { useI18n } from "@/hooks/useI18n";
-import { LrcMetadataDialog } from "@/components/dialog/LrcMetadataDialog";
-import { ElectronWindowControls } from "@/components/base/ElectronWindowControls";
-import { AboutDialog } from "@/components/dialog/AboutDialog";
-import { extractFlacMetadata } from "@/lib/media-utils";
+import React, { useEffect, useRef, useState } from "react";
 
 import { useFileActions } from "@/components/base/useFileActions";
 
@@ -98,16 +96,14 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   const [canRotate, setCanRotate] = useState(false);
 
   useEffect(() => {
-    const isCapacitor =
-      typeof window !== "undefined" && !!(window as any).Capacitor;
+    const isCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor;
     const hasScreenLock =
       typeof window !== "undefined" &&
       typeof screen !== "undefined" &&
       !!screen.orientation &&
       typeof (screen.orientation as any).lock === "function";
     const isMobile =
-      typeof navigator !== "undefined" &&
-      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanRotate(isCapacitor || (hasScreenLock && isMobile));
   }, []);
@@ -126,8 +122,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
     setOrientationState(nextState);
 
-    const isCapacitor =
-      typeof window !== "undefined" && !!(window as any).Capacitor;
+    const isCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor;
     if (isCapacitor) {
       try {
         const { registerPlugin } = await import("@capacitor/core");
@@ -151,10 +146,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
           (screen.orientation as any).unlock();
         }
       } catch (err) {
-        console.warn(
-          "Failed to set screen orientation via HTML5 screen.orientation:",
-          err,
-        );
+        console.warn("Failed to set screen orientation via HTML5 screen.orientation:", err);
       }
     }
   }, [orientationState]);
@@ -245,28 +237,17 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       }
     };
 
-    if (
-      loadMediaDropdownOpen ||
-      loadDropdownOpen ||
-      exportDropdownOpen ||
-      moreMenuOpen
-    ) {
+    if (loadMediaDropdownOpen || loadDropdownOpen || exportDropdownOpen || moreMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [
-    loadMediaDropdownOpen,
-    loadDropdownOpen,
-    exportDropdownOpen,
-    moreMenuOpen,
-  ]);
+  }, [loadMediaDropdownOpen, loadDropdownOpen, exportDropdownOpen, moreMenuOpen]);
 
   // Track Fullscreen state for hiding titlebar spacers
   useEffect(() => {
-    const isCapacitor =
-      typeof window !== "undefined" && !!(window as any).Capacitor;
+    const isCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor;
 
     const checkFs = () => {
       const isDOMFs = !!document.fullscreenElement;
@@ -322,10 +303,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     if (!tauri && !electronAPI?.isElectron) return;
 
     // Electron: prefer IPC-based focus events (more reliable on Wayland/X11)
-    if (
-      electronAPI?.isElectron &&
-      typeof electronAPI.onFocusChanged === "function"
-    ) {
+    if (electronAPI?.isElectron && typeof electronAPI.onFocusChanged === "function") {
       const unlisten = electronAPI.onFocusChanged((focused: boolean) => {
         setIsFocused(focused);
       });
@@ -358,10 +336,8 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         ).electronAPI
       : undefined;
   const isElectron = !!electronAPI?.isElectron;
-  const isElectronCustomControls =
-    !!electronAPI?.shell?.useCustomWindowControls;
-  const isWindows =
-    typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
+  const isElectronCustomControls = !!electronAPI?.shell?.useCustomWindowControls;
+  const isWindows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
   const finalHideTitle = hideTitle || (isTauri && isWindows);
   // Unfocused dimming: only in Electron or Tauri desktop modes
   const isDesktopShell = isTauri || isElectron;
@@ -391,8 +367,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   const lyricNameClass = isLyricNameMismatch
     ? "text-red-500 font-bold"
     : "text-[var(--app-text-secondary)]";
-  const noAudioClass =
-    !audioFileName && lyricFileName ? "text-red-500 font-bold" : "";
+  const noAudioClass = !audioFileName && lyricFileName ? "text-red-500 font-bold" : "";
 
   // AppCommands mapping extracted from useEditor hooks above
 
@@ -406,11 +381,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         canClearLyrics: lines.length > 0,
         canLoadEmbeddedLyrics: !!metadata?.lyric,
       }),
-      setAudioSpecs: (specs: {
-        format?: string;
-        bitrate?: string;
-        sampleRate?: string;
-      }) => {
+      setAudioSpecs: (specs: { format?: string; bitrate?: string; sampleRate?: string }) => {
         setAudioSpecs(specs);
       },
       loadMedia: () => fileInputRef.current?.click(),
@@ -421,29 +392,18 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         loadEmbeddedLyrics(metadata);
       },
       showLrcMetadata: () => setMetadataDialogOpen(true),
-      exportStandard: () =>
-        handleExport("standard", "file", ".lrc 標準LRC (逐行同步)"),
+      exportStandard: () => handleExport("standard", "file", ".lrc 標準LRC (逐行同步)"),
       exportEnhanced: () =>
-        handleExport(
-          "enhanced",
-          "file",
-          ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
-        ),
-      exportSimple: () =>
-        handleExport("simple", "file", ".txt 簡易歌詞 (無時間戳)"),
+        handleExport("enhanced", "file", ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)"),
+      exportSimple: () => handleExport("simple", "file", ".txt 簡易歌詞 (無時間戳)"),
       exportSrt: () => handleExport("srt", "file", ".srt 影片字幕 (逐行同步)"),
       exportEmbeddedStandard: () => handleExport("standard", "embedded"),
       exportEmbeddedEnhanced: () => handleExport("enhanced", "embedded"),
       exportEmbeddedSimple: () => handleExport("simple", "embedded"),
-      exportCurrent: () =>
-        handleExport(
-          exportFormat as "standard" | "enhanced" | "simple" | "srt",
-        ),
+      exportCurrent: () => handleExport(exportFormat as "standard" | "enhanced" | "simple" | "srt"),
       getExportOptions: () => {
         const ext = audioFileName
-          ? audioFileName
-              .substring(audioFileName.lastIndexOf("."))
-              .toLowerCase()
+          ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase()
           : "";
         const options = [
           {
@@ -488,8 +448,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       redo: () => redo(1),
       undoToSequence: (steps: number) => undo(steps),
       redoToSequence: (steps: number) => redo(steps),
-      getUndoList: () =>
-        pastActions.map((a, i) => ({ id: `undo-${i}`, name: a.action })),
+      getUndoList: () => pastActions.map((a, i) => ({ id: `undo-${i}`, name: a.action })),
       getRedoList: () =>
         futureActions.map((a) => ({
           id: `redo-${Math.random()}`,
@@ -545,9 +504,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     loadEmbeddedLyrics,
   ]);
 
-  const [dragOverlay, setDragOverlay] = useState<
-    "media" | "lyric" | "file" | null
-  >(null);
+  const [dragOverlay, setDragOverlay] = useState<"media" | "lyric" | "file" | null>(null);
 
   React.useEffect(() => {
     const handleDrop = (e: DragEvent) => {
@@ -562,10 +519,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
           f.name.toLowerCase().endsWith(".flac")
         ) {
           processAudioFile(f);
-        } else if (
-          f.name.toLowerCase().endsWith(".txt") ||
-          f.name.toLowerCase().endsWith(".lrc")
-        ) {
+        } else if (f.name.toLowerCase().endsWith(".txt") || f.name.toLowerCase().endsWith(".lrc")) {
           processLyricFile(f);
         }
       }
@@ -577,24 +531,19 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     if (isTauri) {
       (window as any).__TAURI__.core
         .invoke("show_titlebar_buttons")
-        .catch((err: any) =>
-          console.error("Failed to show titlebar buttons", err),
-        );
+        .catch((err: any) => console.error("Failed to show titlebar buttons", err));
 
       const setupTauriListeners = async () => {
         const tauri = (window as any).__TAURI__;
         // ... DND logic as in the image ...
-        const dropEntry = await tauri.event.listen(
-          "tauri://drop",
-          async (event: any) => {
-            const paths = event.payload.paths || [];
-            if (paths.length > 0) {
-              const path = paths[0];
-              // ... handle file ...
-            }
-            setDragOverlay(null);
-          },
-        );
+        const dropEntry = await tauri.event.listen("tauri://drop", async (event: any) => {
+          const paths = event.payload.paths || [];
+          if (paths.length > 0) {
+            const path = paths[0];
+            // ... handle file ...
+          }
+          setDragOverlay(null);
+        });
         unlisteners.push(dropEntry);
         // ... other listeners ...
       };
@@ -604,8 +553,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const isTauri =
-        typeof window !== "undefined" && (window as any).__TAURI__;
+      const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
 
       if (!dragOverlay) {
         let detected: "media" | "lyric" | "file" | null = null;
@@ -622,23 +570,17 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
           } else {
             if (!hasFiles) return; // Ignore drag of text selections or images from other tabs
 
-            const hasImage = items.some(
-              (i) => i.kind === "file" && i.type.startsWith("image/"),
-            );
+            const hasImage = items.some((i) => i.kind === "file" && i.type.startsWith("image/"));
             if (hasImage) return; // Ignore dragging cover images around
 
             const hasAudioVideo = items.some(
               (i) =>
                 i.kind === "file" &&
-                (i.type.startsWith("audio/") ||
-                  i.type.startsWith("video/") ||
-                  i.type === ""),
+                (i.type.startsWith("audio/") || i.type.startsWith("video/") || i.type === ""),
             );
             // Some browsers leave type empty for unknown formats like flac during dragover
             const hasText = items.some(
-              (i) =>
-                i.kind === "file" &&
-                (i.type.startsWith("text/") || i.type === ""),
+              (i) => i.kind === "file" && (i.type.startsWith("text/") || i.type === ""),
             );
 
             if (hasAudioVideo) detected = "media";
@@ -654,10 +596,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       e.preventDefault();
       e.stopPropagation();
       // Only hide if we leave the actual window, to prevent flickering over children
-      if (
-        e.relatedTarget === null ||
-        (e.relatedTarget as HTMLElement).nodeName === "HTML"
-      ) {
+      if (e.relatedTarget === null || (e.relatedTarget as HTMLElement).nodeName === "HTML") {
         setDragOverlay(null);
       }
     };
@@ -682,8 +621,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   }, [processAudioFile, processLyricFile]);
 
   useEffect(() => {
-    const isTauri =
-      typeof window !== "undefined" && !!(window as any).__TAURI__;
+    const isTauri = typeof window !== "undefined" && !!(window as any).__TAURI__;
     if (!isTauri) return;
 
     let active = true;
@@ -692,35 +630,24 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
     const setupTauriListeners = async () => {
       try {
-        const uEnter = await tauri.event.listen(
-          "tauri://drag-enter",
-          (event: any) => {
-            const paths = event.payload?.paths || [];
-            if (paths.length > 0) {
-              const path = paths[0];
-              const ext = path.split(".").pop()?.toLowerCase();
-              let detected: "media" | "lyric" | "file" = "file";
-              if (
-                [
-                  "flac",
-                  "mp3",
-                  "wav",
-                  "m4a",
-                  "aac",
-                  "ogg",
-                  "mp4",
-                  "mkv",
-                  "webm",
-                ].includes(ext as string)
-              ) {
-                detected = "media";
-              } else if (["txt", "lrc"].includes(ext as string)) {
-                detected = "lyric";
-              }
-              setDragOverlay(detected);
+        const uEnter = await tauri.event.listen("tauri://drag-enter", (event: any) => {
+          const paths = event.payload?.paths || [];
+          if (paths.length > 0) {
+            const path = paths[0];
+            const ext = path.split(".").pop()?.toLowerCase();
+            let detected: "media" | "lyric" | "file" = "file";
+            if (
+              ["flac", "mp3", "wav", "m4a", "aac", "ogg", "mp4", "mkv", "webm"].includes(
+                ext as string,
+              )
+            ) {
+              detected = "media";
+            } else if (["txt", "lrc"].includes(ext as string)) {
+              detected = "lyric";
             }
-          },
-        );
+            setDragOverlay(detected);
+          }
+        });
         if (active) unlisteners.push(uEnter);
         else
           try {
@@ -736,58 +663,49 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             uLeave();
           } catch (e) {}
 
-        const uCancelled = await tauri.event.listen(
-          "tauri://drag-cancelled",
-          () => {
-            setDragOverlay(null);
-          },
-        );
+        const uCancelled = await tauri.event.listen("tauri://drag-cancelled", () => {
+          setDragOverlay(null);
+        });
         if (active) unlisteners.push(uCancelled);
         else
           try {
             uCancelled();
           } catch (e) {}
 
-        const uDrop = await tauri.event.listen(
-          "tauri://drag-drop",
-          async (event: any) => {
-            setDragOverlay(null);
-            const paths = event.payload?.paths || [];
-            if (paths.length > 0) {
-              const path = paths[0];
-              const fileName = path.split(/[/\\]/).pop() || "temp_file";
-              const ext = fileName.split(".").pop()?.toLowerCase();
+        const uDrop = await tauri.event.listen("tauri://drag-drop", async (event: any) => {
+          setDragOverlay(null);
+          const paths = event.payload?.paths || [];
+          if (paths.length > 0) {
+            const path = paths[0];
+            const fileName = path.split(/[/\\]/).pop() || "temp_file";
+            const ext = fileName.split(".").pop()?.toLowerCase();
 
-              let mimeType = "application/octet-stream";
-              if (ext === "flac") mimeType = "audio/flac";
-              else if (ext === "mp3") mimeType = "audio/mpeg";
-              else if (ext === "wav") mimeType = "audio/wav";
-              else if (ext === "m4a") mimeType = "audio/mp4";
-              else if (ext === "aac") mimeType = "audio/aac";
-              else if (ext === "txt") mimeType = "text/plain";
-              else if (ext === "lrc") mimeType = "text/plain";
+            let mimeType = "application/octet-stream";
+            if (ext === "flac") mimeType = "audio/flac";
+            else if (ext === "mp3") mimeType = "audio/mpeg";
+            else if (ext === "wav") mimeType = "audio/wav";
+            else if (ext === "m4a") mimeType = "audio/mp4";
+            else if (ext === "aac") mimeType = "audio/aac";
+            else if (ext === "txt") mimeType = "text/plain";
+            else if (ext === "lrc") mimeType = "text/plain";
 
-              try {
-                const bytes = await tauri.core.invoke("read_file_binary", {
-                  path,
-                });
-                const blob = new Blob([bytes], { type: mimeType });
-                const file = new File([blob], fileName, { type: mimeType });
+            try {
+              const bytes = await tauri.core.invoke("read_file_binary", {
+                path,
+              });
+              const blob = new Blob([bytes], { type: mimeType });
+              const file = new File([blob], fileName, { type: mimeType });
 
-                if (ext === "txt" || ext === "lrc") {
-                  processLyricRef.current(file);
-                } else {
-                  processAudioRef.current(file);
-                }
-              } catch (err) {
-                console.error(
-                  "Failed to read file from Tauri native drop:",
-                  err,
-                );
+              if (ext === "txt" || ext === "lrc") {
+                processLyricRef.current(file);
+              } else {
+                processAudioRef.current(file);
               }
+            } catch (err) {
+              console.error("Failed to read file from Tauri native drop:", err);
             }
-          },
-        );
+          }
+        });
         if (active) unlisteners.push(uDrop);
         else
           try {
@@ -842,9 +760,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   const renderTitlebarRightEnd = (height: string, hiddenLg = true) => {
     if (isFullscreen) return null;
     return isElectronCustomControls ? (
-      <ElectronWindowControls
-        className={`${height} ${hiddenLg ? "hidden lg:flex" : "flex"}`}
-      />
+      <ElectronWindowControls className={`${height} ${hiddenLg ? "hidden lg:flex" : "flex"}`} />
     ) : (
       <div
         style={{ width: "var(--titlebar-right-padding, 0px)" }}
@@ -996,9 +912,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                 onClick={async () => {
                   if (metadata?.lyric) {
                     if (lines.length > 0) {
-                      const confirmed = await dialogs.confirm(
-                        i18n.confirmEmbeddedLyrics,
-                      );
+                      const confirmed = await dialogs.confirm(i18n.confirmEmbeddedLyrics);
                       if (!confirmed) return;
                     }
                     const parsed = parseRawLyrics(metadata.lyric);
@@ -1021,25 +935,19 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                         const electronAPI = (window as any).electronAPI;
                         let currentAudioPath = (file as any)?.path;
                         if (electronAPI?.getPathForFile && file) {
-                          currentAudioPath =
-                            electronAPI.getPathForFile(file) ||
-                            currentAudioPath;
+                          currentAudioPath = electronAPI.getPathForFile(file) || currentAudioPath;
                         }
                         if (currentAudioPath) {
-                          const parsed =
-                            await electronAPI.pathParse(currentAudioPath);
+                          const parsed = await electronAPI.pathParse(currentAudioPath);
                           const lrcPath = await electronAPI.pathJoin(
                             parsed.dir,
                             parsed.name + ".lrc",
                           );
                           if (await electronAPI.fsExists(lrcPath)) {
-                            const text =
-                              await electronAPI.fsReadFileText(lrcPath);
-                            const lrcFile = new File(
-                              [text],
-                              parsed.name + ".lrc",
-                              { type: "text/plain" },
-                            );
+                            const text = await electronAPI.fsReadFileText(lrcPath);
+                            const lrcFile = new File([text], parsed.name + ".lrc", {
+                              type: "text/plain",
+                            });
                             Object.defineProperty(lrcFile, "path", {
                               value: lrcPath,
                             });
@@ -1130,11 +1038,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             <button
               onClick={() => {
                 if (syncMode === "word") {
-                  handleExport(
-                    "enhanced",
-                    "file",
-                    ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
-                  );
+                  handleExport("enhanced", "file", ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)");
                 } else {
                   handleExport("standard", "file", ".lrc 標準LRC (逐行同步)");
                 }
@@ -1156,22 +1060,16 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             <div className="absolute top-full right-0 mt-1 w-max min-w-[14rem] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-[9999] overflow-hidden py-1 whitespace-nowrap">
               {AppCommands.getExportOptions().map((opt, i) =>
                 opt.action === "separator" ? (
-                  <div
-                    key={i}
-                    className="my-1 border-t border-[var(--app-border-base)] mx-2"
-                  ></div>
+                  <div key={i} className="my-1 border-t border-[var(--app-border-base)] mx-2"></div>
                 ) : (
                   <button
                     key={i}
                     className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex flex-col gap-1"
                     onClick={() => {
                       const actionMap = {
-                        exportEnhanced: () =>
-                          handleExport("enhanced", "file", opt.label),
-                        exportStandard: () =>
-                          handleExport("standard", "file", opt.label),
-                        exportSimple: () =>
-                          handleExport("simple", "file", opt.label),
+                        exportEnhanced: () => handleExport("enhanced", "file", opt.label),
+                        exportStandard: () => handleExport("standard", "file", opt.label),
+                        exportSimple: () => handleExport("simple", "file", opt.label),
                         exportSrt: () => handleExport("srt", "file", opt.label),
                         exportAssKtv: () => {
                           setMode("ktv-ass");
@@ -1180,8 +1078,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                           handleExport("enhanced", "embedded", opt.label),
                         exportEmbeddedStandard: () =>
                           handleExport("standard", "embedded", opt.label),
-                        exportEmbeddedSimple: () =>
-                          handleExport("simple", "embedded", opt.label),
+                        exportEmbeddedSimple: () => handleExport("simple", "embedded", opt.label),
                       };
                       (actionMap as any)[opt.action]();
                       setExportDropdownOpen(false);
@@ -1404,8 +1301,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                 className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}
               >
                 <span className="font-bold">E</span>
-                <span>nhanced</span>{" "}
-                <span className="font-bold">LRC Studio</span>
+                <span>nhanced</span> <span className="font-bold">LRC Studio</span>
               </h1>
             )}
             <div
@@ -1430,15 +1326,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                   {i18n.lyrics}:{" "}
                   <span
                     className={`${lyricNameClass} app-region-no-drag pointer-events-auto`}
-                    title={
-                      lyricFileName === "Embedded Tag"
-                        ? i18n.embeddedTag
-                        : lyricFileName
-                    }
+                    title={lyricFileName === "Embedded Tag" ? i18n.embeddedTag : lyricFileName}
                   >
-                    {lyricFileName === "Embedded Tag"
-                      ? i18n.embeddedTag
-                      : lyricFileName}
+                    {lyricFileName === "Embedded Tag" ? i18n.embeddedTag : lyricFileName}
                   </span>
                 </span>
               ) : metadata?.lyric ? (
@@ -1478,8 +1368,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                   className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}
                 >
                   <span className="font-bold">E</span>
-                  <span>nhanced</span>{" "}
-                  <span className="font-bold">LRC Maker</span>
+                  <span>nhanced</span> <span className="font-bold">LRC Maker</span>
                 </h1>
               )}
               <div
@@ -1499,15 +1388,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                 {lyricFileName ? (
                   <span
                     className={`${lyricNameClass} app-region-no-drag pointer-events-auto break-all`}
-                    title={
-                      lyricFileName === "Embedded Tag"
-                        ? i18n.embeddedTag
-                        : lyricFileName
-                    }
+                    title={lyricFileName === "Embedded Tag" ? i18n.embeddedTag : lyricFileName}
                   >
-                    {lyricFileName === "Embedded Tag"
-                      ? i18n.embeddedTag
-                      : lyricFileName}
+                    {lyricFileName === "Embedded Tag" ? i18n.embeddedTag : lyricFileName}
                   </span>
                 ) : metadata?.lyric ? (
                   <span
@@ -1538,14 +1421,8 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         )}
       </div>
 
-      <LrcMetadataDialog
-        isOpen={metadataDialogOpen}
-        onClose={() => setMetadataDialogOpen(false)}
-      />
-      <AboutDialog
-        isOpen={aboutDialogOpen}
-        onClose={() => setAboutDialogOpen(false)}
-      />
+      <LrcMetadataDialog isOpen={metadataDialogOpen} onClose={() => setMetadataDialogOpen(false)} />
+      <AboutDialog isOpen={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} />
     </>
   );
 }

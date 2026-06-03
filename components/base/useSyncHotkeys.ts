@@ -1,17 +1,22 @@
-'use client';
+"use client";
 
-import React, { useEffect, useCallback } from 'react';
-import { useEditor } from '@/components/base/EditorProvider';
-import { isTextEditable } from '@/lib/utils';
+import { useEditor } from "@/components/base/EditorProvider";
+import { isTextEditable } from "@/lib/utils";
+import { useCallback, useEffect } from "react";
 
 export function useSyncHotkeys() {
   const {
-    lines, commitLines,
+    lines,
+    commitLines,
     syncMode,
-    activeLineIndex, setActiveLineIndex,
-    activeWordIndex, setActiveWordIndex,
-    playerRef, audioLatency,
-    hotkeys, mode
+    activeLineIndex,
+    setActiveLineIndex,
+    activeWordIndex,
+    setActiveWordIndex,
+    playerRef,
+    audioLatency,
+    hotkeys,
+    mode,
   } = useEditor();
 
   const getEffectiveTime = useCallback(() => {
@@ -22,16 +27,19 @@ export function useSyncHotkeys() {
   const handleLineStamp = useCallback(() => {
     if (activeLineIndex >= lines.length) return;
     const timeToStamp = getEffectiveTime();
-    
-    commitLines(prev => {
-      const newLines = [...prev];
-      newLines[activeLineIndex] = {
-        ...newLines[activeLineIndex],
-        start: timeToStamp
-      };
-      return newLines;
-    }, `Stamp Line ${activeLineIndex + 1}`);
-    
+
+    commitLines(
+      (prev) => {
+        const newLines = [...prev];
+        newLines[activeLineIndex] = {
+          ...newLines[activeLineIndex],
+          start: timeToStamp,
+        };
+        return newLines;
+      },
+      `Stamp Line ${activeLineIndex + 1}`,
+    );
+
     setActiveLineIndex(activeLineIndex + 1);
   }, [activeLineIndex, lines.length, getEffectiveTime, commitLines, setActiveLineIndex]);
 
@@ -39,31 +47,31 @@ export function useSyncHotkeys() {
     if (activeLineIndex >= lines.length) return;
     const currentLine = lines[activeLineIndex];
     if (!currentLine.words || activeWordIndex >= currentLine.words.length) {
-       if (activeLineIndex < lines.length - 1) {
-          setActiveLineIndex(activeLineIndex + 1);
-          setActiveWordIndex(0);
-       }
-       return;
+      if (activeLineIndex < lines.length - 1) {
+        setActiveLineIndex(activeLineIndex + 1);
+        setActiveWordIndex(0);
+      }
+      return;
     }
 
-    const wordText = currentLine.words[activeWordIndex].text || '⏎';
+    const wordText = currentLine.words[activeWordIndex].text || "⏎";
     const timeToStamp = getEffectiveTime();
 
-    commitLines(prev => {
+    commitLines((prev) => {
       const newLines = [...prev];
       const newWords = [...newLines[activeLineIndex].words];
       newWords[activeWordIndex] = {
         ...newWords[activeWordIndex],
-        start: timeToStamp
+        start: timeToStamp,
       };
-      
+
       newLines[activeLineIndex] = {
         ...newLines[activeLineIndex],
         words: newWords,
         // Optionally stamp the line if it's the first word
-        start: activeWordIndex === 0 ? timeToStamp : newLines[activeLineIndex].start
+        start: activeWordIndex === 0 ? timeToStamp : newLines[activeLineIndex].start,
       };
-      
+
       return newLines;
     }, `Stamp Word '${wordText}'`);
 
@@ -77,7 +85,15 @@ export function useSyncHotkeys() {
     } else {
       setActiveWordIndex(activeWordIndex + 1);
     }
-  }, [activeLineIndex, activeWordIndex, lines, getEffectiveTime, commitLines, setActiveLineIndex, setActiveWordIndex]);
+  }, [
+    activeLineIndex,
+    activeWordIndex,
+    lines,
+    getEffectiveTime,
+    commitLines,
+    setActiveLineIndex,
+    setActiveWordIndex,
+  ]);
 
   const handleWordNextLine = useCallback(() => {
     if (activeLineIndex < lines.length - 1) {
@@ -92,22 +108,22 @@ export function useSyncHotkeys() {
       if (isTextEditable(e.target as Element)) {
         return;
       }
-      
+
       if (e.key.toLowerCase() === hotkeys.stampWord.toLowerCase()) {
         e.preventDefault();
-        if (syncMode === 'line') {
+        if (syncMode === "line") {
           handleLineStamp();
         } else {
           handleWordStamp();
         }
-      } else if (e.key.toLowerCase() === hotkeys.nextLine.toLowerCase() && syncMode === 'word') {
+      } else if (e.key.toLowerCase() === hotkeys.nextLine.toLowerCase() && syncMode === "word") {
         e.preventDefault();
         handleWordNextLine();
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [syncMode, hotkeys, handleLineStamp, handleWordStamp, handleWordNextLine]);
 
   return { handleLineStamp, handleWordStamp, handleWordNextLine };
