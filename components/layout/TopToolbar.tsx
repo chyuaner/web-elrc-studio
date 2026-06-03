@@ -1,24 +1,71 @@
 /* eslint-disable @next/next/no-img-element */
-'use client';
+"use client";
 
-import React, { useRef, useState, useEffect } from 'react';
-import { useEditor } from '@/components/base/EditorProvider';
-import { parseRawLyrics, exportLrc, exportSrt } from '@/lib/lyric-utils';
-import { Music, Download, ChevronDown, X, FileText, Maximize, Moon, Tag, Edit2, Hand, MoreVertical, RotateCw, Film } from 'lucide-react';
-import { UndoRedoControls } from '@/components/common/UndoRedo';
-import { useDialogs } from '@/components/dialog/DialogProvider';
-import { AppCommands } from '@/lib/app-commands';
-import { Tooltip } from '@/components/common/Tooltip';
-import { useI18n } from '@/hooks/useI18n';
-import { LrcMetadataDialog } from '@/components/dialog/LrcMetadataDialog';
-import { ElectronWindowControls } from '@/components/base/ElectronWindowControls';
-import { AboutDialog } from '@/components/dialog/AboutDialog';
-import { extractFlacMetadata } from '@/lib/media-utils';
+import React, { useRef, useState, useEffect } from "react";
+import { useEditor } from "@/components/base/EditorProvider";
+import { parseRawLyrics, exportLrc, exportSrt } from "@/lib/lyric-utils";
+import {
+  Music,
+  Download,
+  ChevronDown,
+  X,
+  FileText,
+  Maximize,
+  Moon,
+  Tag,
+  Edit2,
+  Hand,
+  MoreVertical,
+  RotateCw,
+  Film,
+} from "lucide-react";
+import { UndoRedoControls } from "@/components/common/UndoRedo";
+import { useDialogs } from "@/components/dialog/DialogProvider";
+import { AppCommands } from "@/lib/app-commands";
+import { Tooltip } from "@/components/common/Tooltip";
+import { useI18n } from "@/hooks/useI18n";
+import { LrcMetadataDialog } from "@/components/dialog/LrcMetadataDialog";
+import { ElectronWindowControls } from "@/components/base/ElectronWindowControls";
+import { AboutDialog } from "@/components/dialog/AboutDialog";
+import { extractFlacMetadata } from "@/lib/media-utils";
 
-import { useFileActions } from '@/components/base/useFileActions';
+import { useFileActions } from "@/components/base/useFileActions";
 
 export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
-  const { undo, redo, pastActions, futureActions, file, setFile, commitLines, resetHistory, lines, syncMode, setMetadata, metadata, audioFileName, lyricFileName, setLyricFileName, exportFormat, shiftTime, setAudioSpecs, setIsPlaying, playerRef, duration, setDuration, setPlaybackRate, lrcMetadata, setLrcMetadata, touchUIMode, setTouchUIMode, autoLoadLyrics, setAutoLoadLyrics, autoLoadMedia, setAutoLoadMedia, setMode } = useEditor();
+  const {
+    undo,
+    redo,
+    pastActions,
+    futureActions,
+    file,
+    setFile,
+    commitLines,
+    resetHistory,
+    lines,
+    syncMode,
+    setMetadata,
+    metadata,
+    audioFileName,
+    lyricFileName,
+    setLyricFileName,
+    exportFormat,
+    shiftTime,
+    setAudioSpecs,
+    setIsPlaying,
+    playerRef,
+    duration,
+    setDuration,
+    setPlaybackRate,
+    lrcMetadata,
+    setLrcMetadata,
+    touchUIMode,
+    setTouchUIMode,
+    autoLoadLyrics,
+    setAutoLoadLyrics,
+    autoLoadMedia,
+    setAutoLoadMedia,
+    setMode,
+  } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +73,15 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   const mixedInputRef = useRef<HTMLInputElement>(null);
   const dialogs = useDialogs();
   const i18n = useI18n();
-  const { processAudioFile, processLyricFile, handleExport, clearMedia, clearLyrics, loadEmbeddedLyrics, loadSiblingMediaForLyrics } = useFileActions();
+  const {
+    processAudioFile,
+    processLyricFile,
+    handleExport,
+    clearMedia,
+    clearLyrics,
+    loadEmbeddedLyrics,
+    loadSiblingMediaForLyrics,
+  } = useFileActions();
 
   const [loadMediaDropdownOpen, setLoadMediaDropdownOpen] = useState(false);
   const [loadDropdownOpen, setLoadDropdownOpen] = useState(false);
@@ -37,83 +92,108 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   const [isFocused, setIsFocused] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [orientationState, setOrientationState] = useState<'default' | 'portrait' | 'landscape' | 'auto'>('default');
+  const [orientationState, setOrientationState] = useState<
+    "default" | "portrait" | "landscape" | "auto"
+  >("default");
   const [canRotate, setCanRotate] = useState(false);
 
   useEffect(() => {
-    const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
-    const hasScreenLock = typeof window !== 'undefined' && typeof screen !== 'undefined' && !!screen.orientation && typeof (screen.orientation as any).lock === 'function';
-    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const isCapacitor =
+      typeof window !== "undefined" && !!(window as any).Capacitor;
+    const hasScreenLock =
+      typeof window !== "undefined" &&
+      typeof screen !== "undefined" &&
+      !!screen.orientation &&
+      typeof (screen.orientation as any).lock === "function";
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanRotate(isCapacitor || (hasScreenLock && isMobile));
   }, []);
 
   const handleRotateScreen = React.useCallback(async () => {
-    let nextState: 'default' | 'portrait' | 'landscape' | 'auto' = 'default';
-    if (orientationState === 'default') {
-      nextState = 'portrait';
-    } else if (orientationState === 'portrait') {
-      nextState = 'landscape';
-    } else if (orientationState === 'landscape') {
-      nextState = 'auto';
-    } else if (orientationState === 'auto') {
-      nextState = 'portrait';
+    let nextState: "default" | "portrait" | "landscape" | "auto" = "default";
+    if (orientationState === "default") {
+      nextState = "portrait";
+    } else if (orientationState === "portrait") {
+      nextState = "landscape";
+    } else if (orientationState === "landscape") {
+      nextState = "auto";
+    } else if (orientationState === "auto") {
+      nextState = "portrait";
     }
 
     setOrientationState(nextState);
 
-    const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+    const isCapacitor =
+      typeof window !== "undefined" && !!(window as any).Capacitor;
     if (isCapacitor) {
       try {
-        const { registerPlugin } = await import('@capacitor/core');
-        const ThemeControl = registerPlugin<any>('ThemeControl');
+        const { registerPlugin } = await import("@capacitor/core");
+        const ThemeControl = registerPlugin<any>("ThemeControl");
         await ThemeControl.setScreenOrientation({ orientation: nextState });
       } catch (err) {
-        console.warn('Failed to set screen orientation via Capacitor:', err);
+        console.warn("Failed to set screen orientation via Capacitor:", err);
       }
-    } else if (typeof window !== 'undefined' && typeof screen !== 'undefined' && screen.orientation && typeof (screen.orientation as any).lock === 'function') {
+    } else if (
+      typeof window !== "undefined" &&
+      typeof screen !== "undefined" &&
+      screen.orientation &&
+      typeof (screen.orientation as any).lock === "function"
+    ) {
       try {
-        if (nextState === 'portrait') {
-          await (screen.orientation as any).lock('portrait');
-        } else if (nextState === 'landscape') {
-          await (screen.orientation as any).lock('landscape');
-        } else if (nextState === 'auto') {
+        if (nextState === "portrait") {
+          await (screen.orientation as any).lock("portrait");
+        } else if (nextState === "landscape") {
+          await (screen.orientation as any).lock("landscape");
+        } else if (nextState === "auto") {
           (screen.orientation as any).unlock();
         }
       } catch (err) {
-        console.warn('Failed to set screen orientation via HTML5 screen.orientation:', err);
+        console.warn(
+          "Failed to set screen orientation via HTML5 screen.orientation:",
+          err,
+        );
       }
     }
   }, [orientationState]);
 
-  const MORE_MENU_ITEMS: { type: 'link' | 'action', label: string, url?: string, action?: () => void }[] = [
+  const MORE_MENU_ITEMS: {
+    type: "link" | "action";
+    label: string;
+    url?: string;
+    action?: () => void;
+  }[] = [
     // { type: 'link', label: 'Buy me a Coffee', url: 'https://buymeacoffee.com/' },
-    { type: 'link', label: '專案首頁', url: 'https://elrc.yuaner.tw' },
-    { type: 'link', label: '作者首頁', url: 'https://yuaner.tw' },
+    { type: "link", label: "專案首頁", url: "https://elrc.yuaner.tw" },
+    { type: "link", label: "作者首頁", url: "https://yuaner.tw" },
   ];
 
   useEffect(() => {
-    const api = (window as unknown as {
-      electronAPI?: {
-        needsManualWindowDrag?: boolean;
-        windowDragStart?: (p: { x: number; y: number }) => void;
-        windowDragMove?: (p: { x: number; y: number }) => void;
-        windowDragEnd?: () => void;
-      };
-    }).electronAPI;
+    const api = (
+      window as unknown as {
+        electronAPI?: {
+          needsManualWindowDrag?: boolean;
+          windowDragStart?: (p: { x: number; y: number }) => void;
+          windowDragMove?: (p: { x: number; y: number }) => void;
+          windowDragEnd?: () => void;
+        };
+      }
+    ).electronAPI;
     if (!api?.needsManualWindowDrag) return;
 
     const isDragHandle = (el: EventTarget | null) => {
       if (!(el instanceof Element)) return false;
       if (
-        el.closest('button') ||
-        el.closest('input') ||
-        el.closest('.app-region-no-drag') ||
-        el.closest('[data-electron-window-controls]')
+        el.closest("button") ||
+        el.closest("input") ||
+        el.closest(".app-region-no-drag") ||
+        el.closest("[data-electron-window-controls]")
       ) {
         return false;
       }
-      return !!el.closest('header');
+      return !!el.closest("header");
     };
 
     let dragging = false;
@@ -135,16 +215,16 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       api.windowDragEnd?.();
     };
 
-    window.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', endDrag);
-    window.addEventListener('blur', endDrag);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("blur", endDrag);
 
     return () => {
-      window.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', endDrag);
-      window.removeEventListener('blur', endDrag);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", endDrag);
+      window.removeEventListener("blur", endDrag);
     };
   }, []);
 
@@ -157,7 +237,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('.dropdown-container')) {
+      if (!target.closest(".dropdown-container")) {
         setLoadMediaDropdownOpen(false);
         setLoadDropdownOpen(false);
         setExportDropdownOpen(false);
@@ -165,32 +245,53 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       }
     };
 
-    if (loadMediaDropdownOpen || loadDropdownOpen || exportDropdownOpen || moreMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+    if (
+      loadMediaDropdownOpen ||
+      loadDropdownOpen ||
+      exportDropdownOpen ||
+      moreMenuOpen
+    ) {
+      document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [loadMediaDropdownOpen, loadDropdownOpen, exportDropdownOpen, moreMenuOpen]);
+  }, [
+    loadMediaDropdownOpen,
+    loadDropdownOpen,
+    exportDropdownOpen,
+    moreMenuOpen,
+  ]);
 
   // Track Fullscreen state for hiding titlebar spacers
   useEffect(() => {
-    const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+    const isCapacitor =
+      typeof window !== "undefined" && !!(window as any).Capacitor;
 
     const checkFs = () => {
       const isDOMFs = !!document.fullscreenElement;
       // 在 Capacitor 中，視窗尺寸判斷極不準確（因為 Edge-to-Edge 模式），故排除之
-      const isWindowFs = !isCapacitor && window.innerWidth === window.screen.width && window.innerHeight === window.screen.height;
+      const isWindowFs =
+        !isCapacitor &&
+        window.innerWidth === window.screen.width &&
+        window.innerHeight === window.screen.height;
       const isAndroidFs = !!(window as any).isAndroidFullscreen;
       setIsFullscreen(isDOMFs || isWindowFs || isAndroidFs);
     };
 
-    document.addEventListener('fullscreenchange', checkFs);
-    window.addEventListener('resize', checkFs);
-    window.addEventListener('androidfullscreenchange' as any, checkFs);
+    document.addEventListener("fullscreenchange", checkFs);
+    window.addEventListener("resize", checkFs);
+    window.addEventListener("androidfullscreenchange" as any, checkFs);
     setTimeout(checkFs, 100);
 
-    const api = (window as unknown as { electronAPI?: { onWindowStateChange?: (cb: (s: any) => void) => () => void; getWindowState?: () => Promise<{ isFullScreen?: boolean }> } }).electronAPI;
+    const api = (
+      window as unknown as {
+        electronAPI?: {
+          onWindowStateChange?: (cb: (s: any) => void) => () => void;
+          getWindowState?: () => Promise<{ isFullScreen?: boolean }>;
+        };
+      }
+    ).electronAPI;
     let electronUnsub: (() => void) | undefined;
     if (api?.onWindowStateChange) {
       electronUnsub = api.onWindowStateChange((s: any) => {
@@ -198,15 +299,18 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       });
     }
     if (api?.getWindowState) {
-      api.getWindowState().then((s: any) => {
-        setIsFullscreen(!!s?.isFullScreen || !!document.fullscreenElement);
-      }).catch(() => { });
+      api
+        .getWindowState()
+        .then((s: any) => {
+          setIsFullscreen(!!s?.isFullScreen || !!document.fullscreenElement);
+        })
+        .catch(() => {});
     }
 
     return () => {
-      document.removeEventListener('fullscreenchange', checkFs);
-      window.removeEventListener('resize', checkFs);
-      window.removeEventListener('androidfullscreenchange' as any, checkFs);
+      document.removeEventListener("fullscreenchange", checkFs);
+      window.removeEventListener("resize", checkFs);
+      window.removeEventListener("androidfullscreenchange" as any, checkFs);
       if (electronUnsub) electronUnsub();
     };
   }, []);
@@ -218,7 +322,10 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     if (!tauri && !electronAPI?.isElectron) return;
 
     // Electron: prefer IPC-based focus events (more reliable on Wayland/X11)
-    if (electronAPI?.isElectron && typeof electronAPI.onFocusChanged === 'function') {
+    if (
+      electronAPI?.isElectron &&
+      typeof electronAPI.onFocusChanged === "function"
+    ) {
       const unlisten = electronAPI.onFocusChanged((focused: boolean) => {
         setIsFocused(focused);
       });
@@ -229,41 +336,63 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     const handleBlur = () => setIsFocused(false);
     const handleFocus = () => setIsFocused(true);
 
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
-  const isTauri = typeof window !== 'undefined' && ((window as any).__TAURI__);
+  const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
   const electronAPI =
-    typeof window !== 'undefined'
-      ? (window as unknown as { electronAPI?: { isElectron?: boolean; shell?: { useCustomWindowControls?: boolean } } })
-        .electronAPI
+    typeof window !== "undefined"
+      ? (
+          window as unknown as {
+            electronAPI?: {
+              isElectron?: boolean;
+              shell?: { useCustomWindowControls?: boolean };
+            };
+          }
+        ).electronAPI
       : undefined;
   const isElectron = !!electronAPI?.isElectron;
-  const isElectronCustomControls = !!electronAPI?.shell?.useCustomWindowControls;
-  const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+  const isElectronCustomControls =
+    !!electronAPI?.shell?.useCustomWindowControls;
+  const isWindows =
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
   const finalHideTitle = hideTitle || (isTauri && isWindows);
   // Unfocused dimming: only in Electron or Tauri desktop modes
   const isDesktopShell = isTauri || isElectron;
   const isUnfocused = isDesktopShell && !isFocused;
-  const titleColor = isUnfocused ? 'text-[var(--app-text-muted)]' : 'text-[var(--app-text-secondary)]';
-  const unfocusedClass = isUnfocused ? 'toolbar-unfocused' : '';
+  const titleColor = isUnfocused
+    ? "text-[var(--app-text-muted)]"
+    : "text-[var(--app-text-secondary)]";
+  const unfocusedClass = isUnfocused ? "toolbar-unfocused" : "";
 
   const isLyricNameMismatch = React.useMemo(() => {
     if (!lyricFileName || !audioFileName) return false;
-    if (lyricFileName === 'Embedded Tag' || lyricFileName === 'New Lyrics' || lyricFileName === i18n.embeddedTag) return false;
-    const audioBase = audioFileName.includes('.') ? audioFileName.substring(0, audioFileName.lastIndexOf('.')) : audioFileName;
-    const lyricBase = lyricFileName.includes('.') ? lyricFileName.substring(0, lyricFileName.lastIndexOf('.')) : lyricFileName;
+    if (
+      lyricFileName === "Embedded Tag" ||
+      lyricFileName === "New Lyrics" ||
+      lyricFileName === i18n.embeddedTag
+    )
+      return false;
+    const audioBase = audioFileName.includes(".")
+      ? audioFileName.substring(0, audioFileName.lastIndexOf("."))
+      : audioFileName;
+    const lyricBase = lyricFileName.includes(".")
+      ? lyricFileName.substring(0, lyricFileName.lastIndexOf("."))
+      : lyricFileName;
     return audioBase !== lyricBase;
   }, [audioFileName, lyricFileName, i18n.embeddedTag]);
 
-  const lyricNameClass = isLyricNameMismatch ? 'text-red-500 font-bold' : 'text-[var(--app-text-secondary)]';
-  const noAudioClass = (!audioFileName && lyricFileName) ? 'text-red-500 font-bold' : '';
+  const lyricNameClass = isLyricNameMismatch
+    ? "text-red-500 font-bold"
+    : "text-[var(--app-text-secondary)]";
+  const noAudioClass =
+    !audioFileName && lyricFileName ? "text-red-500 font-bold" : "";
 
   // AppCommands mapping extracted from useEditor hooks above
 
@@ -277,42 +406,77 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         canClearLyrics: lines.length > 0,
         canLoadEmbeddedLyrics: !!metadata?.lyric,
       }),
-      setAudioSpecs: (specs: { format?: string, bitrate?: string, sampleRate?: string }) => {
+      setAudioSpecs: (specs: {
+        format?: string;
+        bitrate?: string;
+        sampleRate?: string;
+      }) => {
         setAudioSpecs(specs);
       },
       loadMedia: () => fileInputRef.current?.click(),
       loadLyrics: () => lyricInputRef.current?.click(),
       clearMedia: clearMedia,
       clearLyrics: clearLyrics,
-      loadEmbeddedLyrics: async () => { loadEmbeddedLyrics(metadata); },
+      loadEmbeddedLyrics: async () => {
+        loadEmbeddedLyrics(metadata);
+      },
       showLrcMetadata: () => setMetadataDialogOpen(true),
-      exportStandard: () => handleExport('standard'),
-      exportEnhanced: () => handleExport('enhanced'),
-      exportSimple: () => handleExport('simple'),
-      exportSrt: () => handleExport('srt'),
-      exportEmbeddedStandard: () => handleExport('standard', 'embedded'),
-      exportEmbeddedEnhanced: () => handleExport('enhanced', 'embedded'),
-      exportEmbeddedSimple: () => handleExport('simple', 'embedded'),
-      exportCurrent: () => handleExport(exportFormat as 'standard' | 'enhanced' | 'simple' | 'srt'),
+      exportStandard: () =>
+        handleExport("standard", "file", ".lrc 標準LRC (逐行同步)"),
+      exportEnhanced: () =>
+        handleExport(
+          "enhanced",
+          "file",
+          ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
+        ),
+      exportSimple: () =>
+        handleExport("simple", "file", ".txt 簡易歌詞 (無時間戳)"),
+      exportSrt: () => handleExport("srt", "file", ".srt 影片字幕 (逐行同步)"),
+      exportEmbeddedStandard: () => handleExport("standard", "embedded"),
+      exportEmbeddedEnhanced: () => handleExport("enhanced", "embedded"),
+      exportEmbeddedSimple: () => handleExport("simple", "embedded"),
+      exportCurrent: () =>
+        handleExport(
+          exportFormat as "standard" | "enhanced" | "simple" | "srt",
+        ),
       getExportOptions: () => {
-        const ext = audioFileName ? audioFileName.substring(audioFileName.lastIndexOf('.')).toLowerCase() : '';
+        const ext = audioFileName
+          ? audioFileName
+              .substring(audioFileName.lastIndexOf("."))
+              .toLowerCase()
+          : "";
         const options = [
-          { label: '.lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)', action: 'exportEnhanced' },
-          { label: '.lrc 標準LRC (逐行同步)', action: 'exportStandard' },
-          { label: '.txt 簡易歌詞 (無時間戳)', action: 'exportSimple' },
-          { label: '.srt 影片字幕 (逐行同步)', action: 'exportSrt' },
-          { label: '.ass KTV字幕 (逐字同步)', action: 'exportAssKtv' }
+          {
+            label: ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
+            action: "exportEnhanced",
+          },
+          { label: ".lrc 標準LRC (逐行同步)", action: "exportStandard" },
+          { label: ".txt 簡易歌詞 (無時間戳)", action: "exportSimple" },
+          { label: ".srt 影片字幕 (逐行同步)", action: "exportSrt" },
+          { label: ".ass KTV字幕 (逐字同步)", action: "exportAssKtv" },
         ];
-        if (ext === '.flac' || ext === '.m4a' || ext === '.mp4') {
-          options.push({ label: '---', action: 'separator' });
-          options.push({ label: `${ext} 已嵌入歌詞的 增強型LRC (ESLYRIC ﹣ 逐字同步)`, action: 'exportEmbeddedEnhanced' });
-          options.push({ label: `${ext} 已嵌入歌詞的 標準LRC (逐行同步)`, action: 'exportEmbeddedStandard' });
-          options.push({ label: `${ext} 已嵌入歌詞的 簡易歌詞 (無時間戳)`, action: 'exportEmbeddedSimple' });
+        if (ext === ".flac" || ext === ".m4a" || ext === ".mp4") {
+          options.push({ label: "---", action: "separator" });
+          options.push({
+            label: `${ext} 已嵌入歌詞的 增強型LRC (ESLYRIC ﹣ 逐字同步)`,
+            action: "exportEmbeddedEnhanced",
+          });
+          options.push({
+            label: `${ext} 已嵌入歌詞的 標準LRC (逐行同步)`,
+            action: "exportEmbeddedStandard",
+          });
+          options.push({
+            label: `${ext} 已嵌入歌詞的 簡易歌詞 (無時間戳)`,
+            action: "exportEmbeddedSimple",
+          });
         }
         return options;
       },
       shiftTime: async () => {
-        const val = await dialogs.prompt('Shift all timings by X seconds (e.g., 0.5 or -1.2):', '0');
+        const val = await dialogs.prompt(
+          "Shift all timings by X seconds (e.g., 0.5 or -1.2):",
+          "0",
+        );
         if (val !== null) {
           const sec = parseFloat(val);
           if (!isNaN(sec) && sec !== 0) {
@@ -324,32 +488,66 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       redo: () => redo(1),
       undoToSequence: (steps: number) => undo(steps),
       redoToSequence: (steps: number) => redo(steps),
-      getUndoList: () => pastActions.map((a, i) => ({ id: `undo-${i}`, name: a.action })),
-      getRedoList: () => futureActions.map((a) => ({ id: `redo-${Math.random()}`, name: a.action })),
+      getUndoList: () =>
+        pastActions.map((a, i) => ({ id: `undo-${i}`, name: a.action })),
+      getRedoList: () =>
+        futureActions.map((a) => ({
+          id: `redo-${Math.random()}`,
+          name: a.action,
+        })),
     });
-    const isTauri = typeof window !== 'undefined' && ((window as any).__TAURI__);
+    const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
     if (isTauri) {
       try {
-        (window as any).__TAURI__.core.invoke('on_app_state_changed', {
-          audioFileName,
-          lyricFileName,
-          canClearMedia: !!audioFileName,
-          canClearLyrics: lines.length > 0,
-          canLoadEmbeddedLyrics: !!metadata?.lyric,
-        }).catch(() => { });
-      } catch (e) { }
+        (window as any).__TAURI__.core
+          .invoke("on_app_state_changed", {
+            audioFileName,
+            lyricFileName,
+            canClearMedia: !!audioFileName,
+            canClearLyrics: lines.length > 0,
+            canLoadEmbeddedLyrics: !!metadata?.lyric,
+          })
+          .catch(() => {});
+      } catch (e) {}
       try {
-        (window as any).__TAURI__.core.invoke('on_history_changed', {
-          canUndo: pastActions.length > 0,
-          canRedo: futureActions.length > 0,
-          undoList: pastActions.map((a) => a.action),
-          redoList: futureActions.map((a) => a.action),
-        }).catch(() => { });
-      } catch (e) { }
+        (window as any).__TAURI__.core
+          .invoke("on_history_changed", {
+            canUndo: pastActions.length > 0,
+            canRedo: futureActions.length > 0,
+            undoList: pastActions.map((a) => a.action),
+            redoList: futureActions.map((a) => a.action),
+          })
+          .catch(() => {});
+      } catch (e) {}
     }
-  }, [dialogs, audioFileName, lyricFileName, lines.length, metadata, setFile, setMetadata, commitLines, setLyricFileName, resetHistory, shiftTime, undo, redo, pastActions, futureActions, handleExport, setAudioSpecs, exportFormat, setLrcMetadata, clearLyrics, clearMedia, loadEmbeddedLyrics]);
+  }, [
+    dialogs,
+    audioFileName,
+    lyricFileName,
+    lines.length,
+    metadata,
+    setFile,
+    setMetadata,
+    commitLines,
+    setLyricFileName,
+    resetHistory,
+    shiftTime,
+    undo,
+    redo,
+    pastActions,
+    futureActions,
+    handleExport,
+    setAudioSpecs,
+    exportFormat,
+    setLrcMetadata,
+    clearLyrics,
+    clearMedia,
+    loadEmbeddedLyrics,
+  ]);
 
-  const [dragOverlay, setDragOverlay] = useState<'media' | 'lyric' | 'file' | null>(null);
+  const [dragOverlay, setDragOverlay] = useState<
+    "media" | "lyric" | "file" | null
+  >(null);
 
   React.useEffect(() => {
     const handleDrop = (e: DragEvent) => {
@@ -358,31 +556,45 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       setDragOverlay(null);
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
         const f = e.dataTransfer.files[0];
-        if (f.type.startsWith('audio/') || f.type.startsWith('video/') || f.name.toLowerCase().endsWith('.flac')) {
+        if (
+          f.type.startsWith("audio/") ||
+          f.type.startsWith("video/") ||
+          f.name.toLowerCase().endsWith(".flac")
+        ) {
           processAudioFile(f);
-        } else if (f.name.toLowerCase().endsWith('.txt') || f.name.toLowerCase().endsWith('.lrc')) {
+        } else if (
+          f.name.toLowerCase().endsWith(".txt") ||
+          f.name.toLowerCase().endsWith(".lrc")
+        ) {
           processLyricFile(f);
         }
       }
     };
 
-    const isTauri = typeof window !== 'undefined' && ((window as any).__TAURI__);
+    const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
     let unlisteners: (() => void)[] = [];
 
     if (isTauri) {
-      (window as any).__TAURI__.core.invoke('show_titlebar_buttons').catch((err: any) => console.error("Failed to show titlebar buttons", err));
+      (window as any).__TAURI__.core
+        .invoke("show_titlebar_buttons")
+        .catch((err: any) =>
+          console.error("Failed to show titlebar buttons", err),
+        );
 
       const setupTauriListeners = async () => {
         const tauri = (window as any).__TAURI__;
         // ... DND logic as in the image ...
-        const dropEntry = await tauri.event.listen('tauri://drop', async (event: any) => {
-          const paths = event.payload.paths || [];
-          if (paths.length > 0) {
-            const path = paths[0];
-            // ... handle file ...
-          }
-          setDragOverlay(null);
-        });
+        const dropEntry = await tauri.event.listen(
+          "tauri://drop",
+          async (event: any) => {
+            const paths = event.payload.paths || [];
+            if (paths.length > 0) {
+              const path = paths[0];
+              // ... handle file ...
+            }
+            setDragOverlay(null);
+          },
+        );
         unlisteners.push(dropEntry);
         // ... other listeners ...
       };
@@ -392,33 +604,46 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const isTauri = typeof window !== 'undefined' && ((window as any).__TAURI__);
+      const isTauri =
+        typeof window !== "undefined" && (window as any).__TAURI__;
 
       if (!dragOverlay) {
-        let detected: 'media' | 'lyric' | 'file' | null = null;
+        let detected: "media" | "lyric" | "file" | null = null;
 
         if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
           const items = Array.from(e.dataTransfer.items);
-          const hasFiles = items.some(i => i.kind === 'file');
+          const hasFiles = items.some((i) => i.kind === "file");
 
           if (isTauri) {
             // Tauri sometimes doesn't expose kind/type properly during dragover, just show default if there's *any* item or types contains 'Files'
-            if (e.dataTransfer.types.includes('Files')) {
-              detected = 'file';
+            if (e.dataTransfer.types.includes("Files")) {
+              detected = "file";
             }
           } else {
             if (!hasFiles) return; // Ignore drag of text selections or images from other tabs
 
-            const hasImage = items.some(i => i.kind === 'file' && i.type.startsWith('image/'));
+            const hasImage = items.some(
+              (i) => i.kind === "file" && i.type.startsWith("image/"),
+            );
             if (hasImage) return; // Ignore dragging cover images around
 
-            const hasAudioVideo = items.some(i => i.kind === 'file' && (i.type.startsWith('audio/') || i.type.startsWith('video/') || i.type === ''));
+            const hasAudioVideo = items.some(
+              (i) =>
+                i.kind === "file" &&
+                (i.type.startsWith("audio/") ||
+                  i.type.startsWith("video/") ||
+                  i.type === ""),
+            );
             // Some browsers leave type empty for unknown formats like flac during dragover
-            const hasText = items.some(i => i.kind === 'file' && (i.type.startsWith('text/') || i.type === ''));
+            const hasText = items.some(
+              (i) =>
+                i.kind === "file" &&
+                (i.type.startsWith("text/") || i.type === ""),
+            );
 
-            if (hasAudioVideo) detected = 'media';
-            else if (hasText) detected = 'lyric';
-            else detected = 'file';
+            if (hasAudioVideo) detected = "media";
+            else if (hasText) detected = "lyric";
+            else detected = "file";
           }
         }
 
@@ -429,19 +654,22 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       e.preventDefault();
       e.stopPropagation();
       // Only hide if we leave the actual window, to prevent flickering over children
-      if (e.relatedTarget === null || (e.relatedTarget as HTMLElement).nodeName === 'HTML') {
+      if (
+        e.relatedTarget === null ||
+        (e.relatedTarget as HTMLElement).nodeName === "HTML"
+      ) {
         setDragOverlay(null);
       }
     };
 
-    window.addEventListener('drop', handleDrop);
-    window.addEventListener('dragover', handleDragOver);
-    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener("drop", handleDrop);
+    window.addEventListener("dragover", handleDragOver);
+    window.addEventListener("dragleave", handleDragLeave);
 
     return () => {
-      window.removeEventListener('drop', handleDrop);
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener("drop", handleDrop);
+      window.removeEventListener("dragover", handleDragOver);
+      window.removeEventListener("dragleave", handleDragLeave);
     };
   }, [dragOverlay, processAudioFile, processLyricFile]);
 
@@ -454,7 +682,8 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
   }, [processAudioFile, processLyricFile]);
 
   useEffect(() => {
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
+    const isTauri =
+      typeof window !== "undefined" && !!(window as any).__TAURI__;
     if (!isTauri) return;
 
     let active = true;
@@ -463,71 +692,109 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
     const setupTauriListeners = async () => {
       try {
-        const uEnter = await tauri.event.listen('tauri://drag-enter', (event: any) => {
-          const paths = event.payload?.paths || [];
-          if (paths.length > 0) {
-            const path = paths[0];
-            const ext = path.split('.').pop()?.toLowerCase();
-            let detected: 'media' | 'lyric' | 'file' = 'file';
-            if (['flac', 'mp3', 'wav', 'm4a', 'aac', 'ogg', 'mp4', 'mkv', 'webm'].includes(ext as string)) {
-              detected = 'media';
-            } else if (['txt', 'lrc'].includes(ext as string)) {
-              detected = 'lyric';
+        const uEnter = await tauri.event.listen(
+          "tauri://drag-enter",
+          (event: any) => {
+            const paths = event.payload?.paths || [];
+            if (paths.length > 0) {
+              const path = paths[0];
+              const ext = path.split(".").pop()?.toLowerCase();
+              let detected: "media" | "lyric" | "file" = "file";
+              if (
+                [
+                  "flac",
+                  "mp3",
+                  "wav",
+                  "m4a",
+                  "aac",
+                  "ogg",
+                  "mp4",
+                  "mkv",
+                  "webm",
+                ].includes(ext as string)
+              ) {
+                detected = "media";
+              } else if (["txt", "lrc"].includes(ext as string)) {
+                detected = "lyric";
+              }
+              setDragOverlay(detected);
             }
-            setDragOverlay(detected);
-          }
-        });
+          },
+        );
         if (active) unlisteners.push(uEnter);
-        else try { uEnter(); } catch (e) { }
+        else
+          try {
+            uEnter();
+          } catch (e) {}
 
-        const uLeave = await tauri.event.listen('tauri://drag-leave', () => {
+        const uLeave = await tauri.event.listen("tauri://drag-leave", () => {
           setDragOverlay(null);
         });
         if (active) unlisteners.push(uLeave);
-        else try { uLeave(); } catch (e) { }
+        else
+          try {
+            uLeave();
+          } catch (e) {}
 
-        const uCancelled = await tauri.event.listen('tauri://drag-cancelled', () => {
-          setDragOverlay(null);
-        });
+        const uCancelled = await tauri.event.listen(
+          "tauri://drag-cancelled",
+          () => {
+            setDragOverlay(null);
+          },
+        );
         if (active) unlisteners.push(uCancelled);
-        else try { uCancelled(); } catch (e) { }
+        else
+          try {
+            uCancelled();
+          } catch (e) {}
 
-        const uDrop = await tauri.event.listen('tauri://drag-drop', async (event: any) => {
-          setDragOverlay(null);
-          const paths = event.payload?.paths || [];
-          if (paths.length > 0) {
-            const path = paths[0];
-            const fileName = path.split(/[/\\]/).pop() || 'temp_file';
-            const ext = fileName.split('.').pop()?.toLowerCase();
+        const uDrop = await tauri.event.listen(
+          "tauri://drag-drop",
+          async (event: any) => {
+            setDragOverlay(null);
+            const paths = event.payload?.paths || [];
+            if (paths.length > 0) {
+              const path = paths[0];
+              const fileName = path.split(/[/\\]/).pop() || "temp_file";
+              const ext = fileName.split(".").pop()?.toLowerCase();
 
-            let mimeType = 'application/octet-stream';
-            if (ext === 'flac') mimeType = 'audio/flac';
-            else if (ext === 'mp3') mimeType = 'audio/mpeg';
-            else if (ext === 'wav') mimeType = 'audio/wav';
-            else if (ext === 'm4a') mimeType = 'audio/mp4';
-            else if (ext === 'aac') mimeType = 'audio/aac';
-            else if (ext === 'txt') mimeType = 'text/plain';
-            else if (ext === 'lrc') mimeType = 'text/plain';
+              let mimeType = "application/octet-stream";
+              if (ext === "flac") mimeType = "audio/flac";
+              else if (ext === "mp3") mimeType = "audio/mpeg";
+              else if (ext === "wav") mimeType = "audio/wav";
+              else if (ext === "m4a") mimeType = "audio/mp4";
+              else if (ext === "aac") mimeType = "audio/aac";
+              else if (ext === "txt") mimeType = "text/plain";
+              else if (ext === "lrc") mimeType = "text/plain";
 
-            try {
-              const bytes = await tauri.core.invoke('read_file_binary', { path });
-              const blob = new Blob([bytes], { type: mimeType });
-              const file = new File([blob], fileName, { type: mimeType });
+              try {
+                const bytes = await tauri.core.invoke("read_file_binary", {
+                  path,
+                });
+                const blob = new Blob([bytes], { type: mimeType });
+                const file = new File([blob], fileName, { type: mimeType });
 
-              if (ext === 'txt' || ext === 'lrc') {
-                processLyricRef.current(file);
-              } else {
-                processAudioRef.current(file);
+                if (ext === "txt" || ext === "lrc") {
+                  processLyricRef.current(file);
+                } else {
+                  processAudioRef.current(file);
+                }
+              } catch (err) {
+                console.error(
+                  "Failed to read file from Tauri native drop:",
+                  err,
+                );
               }
-            } catch (err) {
-              console.error('Failed to read file from Tauri native drop:', err);
             }
-          }
-        });
+          },
+        );
         if (active) unlisteners.push(uDrop);
-        else try { (uDrop as any)(); } catch (e) { }
+        else
+          try {
+            (uDrop as any)();
+          } catch (e) {}
       } catch (err) {
-        console.error('Error setting up Tauri drag listeners:', err);
+        console.error("Error setting up Tauri drag listeners:", err);
       }
     };
 
@@ -535,9 +802,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
     return () => {
       active = false;
-      unlisteners.forEach(u => {
+      unlisteners.forEach((u) => {
         try {
-          if (typeof u === 'function') (u as any)();
+          if (typeof u === "function") (u as any)();
         } catch (e) {
           console.warn("Caught unlisten error:", e);
         }
@@ -552,23 +819,22 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     if (f) processAudioFile(f);
   };
 
-
-
   const handleLyricSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) processLyricFile(f);
   };
 
   const titlebarSpacerClass = (height: string) =>
-    `${height} shrink-0 transition-[width] titlebar-drag-spacer ${isElectron ? 'app-region-drag' : 'app-region-drag pointer-events-none'
+    `${height} shrink-0 transition-[width] titlebar-drag-spacer ${
+      isElectron ? "app-region-drag" : "app-region-drag pointer-events-none"
     }`;
 
   const renderTitlebarLeftSpacer = (height: string, hiddenLg = true) => {
     if (isFullscreen) return null;
     return (
       <div
-        style={{ width: 'var(--titlebar-left-padding, 0px)' }}
-        className={`${titlebarSpacerClass(height)} ${hiddenLg ? 'hidden lg:block' : ''}`}
+        style={{ width: "var(--titlebar-left-padding, 0px)" }}
+        className={`${titlebarSpacerClass(height)} ${hiddenLg ? "hidden lg:block" : ""}`}
       />
     );
   };
@@ -577,23 +843,27 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
     if (isFullscreen) return null;
     return isElectronCustomControls ? (
       <ElectronWindowControls
-        className={`${height} ${hiddenLg ? 'hidden lg:flex' : 'flex'}`}
+        className={`${height} ${hiddenLg ? "hidden lg:flex" : "flex"}`}
       />
     ) : (
       <div
-        style={{ width: 'var(--titlebar-right-padding, 0px)' }}
-        className={`${titlebarSpacerClass(height)} ${hiddenLg ? 'hidden lg:block' : ''}`}
+        style={{ width: "var(--titlebar-right-padding, 0px)" }}
+        className={`${titlebarSpacerClass(height)} ${hiddenLg ? "hidden lg:block" : ""}`}
       />
     );
   };
 
-  const interactiveShellClass = isElectron ? 'app-region-no-drag' : '';
+  const interactiveShellClass = isElectron ? "app-region-no-drag" : "";
 
   const renderButtonsRow = (className: string) => (
-    <div className={`relative z-[200] flex-row flex-wrap items-center justify-center lg:justify-between w-full px-2 py-2 gap-y-2 gap-x-4 ${className}`}>
+    <div
+      className={`relative z-[200] flex-row flex-wrap items-center justify-center lg:justify-between w-full px-2 py-2 gap-y-2 gap-x-4 ${className}`}
+    >
       {/* Left Group */}
-      <div className={`flex items-center gap-2 flex-wrap justify-center lg:justify-start ${interactiveShellClass}`}>
-        {renderTitlebarLeftSpacer('h-8')}
+      <div
+        className={`flex items-center gap-2 flex-wrap justify-center lg:justify-start ${interactiveShellClass}`}
+      >
+        {renderTitlebarLeftSpacer("h-8")}
 
         <div className="relative dropdown-container">
           <div className="flex group shadow-sm rounded">
@@ -625,13 +895,19 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
               </label>
               <div className="h-px bg-[var(--app-border-base)] mx-2 my-1" />
               <button
-                onClick={() => { audioInputRef.current?.click(); setLoadMediaDropdownOpen(false); }}
+                onClick={() => {
+                  audioInputRef.current?.click();
+                  setLoadMediaDropdownOpen(false);
+                }}
                 className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex items-center gap-2"
               >
                 <Music className="w-3.5 h-3.5" /> 載入音樂
               </button>
               <button
-                onClick={() => { videoInputRef.current?.click(); setLoadMediaDropdownOpen(false); }}
+                onClick={() => {
+                  videoInputRef.current?.click();
+                  setLoadMediaDropdownOpen(false);
+                }}
                 className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex items-center gap-2"
               >
                 <Film className="w-3.5 h-3.5" /> 載入MV影片
@@ -640,7 +916,11 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
               {isElectron && (
                 <>
                   <button
-                    disabled={!lyricFileName || lyricFileName === 'New Lyrics' || lyricFileName === 'Embedded Tag'}
+                    disabled={
+                      !lyricFileName ||
+                      lyricFileName === "New Lyrics" ||
+                      lyricFileName === "Embedded Tag"
+                    }
                     className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors"
                     onClick={async () => {
                       setLoadMediaDropdownOpen(false);
@@ -655,7 +935,10 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
               )}
               <button
                 disabled={!audioFileName}
-                onClick={() => { clearMedia(); setLoadMediaDropdownOpen(false); }}
+                onClick={() => {
+                  clearMedia();
+                  setLoadMediaDropdownOpen(false);
+                }}
                 className="w-full text-left px-3 py-2 text-xs text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-red-400 hover:bg-red-500 hover:text-[var(--app-text-primary)] transition-colors flex items-center gap-2"
               >
                 <X className="w-3.5 h-3.5" /> {i18n.clearMedia}
@@ -697,7 +980,13 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                   <div className="h-px bg-[var(--app-border-base)] mx-2 my-1" />
                 </>
               )}
-              <button className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors" onClick={() => { lyricInputRef.current?.click(); setLoadDropdownOpen(false); }}>
+              <button
+                className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors"
+                onClick={() => {
+                  lyricInputRef.current?.click();
+                  setLoadDropdownOpen(false);
+                }}
+              >
                 <FileText className="w-3.5 h-3.5" />
                 {i18n.loadFileLyrics}
               </button>
@@ -707,7 +996,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                 onClick={async () => {
                   if (metadata?.lyric) {
                     if (lines.length > 0) {
-                      const confirmed = await dialogs.confirm(i18n.confirmEmbeddedLyrics);
+                      const confirmed = await dialogs.confirm(
+                        i18n.confirmEmbeddedLyrics,
+                      );
                       if (!confirmed) return;
                     }
                     const parsed = parseRawLyrics(metadata.lyric);
@@ -730,24 +1021,37 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                         const electronAPI = (window as any).electronAPI;
                         let currentAudioPath = (file as any)?.path;
                         if (electronAPI?.getPathForFile && file) {
-                          currentAudioPath = electronAPI.getPathForFile(file) || currentAudioPath;
+                          currentAudioPath =
+                            electronAPI.getPathForFile(file) ||
+                            currentAudioPath;
                         }
                         if (currentAudioPath) {
-                          const parsed = await electronAPI.pathParse(currentAudioPath);
-                          const lrcPath = await electronAPI.pathJoin(parsed.dir, parsed.name + '.lrc');
+                          const parsed =
+                            await electronAPI.pathParse(currentAudioPath);
+                          const lrcPath = await electronAPI.pathJoin(
+                            parsed.dir,
+                            parsed.name + ".lrc",
+                          );
                           if (await electronAPI.fsExists(lrcPath)) {
-                            const text = await electronAPI.fsReadFileText(lrcPath);
-                            const lrcFile = new File([text], parsed.name + '.lrc', { type: 'text/plain' });
-                            Object.defineProperty(lrcFile, 'path', { value: lrcPath });
+                            const text =
+                              await electronAPI.fsReadFileText(lrcPath);
+                            const lrcFile = new File(
+                              [text],
+                              parsed.name + ".lrc",
+                              { type: "text/plain" },
+                            );
+                            Object.defineProperty(lrcFile, "path", {
+                              value: lrcPath,
+                            });
                             processLyricFile(lrcFile);
                           } else {
-                            dialogs.alert('找不到同名的 .lrc 檔案');
+                            dialogs.alert("找不到同名的 .lrc 檔案");
                           }
                         } else {
-                          dialogs.alert('無法取得目前媒體檔的路徑');
+                          dialogs.alert("無法取得目前媒體檔的路徑");
                         }
                       } else {
-                        dialogs.alert('請先載入媒體檔');
+                        dialogs.alert("請先載入媒體檔");
                       }
                     }}
                   >
@@ -759,7 +1063,10 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
               <div className="h-px bg-[var(--app-border-base)] mx-2 my-1" />
               <button
                 disabled={lines.length === 0}
-                onClick={() => { clearLyrics(); setLoadDropdownOpen(false); }}
+                onClick={() => {
+                  clearLyrics();
+                  setLoadDropdownOpen(false);
+                }}
                 className="w-full text-left px-3 py-2 text-xs text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-red-400 hover:bg-red-500 hover:text-[var(--app-text-primary)] transition-colors flex items-center gap-2"
               >
                 <X className="w-3.5 h-3.5" /> {i18n.clearLyrics}
@@ -775,11 +1082,13 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       </div>
 
       {/* Right Group */}
-      <div className={`flex items-center gap-2 flex-wrap justify-center lg:justify-end mt-2 lg:mt-0 ${interactiveShellClass}`}>
+      <div
+        className={`flex items-center gap-2 flex-wrap justify-center lg:justify-end mt-2 lg:mt-0 ${interactiveShellClass}`}
+      >
         <button
           onClick={() => setTouchUIMode(!touchUIMode)}
           title="觸控 UI 模式"
-          className={`p-1.5 rounded transition-colors mr-1 ${touchUIMode ? 'text-[var(--app-accent)] bg-[var(--app-bg-hover)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]'}`}
+          className={`p-1.5 rounded transition-colors mr-1 ${touchUIMode ? "text-[var(--app-accent)] bg-[var(--app-bg-hover)]" : "text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]"}`}
         >
           <Hand className="w-4 h-4" />
         </button>
@@ -796,12 +1105,15 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
           <button
             onClick={handleRotateScreen}
             title={
-              orientationState === 'default' ? '旋轉螢幕 (系統預設)' :
-                orientationState === 'portrait' ? '旋轉螢幕 (鎖定直向)' :
-                  orientationState === 'landscape' ? '旋轉螢幕 (鎖定橫向)' :
-                    '旋轉螢幕 (自動旋轉)'
+              orientationState === "default"
+                ? "旋轉螢幕 (系統預設)"
+                : orientationState === "portrait"
+                  ? "旋轉螢幕 (鎖定直向)"
+                  : orientationState === "landscape"
+                    ? "旋轉螢幕 (鎖定橫向)"
+                    : "旋轉螢幕 (自動旋轉)"
             }
-            className={`p-1.5 rounded transition-colors mr-1 ${orientationState === 'auto' ? 'text-[var(--app-accent)] bg-[var(--app-bg-hover)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]'}`}
+            className={`p-1.5 rounded transition-colors mr-1 ${orientationState === "auto" ? "text-[var(--app-accent)] bg-[var(--app-bg-hover)]" : "text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]"}`}
           >
             <RotateCw className="w-4 h-4" />
           </button>
@@ -809,14 +1121,24 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         <button
           onClick={() => AppCommands.toggleFullscreen?.()}
           title="全螢幕"
-          className={`p-1.5 rounded transition-colors mr-1 ${isFullscreen ? 'text-[var(--app-accent)] bg-[var(--app-bg-hover)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]'}`}
+          className={`p-1.5 rounded transition-colors mr-1 ${isFullscreen ? "text-[var(--app-accent)] bg-[var(--app-bg-hover)]" : "text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)]"}`}
         >
           <Maximize className="w-4 h-4" />
         </button>
         <div className="relative dropdown-container">
           <div className="flex group shadow-sm rounded">
             <button
-              onClick={() => handleExport('enhanced')}
+              onClick={() => {
+                if (syncMode === "word") {
+                  handleExport(
+                    "enhanced",
+                    "file",
+                    ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
+                  );
+                } else {
+                  handleExport("standard", "file", ".lrc 標準LRC (逐行同步)");
+                }
+              }}
               title="儲存為 .LRC 檔案 (Ctrl+S)"
               className="px-3 py-1.5 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black rounded-l text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-transparent"
             >
@@ -832,28 +1154,43 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
           {exportDropdownOpen && (
             <div className="absolute top-full right-0 mt-1 w-max min-w-[14rem] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-[9999] overflow-hidden py-1 whitespace-nowrap">
-              {AppCommands.getExportOptions().map((opt, i) => (
-                opt.action === 'separator' ? (
-                  <div key={i} className="my-1 border-t border-[var(--app-border-base)] mx-2"></div>
+              {AppCommands.getExportOptions().map((opt, i) =>
+                opt.action === "separator" ? (
+                  <div
+                    key={i}
+                    className="my-1 border-t border-[var(--app-border-base)] mx-2"
+                  ></div>
                 ) : (
-                  <button key={i} className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex flex-col gap-1" onClick={() => {
-                    const actionMap = {
-                      exportEnhanced: () => handleExport('enhanced', 'file'),
-                      exportStandard: () => handleExport('standard', 'file'),
-                      exportSimple: () => handleExport('simple', 'file'),
-                      exportSrt: () => handleExport('srt', 'file'),
-                      exportAssKtv: () => { setMode('ktv-ass'); },
-                      exportEmbeddedEnhanced: () => handleExport('enhanced', 'embedded'),
-                      exportEmbeddedStandard: () => handleExport('standard', 'embedded'),
-                      exportEmbeddedSimple: () => handleExport('simple', 'embedded')
-                    };
-                    (actionMap as any)[opt.action]();
-                    setExportDropdownOpen(false);
-                  }}>
+                  <button
+                    key={i}
+                    className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex flex-col gap-1"
+                    onClick={() => {
+                      const actionMap = {
+                        exportEnhanced: () =>
+                          handleExport("enhanced", "file", opt.label),
+                        exportStandard: () =>
+                          handleExport("standard", "file", opt.label),
+                        exportSimple: () =>
+                          handleExport("simple", "file", opt.label),
+                        exportSrt: () => handleExport("srt", "file", opt.label),
+                        exportAssKtv: () => {
+                          setMode("ktv-ass");
+                        },
+                        exportEmbeddedEnhanced: () =>
+                          handleExport("enhanced", "embedded", opt.label),
+                        exportEmbeddedStandard: () =>
+                          handleExport("standard", "embedded", opt.label),
+                        exportEmbeddedSimple: () =>
+                          handleExport("simple", "embedded", opt.label),
+                      };
+                      (actionMap as any)[opt.action]();
+                      setExportDropdownOpen(false);
+                    }}
+                  >
                     <span>{opt.label}</span>
                   </button>
-                )
-              ))}
+                ),
+              )}
             </div>
           )}
         </div>
@@ -868,7 +1205,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
           {moreMenuOpen && (
             <div className="absolute top-full right-0 mt-1 w-max min-w-[12rem] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-[9999] overflow-hidden py-1 whitespace-nowrap">
               {MORE_MENU_ITEMS.map((opt, i) => {
-                if (opt.type === 'link' && opt.url) {
+                if (opt.type === "link" && opt.url) {
                   return (
                     <a
                       key={i}
@@ -887,7 +1224,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                     key={i}
                     className="w-full text-left px-4 py-2 text-sm text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors"
                     onClick={() => {
-                      if (opt.type === 'action' && opt.action) {
+                      if (opt.type === "action" && opt.action) {
                         opt.action();
                       }
                       setMoreMenuOpen(false);
@@ -910,7 +1247,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             </div>
           )}
         </div>
-        {renderTitlebarRightEnd('h-8')}
+        {renderTitlebarRightEnd("h-8")}
       </div>
     </div>
   );
@@ -923,7 +1260,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         className="hidden"
         ref={fileInputRef}
         onChange={handleAudioSelect}
-        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+        onClick={(e) => {
+          (e.target as HTMLInputElement).value = "";
+        }}
       />
       <input
         type="file"
@@ -931,7 +1270,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         className="hidden"
         ref={audioInputRef}
         onChange={handleAudioSelect}
-        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+        onClick={(e) => {
+          (e.target as HTMLInputElement).value = "";
+        }}
       />
       <input
         type="file"
@@ -939,7 +1280,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         className="hidden"
         ref={videoInputRef}
         onChange={handleAudioSelect}
-        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+        onClick={(e) => {
+          (e.target as HTMLInputElement).value = "";
+        }}
       />
       <input
         type="file"
@@ -947,7 +1290,9 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         className="hidden"
         ref={lyricInputRef}
         onChange={handleLyricSelect}
-        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+        onClick={(e) => {
+          (e.target as HTMLInputElement).value = "";
+        }}
       />
       <input
         type="file"
@@ -957,29 +1302,43 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) {
-            if (f.type.startsWith('audio/') || f.type.startsWith('video/') || f.name.toLowerCase().endsWith('.flac')) {
+            if (
+              f.type.startsWith("audio/") ||
+              f.type.startsWith("video/") ||
+              f.name.toLowerCase().endsWith(".flac")
+            ) {
               processAudioFile(f);
-            } else if (f.name.toLowerCase().endsWith('.txt') || f.name.toLowerCase().endsWith('.lrc')) {
+            } else if (
+              f.name.toLowerCase().endsWith(".txt") ||
+              f.name.toLowerCase().endsWith(".lrc")
+            ) {
               processLyricFile(f);
             }
           }
         }}
-        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+        onClick={(e) => {
+          (e.target as HTMLInputElement).value = "";
+        }}
       />
       {dragOverlay && (
         <div
           className="fixed inset-0 z-[100] bg-[var(--app-bg-base)]/80 backdrop-blur-sm flex items-center justify-center border-[3px] border-dashed border-[var(--app-accent)] m-4 rounded-xl pointer-events-none"
           style={{
-            marginTop: 'max(1rem, var(--app-safe-area-top))',
-            marginBottom: 'max(1rem, var(--app-safe-area-bottom))',
-            marginLeft: 'max(1rem, var(--app-safe-area-left))',
-            marginRight: 'max(1rem, var(--app-safe-area-right))'
+            marginTop: "max(1rem, var(--app-safe-area-top))",
+            marginBottom: "max(1rem, var(--app-safe-area-bottom))",
+            marginLeft: "max(1rem, var(--app-safe-area-left))",
+            marginRight: "max(1rem, var(--app-safe-area-right))",
           }}
         >
           <div className="text-center flex flex-col items-center gap-4 text-[var(--app-accent)] bg-[var(--app-bg-panel)] px-12 py-8 rounded-2xl shadow-2xl animate-pulse">
             <Music className="w-16 h-16" />
             <span className="text-3xl font-bold tracking-wide">
-              Load {dragOverlay === 'media' ? 'Media' : dragOverlay === 'lyric' ? 'Lyrics' : 'Media / Lyrics'}
+              Load{" "}
+              {dragOverlay === "media"
+                ? "Media"
+                : dragOverlay === "lyric"
+                  ? "Lyrics"
+                  : "Media / Lyrics"}
             </span>
           </div>
         </div>
@@ -988,28 +1347,37 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         ref={(el) => {
           if (!el) return;
           const observer = new ResizeObserver((entries) => {
-            document.documentElement.style.setProperty('--header-height', `${entries[0].contentRect.height}px`);
+            document.documentElement.style.setProperty(
+              "--header-height",
+              `${entries[0].contentRect.height}px`,
+            );
           });
           observer.observe(el);
           return () => observer.disconnect();
         }}
-        className={`bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] shrink-0 relative select-none flex flex-col lg:flex-row lg:items-center lg:justify-between sticky top-0 z-[60] w-full transition-opacity duration-300 ${isElectron ? 'app-region-drag' : ''} ${unfocusedClass}`}
+        className={`bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] shrink-0 relative select-none flex flex-col lg:flex-row lg:items-center lg:justify-between sticky top-0 z-[60] w-full transition-opacity duration-300 ${isElectron ? "app-region-drag" : ""} ${unfocusedClass}`}
         style={{
-          display: 'var(--top-toolbar-display, flex)',
-          paddingTop: isFullscreen ? '0px' : 'max(var(--android-safe-top, 0px), env(safe-area-inset-top, 0px))'
+          display: "var(--top-toolbar-display, flex)",
+          paddingTop: isFullscreen
+            ? "0px"
+            : "max(var(--android-safe-top, 0px), env(safe-area-inset-top, 0px))",
         }}
         onDoubleClick={(e) => {
           if (!isElectron) return;
           const target = e.target as HTMLElement;
           if (
-            target.closest('button') ||
-            target.closest('input') ||
-            target.closest('.app-region-no-drag') ||
-            target.closest('[data-electron-window-controls]')
+            target.closest("button") ||
+            target.closest("input") ||
+            target.closest(".app-region-no-drag") ||
+            target.closest("[data-electron-window-controls]")
           ) {
             return;
           }
-          (window as unknown as { electronAPI?: { windowToggleMaximize?: () => void } }).electronAPI?.windowToggleMaximize?.();
+          (
+            window as unknown as {
+              electronAPI?: { windowToggleMaximize?: () => void };
+            }
+          ).electronAPI?.windowToggleMaximize?.();
         }}
       >
         {/* Desktop Title (Absolute centered) */}
@@ -1019,26 +1387,80 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             title="關於 Enhanced LRC Studio"
             className="app-region-no-drag p-1 rounded transition-colors relative group shrink-0"
           >
-            <img src="/icon-light.svg" alt="App Icon" className="w-5 h-5 theme-icon-light opacity-80 group-hover:opacity-100 transition-opacity" />
-            <img src="/icon-dark.svg" alt="App Icon" className="w-5 h-5 theme-icon-dark opacity-80 group-hover:opacity-100 transition-opacity" />
+            <img
+              src="/icon-light.svg"
+              alt="App Icon"
+              className="w-5 h-5 theme-icon-light opacity-80 group-hover:opacity-100 transition-opacity"
+            />
+            <img
+              src="/icon-dark.svg"
+              alt="App Icon"
+              className="w-5 h-5 theme-icon-dark opacity-80 group-hover:opacity-100 transition-opacity"
+            />
           </button>
           <div className="flex flex-col items-center">
             {!finalHideTitle && (
-              <h1 className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}>
-                <span className="font-bold">E</span><span>nhanced</span> <span className="font-bold">LRC Studio</span>
+              <h1
+                className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}
+              >
+                <span className="font-bold">E</span>
+                <span>nhanced</span>{" "}
+                <span className="font-bold">LRC Studio</span>
               </h1>
             )}
-            <div className={`${finalHideTitle ? 'text-sm' : 'text-[10px] mt-0.5'} text-[var(--app-text-muted)] font-mono flex items-center justify-center gap-2 max-w-full transition-all overflow-hidden whitespace-nowrap`}>
-              {audioFileName ? <span>{i18n.audio}: <span className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto" title={audioFileName}>{audioFileName}</span></span> : <span className={noAudioClass}>{i18n.noAudio}</span>}
+            <div
+              className={`${finalHideTitle ? "text-sm" : "text-[10px] mt-0.5"} text-[var(--app-text-muted)] font-mono flex items-center justify-center gap-2 max-w-full transition-all overflow-hidden whitespace-nowrap`}
+            >
+              {audioFileName ? (
+                <span>
+                  {i18n.audio}:{" "}
+                  <span
+                    className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto"
+                    title={audioFileName}
+                  >
+                    {audioFileName}
+                  </span>
+                </span>
+              ) : (
+                <span className={noAudioClass}>{i18n.noAudio}</span>
+              )}
               <span className="opacity-50 shrink-0">|</span>
-              {lyricFileName ? <span>{i18n.lyrics}: <span className={`${lyricNameClass} app-region-no-drag pointer-events-auto`} title={lyricFileName === 'Embedded Tag' ? i18n.embeddedTag : lyricFileName}>{lyricFileName === 'Embedded Tag' ? i18n.embeddedTag : lyricFileName}</span></span> : metadata?.lyric ? <span>{i18n.lyrics}: <span className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto" title={i18n.embeddedTag}>{i18n.embeddedTag}</span></span> : <span>{i18n.noLyrics}</span>}
+              {lyricFileName ? (
+                <span>
+                  {i18n.lyrics}:{" "}
+                  <span
+                    className={`${lyricNameClass} app-region-no-drag pointer-events-auto`}
+                    title={
+                      lyricFileName === "Embedded Tag"
+                        ? i18n.embeddedTag
+                        : lyricFileName
+                    }
+                  >
+                    {lyricFileName === "Embedded Tag"
+                      ? i18n.embeddedTag
+                      : lyricFileName}
+                  </span>
+                </span>
+              ) : metadata?.lyric ? (
+                <span>
+                  {i18n.lyrics}:{" "}
+                  <span
+                    className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto"
+                    title={i18n.embeddedTag}
+                  >
+                    {i18n.embeddedTag}
+                  </span>
+                </span>
+              ) : (
+                <span>{i18n.noLyrics}</span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Mobile Title Row */}
         <div className="lg:hidden items-center justify-between w-full py-2 app-region-drag relative bg-[var(--app-bg-panel-alt)] z-10 flex">
-          {renderTitlebarLeftSpacer('h-6', false)}
+          {renderTitlebarLeftSpacer("h-6", false)}
           <div className="flex items-center justify-center overflow-hidden px-2 z-0 flex-1 gap-2 min-w-0">
             <button
               onClick={() => setMetadataDialogOpen(true)}
@@ -1052,26 +1474,68 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
             </button>
             <div className="flex flex-col items-start justify-center min-w-0">
               {!finalHideTitle && (
-                <h1 className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}>
-                  <span className="font-bold">E</span><span>nhanced</span> <span className="font-bold">LRC Maker</span>
+                <h1
+                  className={`text-sm font-normal tracking-tight ${titleColor} transition-colors duration-300`}
+                >
+                  <span className="font-bold">E</span>
+                  <span>nhanced</span>{" "}
+                  <span className="font-bold">LRC Maker</span>
                 </h1>
               )}
-              <div className={`${finalHideTitle ? 'text-sm' : 'text-[10px] mt-0.5'} text-[var(--app-text-muted)] font-mono flex items-center justify-start gap-x-2 max-w-full transition-all flex-wrap`}>
-                {audioFileName ? <span className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto break-all" title={audioFileName}>{audioFileName}</span> : <span className={noAudioClass}>{i18n.noAudio}</span>}
+              <div
+                className={`${finalHideTitle ? "text-sm" : "text-[10px] mt-0.5"} text-[var(--app-text-muted)] font-mono flex items-center justify-start gap-x-2 max-w-full transition-all flex-wrap`}
+              >
+                {audioFileName ? (
+                  <span
+                    className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto break-all"
+                    title={audioFileName}
+                  >
+                    {audioFileName}
+                  </span>
+                ) : (
+                  <span className={noAudioClass}>{i18n.noAudio}</span>
+                )}
                 <span className="opacity-50 shrink-0">|</span>
-                {lyricFileName ? <span className={`${lyricNameClass} app-region-no-drag pointer-events-auto break-all`} title={lyricFileName === 'Embedded Tag' ? i18n.embeddedTag : lyricFileName}>{lyricFileName === 'Embedded Tag' ? i18n.embeddedTag : lyricFileName}</span> : metadata?.lyric ? <span className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto" title={i18n.embeddedTag}>{i18n.embeddedTag}</span> : <span>{i18n.noLyrics}</span>}
+                {lyricFileName ? (
+                  <span
+                    className={`${lyricNameClass} app-region-no-drag pointer-events-auto break-all`}
+                    title={
+                      lyricFileName === "Embedded Tag"
+                        ? i18n.embeddedTag
+                        : lyricFileName
+                    }
+                  >
+                    {lyricFileName === "Embedded Tag"
+                      ? i18n.embeddedTag
+                      : lyricFileName}
+                  </span>
+                ) : metadata?.lyric ? (
+                  <span
+                    className="text-[var(--app-text-secondary)] app-region-no-drag pointer-events-auto"
+                    title={i18n.embeddedTag}
+                  >
+                    {i18n.embeddedTag}
+                  </span>
+                ) : (
+                  <span>{i18n.noLyrics}</span>
+                )}
               </div>
             </div>
           </div>
-          {renderTitlebarRightEnd('h-6', false)}
+          {renderTitlebarRightEnd("h-6", false)}
         </div>
 
         {/* Desktop Buttons */}
-        {renderButtonsRow('hidden lg:flex flex-1 z-[200] relative')}
+        {renderButtonsRow("hidden lg:flex flex-1 z-[200] relative")}
       </header>
       {/* Mobile Buttons — wrapped so --top-toolbar-display: none also hides this row on Linux Tauri */}
-      <div style={{ display: 'var(--top-toolbar-display, flex)' }} className={`transition-opacity duration-300 relative z-[100] ${unfocusedClass}`}>
-        {renderButtonsRow('flex lg:hidden bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] shrink-0')}
+      <div
+        style={{ display: "var(--top-toolbar-display, flex)" }}
+        className={`transition-opacity duration-300 relative z-[100] ${unfocusedClass}`}
+      >
+        {renderButtonsRow(
+          "flex lg:hidden bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] shrink-0",
+        )}
       </div>
 
       <LrcMetadataDialog

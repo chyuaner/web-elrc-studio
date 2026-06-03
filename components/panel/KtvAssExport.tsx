@@ -112,23 +112,27 @@ export function KtvAssExport() {
   const [options, setOptions] = useState<
     Omit<AssOptions, "interludeThreshold">
   >(() => getDefaultAssOptions(lrcMetadata));
-  
+
   const [newExcludeStart, setNewExcludeStart] = useState("");
   const [newExcludeEnd, setNewExcludeEnd] = useState("");
 
   const parsedIntervals = useMemo(() => {
     if (!options.klgno) return [];
-    return options.klgno.split(';').filter(Boolean).map(part => {
-      const parts = part.split('-');
-      if (parts.length === 2) {
-        return {
-          startStr: parts[0].trim(),
-          endStr: parts[1].trim(),
-          raw: part
-        };
-      }
-      return null;
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    return options.klgno
+      .split(";")
+      .filter(Boolean)
+      .map((part) => {
+        const parts = part.split("-");
+        if (parts.length === 2) {
+          return {
+            startStr: parts[0].trim(),
+            endStr: parts[1].trim(),
+            raw: part,
+          };
+        }
+        return null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [options.klgno]);
 
   const handleAddExcludeInterval = () => {
@@ -152,27 +156,31 @@ export function KtvAssExport() {
     }
 
     const newItem = `${start}-${end}`;
-    const prevList = options.klgno ? options.klgno.split(';').filter(Boolean) : [];
-    
+    const prevList = options.klgno
+      ? options.klgno.split(";").filter(Boolean)
+      : [];
+
     if (prevList.includes(newItem)) {
       showToast("此不顯示時段已存在");
       return;
     }
 
-    const newList = [...prevList, newItem].join(';');
+    const newList = [...prevList, newItem].join(";");
     const updated = { ...options, klgno: newList };
     setOptions(updated);
     syncToLrcMetadata(updated);
-    
+
     setNewExcludeStart("");
     setNewExcludeEnd("");
     showToast("已成功新增特殊自訂 Logo 排除時段");
   };
 
   const handleRemoveExcludeInterval = (idxToRemove: number) => {
-    const prevList = options.klgno ? options.klgno.split(';').filter(Boolean) : [];
+    const prevList = options.klgno
+      ? options.klgno.split(";").filter(Boolean)
+      : [];
     const filtered = prevList.filter((_, idx) => idx !== idxToRemove);
-    const newList = filtered.join(';');
+    const newList = filtered.join(";");
     const updated = { ...options, klgno: newList };
     setOptions(updated);
     syncToLrcMetadata(updated);
@@ -195,8 +203,6 @@ export function KtvAssExport() {
       return `ffmpeg -i "${originalVideoName}" -vf "subtitles='${assFilename}'" -c:v h264_nvenc -preset slow -cq 19 -rc constqp -pix_fmt yuv420p -c:a copy "${outputVideoName}"`;
     }
   }, [ffmpegMode, originalVideoName, assFilename, outputVideoName]);
-
-
 
   // 當 Lrc 內部的自訂 KTV 中繼資料被更新時，將歌名、歌手、專輯與自訂欄位同步至 options，確保資料即時更新且不遺失自定義渲染樣式（不自動回退至通用屬性）
   useEffect(() => {
@@ -355,22 +361,22 @@ export function KtvAssExport() {
           const parsed = await electronAPI.pathParse(mediaPath);
           defaultPath = await electronAPI.pathJoin(parsed.dir, defaultName);
         } catch (e) {
-          console.error('Path parse/join failed', e);
+          console.error("Path parse/join failed", e);
         }
       }
 
       const result = await electronAPI.showSaveDialog({
-        title: i18n.saveAss || '儲存 ASS 字幕檔案',
+        title: i18n.saveAss || ".ass KTV字幕 (逐字同步)",
         defaultPath: defaultPath,
         filters: [
-          { name: 'Advanced Substation Alpha', extensions: ['ass'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
+          { name: "Advanced Substation Alpha", extensions: ["ass"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
       });
 
       if (!result.canceled && result.filePath) {
         await electronAPI.fsWriteFileText(result.filePath, assContent);
-        showToast(`${i18n.savedTo || '已儲存至 '}${result.filePath}`);
+        showToast(`${i18n.savedTo || "已儲存至 "}${result.filePath}`);
         return;
       }
       if (result.canceled) return;
@@ -424,16 +430,35 @@ export function KtvAssExport() {
     const title = lrcMetadata.ti || "";
     const artist = lrcMetadata.ar || "";
     const album = lrcMetadata.al || "";
-    
+
     // 把所有的LRC屬性「自訂標籤」（排除本系統專用的標籤）也一起填入「自訂內容」
-    const predefinedKeys = ['ti', 'ar', 'al', 'au', 'by', 'offset', 're', 've', 'length', 'tool'];
-    const sysKeysList = ['kti', 'kar', 'kal', 'ko', 'tt', 'tte', 'kth', 'klg'];
-    
+    const predefinedKeys = [
+      "ti",
+      "ar",
+      "al",
+      "au",
+      "by",
+      "offset",
+      "re",
+      "ve",
+      "length",
+      "tool",
+    ];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg"];
+
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
-      if (!predefinedKeys.includes(key) && !sysKeysList.includes(key.toLowerCase()) && value) {
-        if (!key.toLowerCase().startsWith('kstyledef_') && key.toLowerCase() !== 'kstyle' && key.toLowerCase() !== 'kstyledef') {
-            customParts.push(`${key}：${value}`);
+      if (
+        !predefinedKeys.includes(key) &&
+        !sysKeysList.includes(key.toLowerCase()) &&
+        value
+      ) {
+        if (
+          !key.toLowerCase().startsWith("kstyledef_") &&
+          key.toLowerCase() !== "kstyle" &&
+          key.toLowerCase() !== "kstyledef"
+        ) {
+          customParts.push(`${key}：${value}`);
         }
       }
     }
@@ -635,7 +660,8 @@ export function KtvAssExport() {
       const loadedAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const loadedCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
       const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
-      const loadedKlgno = lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
+      const loadedKlgno =
+        lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -673,7 +699,9 @@ export function KtvAssExport() {
     <div className="flex flex-col h-full bg-[var(--app-bg-main)] overflow-hidden">
       {/* Title Bar inside Tab */}
       <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-base)] border-b border-[var(--app-border-base)] flex items-center justify-between">
-        <h2 className="text-sm font-bold text-[var(--app-text-primary)]">KTV ASS 輸出</h2>
+        <h2 className="text-sm font-bold text-[var(--app-text-primary)]">
+          KTV ASS 輸出
+        </h2>
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
@@ -681,7 +709,7 @@ export function KtvAssExport() {
           >
             <Download className="w-3.5 h-3.5" /> 下載 .ass 檔
           </button>
-          
+
           <button
             onClick={() => setBurnVideoDialogOpen(true)}
             className="text-[11px] flex items-center gap-1.5 bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] text-[var(--app-text-primary)] hover:bg-[var(--app-border-base)] px-3 py-1.5 rounded transition-colors font-bold z-10 animate-in fade-in duration-200"
@@ -992,7 +1020,9 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
+                              {(
+                                options.songInfoTitleColor || "#BC2600"
+                              ).toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1013,7 +1043,9 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
+                              {(
+                                options.songInfoArtistColor || "#2A04C8"
+                              ).toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1128,7 +1160,10 @@ export function KtvAssExport() {
                             value={options.infoTitleFontSize || 140}
                             onChange={(e) => {
                               const val = parseInt(e.target.value) || 140;
-                              setOptions({ ...options, infoTitleFontSize: val });
+                              setOptions({
+                                ...options,
+                                infoTitleFontSize: val,
+                              });
                             }}
                             className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
                           />
@@ -1193,7 +1228,9 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.dotOuterColor || "#DEDDDA").toUpperCase()}
+                              {(
+                                options.dotOuterColor || "#DEDDDA"
+                              ).toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1214,7 +1251,9 @@ export function KtvAssExport() {
                               className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
                             />
                             <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.dotInnerColor || "#FFFFFF").toUpperCase()}
+                              {(
+                                options.dotInnerColor || "#FFFFFF"
+                              ).toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -1226,7 +1265,9 @@ export function KtvAssExport() {
                             外圓形半徑比例
                           </span>
                           <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
+                            {options.dotOuterSize !== undefined
+                              ? options.dotOuterSize
+                              : 0.28}
                           </span>
                         </div>
                         <input
@@ -1234,7 +1275,11 @@ export function KtvAssExport() {
                           min="0.1"
                           max="0.5"
                           step="0.01"
-                          value={options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
+                          value={
+                            options.dotOuterSize !== undefined
+                              ? options.dotOuterSize
+                              : 0.28
+                          }
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1404,7 +1449,8 @@ export function KtvAssExport() {
                           onChange={(e) =>
                             setOptions({
                               ...options,
-                              infoTitleFontSize: parseInt(e.target.value) || 150,
+                              infoTitleFontSize:
+                                parseInt(e.target.value) || 150,
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"
@@ -1520,7 +1566,11 @@ export function KtvAssExport() {
                         </label>
                         <input
                           type="number"
-                          value={options.logoMaxWidth !== undefined ? options.logoMaxWidth : 450}
+                          value={
+                            options.logoMaxWidth !== undefined
+                              ? options.logoMaxWidth
+                              : 450
+                          }
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1536,7 +1586,11 @@ export function KtvAssExport() {
                         </label>
                         <input
                           type="number"
-                          value={options.logoMaxHeight !== undefined ? options.logoMaxHeight : 300}
+                          value={
+                            options.logoMaxHeight !== undefined
+                              ? options.logoMaxHeight
+                              : 300
+                          }
                           onChange={(e) =>
                             setOptions({
                               ...options,
@@ -1553,11 +1607,16 @@ export function KtvAssExport() {
                         <input
                           type="number"
                           step="0.5"
-                          value={options.logoMinInterludeGap !== undefined ? options.logoMinInterludeGap : 9.0}
+                          value={
+                            options.logoMinInterludeGap !== undefined
+                              ? options.logoMinInterludeGap
+                              : 9.0
+                          }
                           onChange={(e) =>
                             setOptions({
                               ...options,
-                              logoMinInterludeGap: parseFloat(e.target.value) || 0,
+                              logoMinInterludeGap:
+                                parseFloat(e.target.value) || 0,
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono"
@@ -1598,7 +1657,10 @@ export function KtvAssExport() {
                     標題
                   </span>
                   <textarea
-                    rows={Math.max(1, (options.songInfoTitle || "").split("\n").length)}
+                    rows={Math.max(
+                      1,
+                      (options.songInfoTitle || "").split("\n").length,
+                    )}
                     value={options.songInfoTitle}
                     onChange={(e) => {
                       const updated = {
@@ -1615,7 +1677,10 @@ export function KtvAssExport() {
                     主唱
                   </span>
                   <textarea
-                    rows={Math.max(1, (options.songInfoArtist || "").split("\n").length)}
+                    rows={Math.max(
+                      1,
+                      (options.songInfoArtist || "").split("\n").length,
+                    )}
                     value={options.songInfoArtist}
                     onChange={(e) => {
                       const updated = {
@@ -1632,7 +1697,10 @@ export function KtvAssExport() {
                     專輯
                   </span>
                   <textarea
-                    rows={Math.max(1, (options.songInfoAlbum || "").split("\n").length)}
+                    rows={Math.max(
+                      1,
+                      (options.songInfoAlbum || "").split("\n").length,
+                    )}
                     value={options.songInfoAlbum}
                     onChange={(e) => {
                       const updated = {
@@ -1713,7 +1781,10 @@ export function KtvAssExport() {
                   <ImageIcon className="w-4 h-4" /> 自訂出版商 Logo 圖檔 (SVG)
                 </label>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                  僅支援 SVG 向量格式，匯出時會轉為 ASS 內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距 dualRowMarginV，等比例縮小至最大寬高範圍）。
+                  僅支援 SVG 向量格式，匯出時會轉為 ASS
+                  內嵌向量圖。目前測試階段固定顯示於左上角（左距
+                  dualRowMarginL、上距
+                  dualRowMarginV，等比例縮小至最大寬高範圍）。
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <input
@@ -1745,11 +1816,15 @@ export function KtvAssExport() {
                             type="button"
                             onClick={() => {
                               try {
-                                const blob = new Blob([options.interludeLogoSvg!], { type: "image/svg+xml;charset=utf-8" });
+                                const blob = new Blob(
+                                  [options.interludeLogoSvg!],
+                                  { type: "image/svg+xml;charset=utf-8" },
+                                );
                                 const url = URL.createObjectURL(blob);
                                 const link = document.createElement("a");
                                 link.href = url;
-                                link.download = interludeLogoFileName || "publisher_logo.svg";
+                                link.download =
+                                  interludeLogoFileName || "publisher_logo.svg";
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -1782,18 +1857,25 @@ export function KtvAssExport() {
               </div>
 
               {/* 特殊自訂不要顯示 Logo 時段 */}
-              <div id="exclude-logo-intervals" className="flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
+              <div
+                id="exclude-logo-intervals"
+                className="flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]"
+              >
                 <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示 Logo 時段
+                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示
+                  Logo 時段
                 </label>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                  可自訂特定時間戳範圍不要出現任何 Logo，時間戳核心顯示如歌詞不受影響。
+                  可自訂特定時間戳範圍不要出現任何
+                  Logo，時間戳核心顯示如歌詞不受影響。
                 </p>
 
                 {/* 新增區段 */}
                 <div className="flex gap-2.5 items-end bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] z-10">
                   <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">開始時間 (mm:ss.cs/ms)</span>
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                      開始時間 (mm:ss.cs/ms)
+                    </span>
                     <input
                       type="text"
                       id="exclude-start-input"
@@ -1804,7 +1886,9 @@ export function KtvAssExport() {
                     />
                   </div>
                   <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">結束時間 (mm:ss.cs/ms)</span>
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                      結束時間 (mm:ss.cs/ms)
+                    </span>
                     <input
                       type="text"
                       id="exclude-end-input"
@@ -1832,14 +1916,16 @@ export function KtvAssExport() {
                     </div>
                   ) : (
                     parsedIntervals.map((interval, index) => (
-                      <div 
+                      <div
                         key={index}
                         className="flex items-center justify-between text-xs font-mono bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] rounded px-2.5 py-1.5 hover:bg-[var(--app-bg-hover)] transition-colors group"
                       >
                         <div className="flex items-center gap-2 text-[var(--app-text-primary)]">
                           <Clock className="w-3.5 h-3.5 text-orange-400/70" />
                           <span>{interval.startStr}</span>
-                          <span className="text-[var(--app-text-muted)]">➔</span>
+                          <span className="text-[var(--app-text-muted)]">
+                            ➔
+                          </span>
                           <span>{interval.endStr}</span>
                         </div>
                         <button
@@ -1862,7 +1948,7 @@ export function KtvAssExport() {
 
       {/* Editor / Preview Area */}
       <div className="shrink-0 border-t border-[var(--app-border-base)] bg-[var(--app-bg-panel)] animate-fade-in">
-        <div 
+        <div
           onClick={() => setRawPreviewOpen(!rawPreviewOpen)}
           className="flex items-center justify-between px-4 py-2.5 bg-[var(--app-bg-input)] cursor-pointer hover:bg-[var(--app-bg-hover)] transition-colors select-none"
         >
@@ -1883,7 +1969,7 @@ export function KtvAssExport() {
             )}
           </div>
         </div>
-        
+
         {rawPreviewOpen && (
           <div className="flex flex-col min-h-[300px] max-h-[500px] overflow-hidden lg:relative border-t border-[var(--app-border-light)]">
             <RawTextDisplay
@@ -1911,12 +1997,13 @@ export function KtvAssExport() {
         onClose={() => setBurnVideoDialogOpen(false)}
         title={
           <span className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-[var(--app-accent)]" /> 壓製成新影片 (利用 FFmpeg)
+            <Film className="w-4 h-4 text-[var(--app-accent)]" /> 壓製成新影片
+            (利用 FFmpeg)
           </span>
         }
         maxWidthClass="max-w-2xl"
         footer={
-          <button 
+          <button
             onClick={() => setBurnVideoDialogOpen(false)}
             className="px-5 py-2 bg-[var(--app-bg-hover)] hover:bg-[var(--app-border-base)] text-[var(--app-text-primary)] text-[11px] font-semibold rounded transition-colors"
           >
@@ -1926,10 +2013,15 @@ export function KtvAssExport() {
       >
         <div className="text-xs sm:text-sm text-[var(--app-text-secondary)] leading-relaxed space-y-4">
           <p>
-            要將字幕<strong>永久壓製固定 (Hardsub)</strong>在您的 MV 影片中，最有效率且畫質最好的方式是使用免費開源工具 <strong>FFmpeg</strong>。
+            要將字幕<strong>永久壓製固定 (Hardsub)</strong>在您的 MV
+            影片中，最有效率且畫質最好的方式是使用免費開源工具{" "}
+            <strong>FFmpeg</strong>。
           </p>
           <p className="bg-[var(--app-accent)]/10 text-[var(--app-accent)] p-3 rounded border border-[var(--app-accent)]/30">
-            ⚠️ <strong>開始前提醒：</strong>請確認您已點擊上方 <strong>「下載 .ass 檔」</strong> 按鈕將字幕檔案儲存到本機，並與您的原始影片放置在<strong>同一個資料夾</strong>中。
+            ⚠️ <strong>開始前提醒：</strong>請確認您已點擊上方{" "}
+            <strong>「下載 .ass 檔」</strong>{" "}
+            按鈕將字幕檔案儲存到本機，並與您的原始影片放置在
+            <strong>同一個資料夾</strong>中。
           </p>
 
           <div className="space-y-2 border border-[var(--app-border-light)] p-4 rounded bg-[var(--app-bg-input)]">
@@ -1939,17 +2031,23 @@ export function KtvAssExport() {
               </label>
               <select
                 value={ffmpegMode}
-                onChange={(e) => setFfmpegMode(e.target.value as "cpu" | "nvidia")}
+                onChange={(e) =>
+                  setFfmpegMode(e.target.value as "cpu" | "nvidia")
+                }
                 className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)]"
               >
-                <option value="cpu">💻 CPU 模式 (適合任何電腦，畫質好，速度一般)</option>
-                <option value="nvidia">⚡ Nvidia 模式 (適合顯卡支援 CUDA，極速壓製)</option>
+                <option value="cpu">
+                  💻 CPU 模式 (適合任何電腦，畫質好，速度一般)
+                </option>
+                <option value="nvidia">
+                  ⚡ Nvidia 模式 (適合顯卡支援 CUDA，極速壓製)
+                </option>
               </select>
             </div>
 
             <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-              {ffmpegMode === "cpu" 
-                ? "CPU 模式使用 libx264 編碼器，設定較高壓縮比與高品質參數 (-crf 18 -preset slow)。" 
+              {ffmpegMode === "cpu"
+                ? "CPU 模式使用 libx264 編碼器，設定較高壓縮比與高品質參數 (-crf 18 -preset slow)。"
                 : "Nvidia 模式使用 GPU 硬體加速編碼器 h264_nvenc，可大幅縮短轉檔時間，兼顧超高畫質。"}
             </p>
           </div>
@@ -1984,12 +2082,23 @@ export function KtvAssExport() {
           </div>
 
           <div className="space-y-1.5 border-t border-[var(--app-border-base)] pt-3 text-xs text-[var(--app-text-muted)] space-y-1">
-            <p className="font-semibold text-[var(--app-text-primary)]">💡 執行步驟：</p>
+            <p className="font-semibold text-[var(--app-text-primary)]">
+              💡 執行步驟：
+            </p>
             <ol className="list-decimal pl-5 space-y-1 text-[var(--app-text-secondary)]">
-              <li>打開您電腦的終端機 App (Windows 為 <strong>CMD / PowerShell</strong>，Mac/Linux 為 <strong>Terminal</strong>)。</li>
-              <li>使用 <code>cd</code> 指令切換至存放影片與字幕檔的資料夾。</li>
+              <li>
+                打開您電腦的終端機 App (Windows 為{" "}
+                <strong>CMD / PowerShell</strong>，Mac/Linux 為{" "}
+                <strong>Terminal</strong>)。
+              </li>
+              <li>
+                使用 <code>cd</code> 指令切換至存放影片與字幕檔的資料夾。
+              </li>
               <li>複製並貼上上方的指令，然後按下 Enter 開始壓製。</li>
-              <li>壓製完成後，即可於同個資料夾中獲得檔名開頭為 <strong>【KTV】</strong> 的全新壓製影片！</li>
+              <li>
+                壓製完成後，即可於同個資料夾中獲得檔名開頭為{" "}
+                <strong>【KTV】</strong> 的全新壓製影片！
+              </li>
             </ol>
           </div>
         </div>
