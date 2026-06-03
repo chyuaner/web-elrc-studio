@@ -397,10 +397,29 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         handleExport("enhanced", "file", ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)"),
       exportSimple: () => handleExport("simple", "file", ".txt 簡易歌詞 (無時間戳)"),
       exportSrt: () => handleExport("srt", "file", ".srt 影片字幕 (逐行同步)"),
-      exportEmbeddedStandard: () => handleExport("standard", "embedded"),
-      exportEmbeddedEnhanced: () => handleExport("enhanced", "embedded"),
-      exportEmbeddedSimple: () => handleExport("simple", "embedded"),
-      exportCurrent: () => handleExport(exportFormat as "standard" | "enhanced" | "simple" | "srt"),
+      exportEmbeddedStandard: () =>
+        handleExport(
+          "standard",
+          "embedded",
+          `${audioFileName ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase() : ""} 已嵌入歌詞的 標準LRC (逐行同步)`,
+        ),
+      exportEmbeddedEnhanced: () =>
+        handleExport(
+          "enhanced",
+          "embedded",
+          `${audioFileName ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase() : ""} 已嵌入歌詞的 增強型LRC (ESLYRIC ﹣ 逐字同步)`,
+        ),
+      exportEmbeddedSimple: () =>
+        handleExport(
+          "simple",
+          "embedded",
+          `${audioFileName ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase() : ""} 已嵌入歌詞的 簡易歌詞 (無時間戳)`,
+        ),
+      exportCurrent: () => {
+        const title =
+          syncMode === "word" ? ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)" : ".lrc 標準LRC (逐行同步)";
+        handleExport(exportFormat as "standard" | "enhanced" | "simple" | "srt", "file", title);
+      },
       getExportOptions: () => {
         const ext = audioFileName
           ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase()

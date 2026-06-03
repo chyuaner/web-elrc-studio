@@ -373,7 +373,7 @@ export function useFileActions() {
       }
 
       const electronAPI = (window as any).electronAPI;
-      if (electronAPI?.showSaveDialog && saveType === "file") {
+      if (electronAPI?.showSaveDialog && (saveType === "file" || saveType === "embedded")) {
         let defaultPath = defaultName;
         const mediaPath = getFilePath(file);
         if (mediaPath) {
@@ -386,24 +386,57 @@ export function useFileActions() {
         }
 
         const filters = [];
-        if (format === "srt") {
-          filters.push({ name: "SubRip Subtitle", extensions: ["srt"] });
-        } else if (format === "simple") {
-          filters.push({ name: "Plain Text", extensions: ["txt"] });
+        if (saveType === "embedded" && file) {
+          const ext = file.name.substring(file.name.lastIndexOf(".") + 1).toLowerCase();
+          filters.push({ name: "Media File", extensions: [ext] });
+          defaultPath = defaultPath
+            .replace(/\.lrc$/, "." + ext)
+            .replace(/\.txt$/, "." + ext)
+            .replace(/\.srt$/, "." + ext);
+          if (!defaultPath.endsWith("." + ext)) {
+            defaultPath = defaultName.replace(/\.[^/.]+$/, "") + "." + ext;
+          }
         } else {
-          filters.push({ name: "LRC Lyric", extensions: ["lrc"] });
+          if (format === "srt") {
+            filters.push({ name: "SubRip Subtitle", extensions: ["srt"] });
+          } else if (format === "simple") {
+            filters.push({ name: "Plain Text", extensions: ["txt"] });
+          } else {
+            filters.push({ name: "LRC Lyric", extensions: ["lrc"] });
+          }
         }
         filters.push({ name: "All Files", extensions: ["*"] });
 
         const result = await electronAPI.showSaveDialog({
-          title: customTitle || i18n.saveLyric || "儲存歌詞檔案",
+          title: customTitle || i18n.saveLyric || "儲存檔案",
           defaultPath: defaultPath,
           filters: filters,
         });
 
         if (!result.canceled && result.filePath) {
-          await electronAPI.fsWriteFileText(result.filePath, lrcText);
-          showToast(`${i18n.savedTo || "已儲存至 "}${result.filePath}`);
+          if (saveType === "embedded" && file) {
+            try {
+              const lowerName = file.name.toLowerCase();
+              const arrayBuffer = await file.arrayBuffer();
+              let blob: Blob;
+              if (lowerName.endsWith(".flac")) {
+                const { embedLyricsIntoFlac } = await import("@/lib/flac-utils");
+                blob = embedLyricsIntoFlac(arrayBuffer, lrcText, format === "enhanced");
+              } else {
+                const { embedLyricsIntoM4a } = await import("@/lib/m4a-utils");
+                blob = embedLyricsIntoM4a(arrayBuffer, lrcText, format === "enhanced");
+              }
+              const buffer = await blob.arrayBuffer();
+              await electronAPI.fsWriteFileBinary(result.filePath, buffer);
+              showToast(`${i18n.savedTo || "已儲存至 "}${result.filePath}`);
+            } catch (e) {
+              console.error("Embedding failed", e);
+              dialogs.alert("嵌入歌詞失敗");
+            }
+          } else {
+            await electronAPI.fsWriteFileText(result.filePath, lrcText);
+            showToast(`${i18n.savedTo || "已儲存至 "}${result.filePath}`);
+          }
           return;
         }
         if (result.canceled) return;
