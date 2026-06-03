@@ -23,6 +23,7 @@ import {
 import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { formatTime, parseSeconds } from "@/lib/lyric-utils";
 import { FontSelect } from "@/components/common/FontSelect";
+import { useI18n } from "@/hooks/useI18n";
 
 const SHOW_INTERNAL_TEST_PARAMS = true;
 
@@ -92,7 +93,9 @@ export function KtvAssExport() {
     playerRef,
     fileUrl,
     duration,
+    file,
   } = useEditor();
+  const i18n = useI18n();
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
@@ -326,17 +329,58 @@ export function KtvAssExport() {
     showToast("已清除 Logo 圖檔");
   };
 
-  const handleDownload = () => {
-    const blob = new Blob([assContent], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
+  const handleDownload = async () => {
+    const electronAPI = (window as any).electronAPI;
 
     // Create base filename from audio or metadata
     const baseName = audioFileName
       ? audioFileName.replace(/\.[^/.]+$/, "")
       : lrcMetadata.ti || "KTV";
-    link.download = `${baseName}.ass`;
+    const defaultName = `${baseName}.ass`;
+
+    if (electronAPI?.showSaveDialog) {
+      let defaultPath = defaultName;
+
+      const getFilePath = (f: any) => {
+        if (!f) return null;
+        if (electronAPI?.getPathForFile) {
+          return electronAPI.getPathForFile(f) || f.path;
+        }
+        return f.path;
+      };
+
+      const mediaPath = getFilePath(file);
+      if (mediaPath) {
+        try {
+          const parsed = await electronAPI.pathParse(mediaPath);
+          defaultPath = await electronAPI.pathJoin(parsed.dir, defaultName);
+        } catch (e) {
+          console.error('Path parse/join failed', e);
+        }
+      }
+
+      const result = await electronAPI.showSaveDialog({
+        title: i18n.saveAss || '儲存 ASS 字幕檔案',
+        defaultPath: defaultPath,
+        filters: [
+          { name: 'Advanced Substation Alpha', extensions: ['ass'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (!result.canceled && result.filePath) {
+        await electronAPI.fsWriteFileText(result.filePath, assContent);
+        showToast(`${i18n.savedTo || '已儲存至 '}${result.filePath}`);
+        return;
+      }
+      if (result.canceled) return;
+    }
+
+    const blob = new Blob([assContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = defaultName;
     document.body.appendChild(link);
     link.click();
 

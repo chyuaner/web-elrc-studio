@@ -3,6 +3,7 @@ import { useEditor } from '@/components/base/EditorProvider';
 import { parseRawLyrics, exportLrc, exportSrt } from '@/lib/lyric-utils';
 import { extractFlacMetadata } from '@/lib/media-utils';
 import { useDialogs } from '@/components/dialog/DialogProvider';
+import { useI18n } from '@/hooks/useI18n';
 
 export function useFileActions() {
   const {
@@ -12,6 +13,7 @@ export function useFileActions() {
     autoLoadLyrics, autoLoadMedia, showToast
   } = useEditor();
   const dialogs = useDialogs();
+  const i18n = useI18n();
 
   const getFilePath = (f: any) => {
       if (!f) return null;
@@ -274,6 +276,43 @@ export function useFileActions() {
         defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".txt";
     } else if (format === 'srt') {
         defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".srt";
+    }
+
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI?.showSaveDialog && saveType === 'file') {
+        let defaultPath = defaultName;
+        const mediaPath = getFilePath(file);
+        if (mediaPath) {
+            try {
+                const parsed = await electronAPI.pathParse(mediaPath);
+                defaultPath = await electronAPI.pathJoin(parsed.dir, defaultName);
+            } catch (e) {
+                console.error('Path parse/join failed', e);
+            }
+        }
+
+        const filters = [];
+        if (format === 'srt') {
+            filters.push({ name: 'SubRip Subtitle', extensions: ['srt'] });
+        } else if (format === 'simple') {
+            filters.push({ name: 'Plain Text', extensions: ['txt'] });
+        } else {
+            filters.push({ name: 'LRC Lyric', extensions: ['lrc'] });
+        }
+        filters.push({ name: 'All Files', extensions: ['*'] });
+
+        const result = await electronAPI.showSaveDialog({
+            title: i18n.saveLyric || '儲存歌詞檔案',
+            defaultPath: defaultPath,
+            filters: filters
+        });
+
+        if (!result.canceled && result.filePath) {
+             await electronAPI.fsWriteFileText(result.filePath, lrcText);
+             showToast(`${i18n.savedTo || '已儲存至 '}${result.filePath}`);
+             return;
+        }
+        if (result.canceled) return;
     }
 
     const isTauri = typeof window !== 'undefined' && ((window as any).__TAURI__);
