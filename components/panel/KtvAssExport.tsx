@@ -7,6 +7,7 @@ import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { useI18n } from "@/hooks/useI18n";
 import { AssOptions, generateAss } from "@/lib/ass-generator";
 import { formatTime, parseSeconds } from "@/lib/lyric-utils";
+import { recolorSvgMonochrome } from "@/lib/svg-to-ass-vector";
 import {
   Check,
   ChevronDown,
@@ -135,6 +136,8 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     logoMaxWidth: 450,
     logoMaxHeight: 300,
     logoMinInterludeGap: 9.0,
+    logoMonochrome: false,
+    logoMonochromeColor: "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
   };
 }
@@ -175,6 +178,15 @@ export function KtvAssExport() {
   const [options, setOptions] = useState<Omit<AssOptions, "interludeThreshold">>(() =>
     getDefaultAssOptions(lrcMetadata),
   );
+
+  const interludeLogoPreviewSvg = useMemo(() => {
+    if (!options.interludeLogoSvg) return "";
+    let svg = options.interludeLogoSvg;
+    if (options.logoMonochrome) {
+      svg = recolorSvgMonochrome(svg, options.logoMonochromeColor ?? "#FFFFFF");
+    }
+    return svg.replace(/<svg/i, '<svg style="width:100%;height:100%"');
+  }, [options.interludeLogoSvg, options.logoMonochrome, options.logoMonochromeColor]);
 
   const [newExcludeStart, setNewExcludeStart] = useState("");
   const [newExcludeEnd, setNewExcludeEnd] = useState("");
@@ -1773,14 +1785,46 @@ export function KtvAssExport() {
                 </div>
                 {options.interludeLogoSvg && (
                   <div className="flex flex-col gap-2.5 mt-2 animate-fade-in border-t border-[var(--app-border-light)] pt-2.5">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!options.logoMonochrome}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              logoMonochrome: e.target.checked,
+                            })
+                          }
+                          className="rounded border-[var(--app-border-input)]"
+                        />
+                        <span>變為單色</span>
+                      </label>
+                      <div
+                        className={`flex items-center gap-2 ${options.logoMonochrome ? "" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <input
+                          type="color"
+                          value={options.logoMonochromeColor ?? "#FFFFFF"}
+                          disabled={!options.logoMonochrome}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              logoMonochromeColor: e.target.value,
+                            })
+                          }
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
+                          {(options.logoMonochromeColor ?? "#FFFFFF").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
                     <div className="flex items-start gap-3">
                       <div
                         className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
                         dangerouslySetInnerHTML={{
-                          __html: options.interludeLogoSvg.replace(
-                            /<svg/i,
-                            '<svg style="width:100%;height:100%"',
-                          ),
+                          __html: interludeLogoPreviewSvg,
                         }}
                       />
                       <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -1792,7 +1836,13 @@ export function KtvAssExport() {
                             type="button"
                             onClick={() => {
                               try {
-                                const blob = new Blob([options.interludeLogoSvg!], {
+                                const svgToSave = options.logoMonochrome
+                                  ? recolorSvgMonochrome(
+                                      options.interludeLogoSvg!,
+                                      options.logoMonochromeColor ?? "#FFFFFF",
+                                    )
+                                  : options.interludeLogoSvg!;
+                                const blob = new Blob([svgToSave], {
                                   type: "image/svg+xml;charset=utf-8",
                                 });
                                 const url = URL.createObjectURL(blob);

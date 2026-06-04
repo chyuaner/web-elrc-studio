@@ -481,10 +481,14 @@ function collectElements(
     }
 
     const styles = getElementStyles(child, cssClasses);
-    const fillAss = styles.fill ? parseCssColor(styles.fill) : undefined;
+    const fillIsNone =
+      styles.fill === "none" || styles.fill === "transparent";
+    let fillAss = styles.fill ? parseCssColor(styles.fill) : undefined;
+    if (!fillAss && !fillIsNone && styles.fill === undefined) {
+      fillAss = hexToAssColor("#000000");
+    }
     const strokeAss = styles.stroke ? parseCssColor(styles.stroke) : undefined;
     const strokeWidth = styles.strokeWidth ?? 1;
-    const fillIsNone = styles.fill === "none";
     const strokeIsNone = styles.stroke === "none" || !strokeAss;
 
     let d = "";
@@ -547,6 +551,90 @@ function collectElements(
     } else if (tag === "g") {
       collectElements(child, cssClasses, transform, items);
     }
+  }
+}
+
+const SHAPE_TAGS = new Set([
+  "path",
+  "rect",
+  "circle",
+  "ellipse",
+  "polygon",
+  "polyline",
+  "line",
+]);
+
+function hasVisibleSvgFill(styles: { fill?: string }): boolean {
+  if (styles.fill === "none" || styles.fill === "transparent") return false;
+  if (styles.fill) return !!parseCssColor(styles.fill);
+  return true;
+}
+
+function hasVisibleSvgStroke(styles: { stroke?: string }): boolean {
+  if (styles.stroke === "none" || styles.stroke === "transparent") return false;
+  if (styles.stroke) return !!parseCssColor(styles.stroke);
+  return false;
+}
+
+/** 將 SVG 中所有非透明繪製區域改為指定 hex 色（供預覽與另存） */
+export function recolorSvgMonochrome(svgText: string, hexColor: string): string {
+  if (typeof DOMParser === "undefined") return svgText;
+
+  try {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svg = doc.querySelector("svg");
+    if (!svg || doc.querySelector("parsererror")) return svgText;
+
+    const cssClasses = parseStyleBlock(svgText);
+
+    const recolorTree = (parent: Element) => {
+      for (const child of Array.from(parent.children)) {
+        const tag = child.tagName.toLowerCase();
+        if (tag === "style" || tag === "defs" || tag === "text") continue;
+
+        if (tag === "g") {
+          recolorTree(child);
+          continue;
+        }
+
+        if (SHAPE_TAGS.has(tag)) {
+          const styles = getElementStyles(child, cssClasses);
+          if (hasVisibleSvgFill(styles)) {
+            child.setAttribute("fill", hexColor);
+          }
+          if (hasVisibleSvgStroke(styles)) {
+            child.setAttribute("stroke", hexColor);
+          }
+          child.removeAttribute("class");
+          const styleAttr = child.getAttribute("style");
+          if (styleAttr) {
+            const inline = parseInlineStyle(styleAttr);
+            let changed = false;
+            if (inline.fill && hasVisibleSvgFill({ fill: inline.fill })) {
+              inline.fill = hexColor;
+              changed = true;
+            }
+            if (inline.stroke && hasVisibleSvgStroke({ stroke: inline.stroke })) {
+              inline.stroke = hexColor;
+              changed = true;
+            }
+            if (changed) {
+              const newStyle = Object.entries(inline)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join("; ");
+              child.setAttribute("style", newStyle);
+            }
+          }
+        } else if (tag === "g") {
+          recolorTree(child);
+        }
+      }
+    };
+
+    recolorTree(svg);
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return svgText;
   }
 }
 

@@ -1,6 +1,6 @@
 import { createEffectiveLines } from "./compute-styles";
 import { LrcMetadata, LyricLine, parseSeconds } from "./lyric-utils";
-import { parseSvgToAssVector, scaleAssVectorPath } from "./svg-to-ass-vector";
+import { AssVectorItem, parseSvgToAssVector, scaleAssVectorPath } from "./svg-to-ass-vector";
 
 export interface AssOptions {
   primaryColor: string; // hex
@@ -42,6 +42,8 @@ export interface AssOptions {
   songInfoTitleColor?: string; // hex
   songInfoArtistColor?: string; // hex
   interludeLogoSvg?: string; // SVG 原始文字，匯出時轉為 ASS 向量圖
+  logoMonochrome?: boolean; // 將 Logo 非透明區域統一為單色
+  logoMonochromeColor?: string; // 單色 hex（預設 #FFFFFF）
   songDuration?: number; // duration of the song in seconds
   logoMaxWidth?: number; // maximum logo width in pixels
   logoMaxHeight?: number; // maximum logo height in pixels
@@ -101,6 +103,12 @@ function formatAssTime(timeInSeconds: number) {
 
 function hexToAssColor(hex: string) {
   let cleanHex = hex.replace("#", "");
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
   if (cleanHex.length === 6) {
     const r = cleanHex.slice(0, 2);
     const g = cleanHex.slice(2, 4);
@@ -108,6 +116,15 @@ function hexToAssColor(hex: string) {
     return `&H00${b}${g}${r}`;
   }
   return `&H00FFFFFF`;
+}
+
+function applyLogoMonochrome(items: AssVectorItem[], hexColor: string) {
+  const monoAss = hexToAssColor(hexColor);
+  return items.map((item) => ({
+    ...item,
+    ...(item.fillColor ? { fillColor: monoAss } : {}),
+    ...(item.strokeColor ? { strokeColor: monoAss } : {}),
+  }));
 }
 
 // 產生 SVG 風格的小白圓向量圖形 (ASS Vector)
@@ -845,6 +862,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   if (options.interludeLogoSvg) {
     const graphic = parseSvgToAssVector(options.interludeLogoSvg);
     if (graphic) {
+      const logoItems = options.logoMonochrome
+        ? applyLogoMonochrome(graphic.items, options.logoMonochromeColor ?? "#FFFFFF")
+        : graphic.items;
       const maxLogoW = Math.round((options.logoMaxWidth ?? DEFAULT_LOGO_MAX_WIDTH) * scale);
       const maxLogoH = Math.round((options.logoMaxHeight ?? DEFAULT_LOGO_MAX_HEIGHT) * scale);
       const fitScale = Math.min(maxLogoW / graphic.width, maxLogoH / graphic.height);
@@ -897,7 +917,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
       }
 
-      for (const item of graphic.items) {
+      for (const item of logoItems) {
         const scaledPath = scaleAssVectorPath(item.path, fitScale);
         for (const appearance of logoAppearances) {
           if (appearance.start >= appearance.end) continue;
