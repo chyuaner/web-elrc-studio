@@ -42,13 +42,27 @@ function buildFfmpegBurnCommand(opts: {
   outputVideoName: string;
   filenameCompat: boolean;
   filenameCompatOs: FfmpegFilenameCompatOs;
+  forceFpsEnabled: boolean;
+  targetFps: string;
 }): string {
-  const { ffmpegMode, originalVideoName, assFilename, outputVideoName, filenameCompat, filenameCompatOs } =
-    opts;
+  const {
+    ffmpegMode,
+    originalVideoName,
+    assFilename,
+    outputVideoName,
+    filenameCompat,
+    filenameCompatOs,
+    forceFpsEnabled,
+    targetFps,
+  } = opts;
 
-  const subtitlesFilter = filenameCompat
+  let subtitlesFilter = filenameCompat
     ? `subtitles=${FFMPEG_ASS_BURN_ALIAS}`
     : `subtitles='${assFilename}'`;
+
+  if (forceFpsEnabled) {
+    subtitlesFilter = `fps=fps='max(source_fps,${targetFps})',${subtitlesFilter}`;
+  }
 
   const ffmpegArgs =
     ffmpegMode === "cpu"
@@ -153,6 +167,8 @@ export function KtvAssExport() {
     detectFfmpegFilenameCompatOs,
   );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+  const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
+  const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -246,6 +262,8 @@ export function KtvAssExport() {
         outputVideoName,
         filenameCompat: ffmpegFilenameCompat,
         filenameCompatOs: ffmpegFilenameCompatOs,
+        forceFpsEnabled,
+        targetFps,
       }),
     [
       ffmpegMode,
@@ -254,6 +272,8 @@ export function KtvAssExport() {
       outputVideoName,
       ffmpegFilenameCompat,
       ffmpegFilenameCompatOs,
+      forceFpsEnabled,
+      targetFps,
     ],
   );
 
@@ -2023,6 +2043,35 @@ export function KtvAssExport() {
                 {ffmpegFilenameCompatOs === "unix"
                   ? "使用 ln -sf 建立符號連結作為字幕別名，壓製成功後以 rm -f 刪除別名（不會刪除原始 .ass）。"
                   : "使用 copy 建立字幕副本作為別名，壓製成功後以 del 刪除副本（不會刪除原始 .ass）。"}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
+              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={forceFpsEnabled}
+                  onChange={(e) => setForceFpsEnabled(e.target.checked)}
+                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                />
+                <span className="font-semibold">強制提高fps到</span>
+              </label>
+              <select
+                value={targetFps}
+                onChange={(e) => setTargetFps(e.target.value as any)}
+                disabled={!forceFpsEnabled}
+                className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+              >
+                <option value="60">60fps</option>
+                <option value="59.94">59.94fps</option>
+                <option value="50">50fps</option>
+                <option value="30">30fps</option>
+                <option value="29.97">29.97fps</option>
+              </select>
+            </div>
+            {forceFpsEnabled && (
+              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                啟用後，若原始影片的影格數（FPS）低於所選數值，將強制拉高至該 FPS。若原始影片影格數已高於指定值，則保留原始值（絕不降低畫面流暢度）。
               </p>
             )}
           </div>
