@@ -84,6 +84,8 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     color2: "#BC2600", // Red
     color3: "#800080", // Purple
     chorusColor: "#32AA17", // Green
+    orangeColor: "#FF7F00", // Orange
+    grayColor: "#9CA3AF", // Gray
     fontFamily: "Noto Sans CJK TC Medium",
     fontSize: 130, // Default for BottomLeft
     fontSizeOffset: 20, // Pre-offset for Noto Sans CJK TC Medium
@@ -978,6 +980,50 @@ export function KtvAssExport() {
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
                           {options.chorusColor.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                        已唱橘色O (Orange)
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={options.orangeColor || "#FF7F00"}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              orangeColor: e.target.value,
+                            })
+                          }
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                          {(options.orangeColor || "#FF7F00").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                        已唱灰色T (Gray)
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={options.grayColor || "#9CA3AF"}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              grayColor: e.target.value,
+                            })
+                          }
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                          {(options.grayColor || "#9CA3AF").toUpperCase()}
                         </span>
                       </div>
                     </div>

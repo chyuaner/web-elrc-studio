@@ -212,6 +212,13 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
           future: "text-gray-500/40",
           wordBg: "bg-gray-500/20",
         };
+      case "O":
+        return {
+          past: "text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]",
+          current: "text-orange-100 border-orange-500",
+          future: "text-orange-500/40",
+          wordBg: "bg-orange-500/20",
+        };
       default:
         return {
           past: "text-[var(--app-accent)] drop-shadow-[0_0_8px_rgba(242,125,38,0.8)]",

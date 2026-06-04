@@ -7,6 +7,8 @@ export interface AssOptions {
   color2: string; // hex
   color3: string; // hex
   chorusColor: string; // hex
+  orangeColor?: string; // hex
+  grayColor?: string; // hex
   fontFamily: string;
   fontSize: number;
   fontSizeOffset?: number;
@@ -143,7 +145,9 @@ function getStyleColor(styleId: string | undefined, options: AssOptions): string
     case "G":
       return hexToAssColor(options.chorusColor);
     case "T":
-      return hexToAssColor("#9ca3af");
+      return hexToAssColor(options.grayColor || "#9ca3af");
+    case "O":
+      return hexToAssColor(options.orangeColor || "#ff7f00");
     case "B":
     default:
       return hexToAssColor(options.primaryColor);

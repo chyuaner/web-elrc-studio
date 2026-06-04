@@ -14,6 +14,8 @@ const getStyleColorClass = (style?: string, isWarning: boolean = false) => {
       return "!text-green-500";
     case "T":
       return "!text-gray-500";
+    case "O":
+      return "!text-orange-500";
     case "N":
       return isWarning ? "text-red-500" : "text-[var(--app-accent)]";
     default:
@@ -33,6 +35,8 @@ const getStyleBgClass = (style?: string) => {
       return "!bg-green-500/20 border border-green-500/80";
     case "T":
       return "!bg-gray-500/20 border border-gray-500/80";
+    case "O":
+      return "!bg-orange-500/20 border border-orange-500/80";
     case "N":
       return "";
     default:

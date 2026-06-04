@@ -1129,6 +1129,24 @@ export function SyncEditor() {
                 <ContextMenuItem
                   icon={
                     <span
+                      className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === "O" ? "text-white bg-orange-500" : "text-orange-500"}`}
+                    >
+                      O
+                    </span>
+                  }
+                  label={
+                    lines[ctxMenu.globalIndex]?.style === "O"
+                      ? "✓ 取消標記橘色"
+                      : "設為橘色O"
+                  }
+                  onClick={() => {
+                    handleSetLineStyle(ctxMenu.globalIndex, "O");
+                    setCtxMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={
+                    <span
                       className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.style === "N" ? "text-white bg-[var(--app-accent)]" : "text-[var(--app-accent)]"}`}
                     >
                       N
@@ -1451,6 +1469,24 @@ export function SyncEditor() {
                   }
                   onClick={() => {
                     handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, "T");
+                    setCtxMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={
+                    <span
+                      className={`w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] ${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === "O" ? "text-white bg-orange-500" : "text-orange-500"}`}
+                    >
+                      O
+                    </span>
+                  }
+                  label={
+                    lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style === "O"
+                      ? "✓ 取消標記橘色"
+                      : "設為橘色O"
+                  }
+                  onClick={() => {
+                    handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, "O");
                     setCtxMenu(null);
                   }}
                 />
