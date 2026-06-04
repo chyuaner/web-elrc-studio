@@ -776,11 +776,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           if (!ALWAYS_STRETCH_KARAOKE && durCs > defaultLimitVal) {
             const fillCs = defaultLimitVal;
             const delayCs = durCs - defaultLimitVal;
-            // Append a space ' ' to the delay tag so it's not an empty syllable.
-            // This prevents ASS renderers from collapsing the delay syllable and preserves timing.
-            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
-            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
-            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}} `;
+            // Under ASS specs, \k delay tags do not require physical characters to delay subsequent sweeps.
+            // Removing the trailing space character ensures that Chinese and multi-syllable languages
+            // do not suffer from incorrect layout spacing and temporal/cursor misalignment.
+            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
           } else {
             karaokeStrOutline += `{\\kf${durCs}}${w.text}`;
             karaokeStrCore += `${colorTagCore}{\\kf${durCs}}${w.text}`;
