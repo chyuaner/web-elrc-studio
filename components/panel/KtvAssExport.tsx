@@ -25,6 +25,53 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const SHOW_INTERNAL_TEST_PARAMS = true;
 
+/** Fixed ASS path for ffmpeg subtitles filter (avoids apostrophe/space parsing bugs). */
+const FFMPEG_ASS_BURN_ALIAS = "__ktv_burn__.ass";
+
+type FfmpegFilenameCompatOs = "unix" | "windows";
+
+function detectFfmpegFilenameCompatOs(): FfmpegFilenameCompatOs {
+  if (typeof navigator === "undefined") return "unix";
+  return /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent) ? "windows" : "unix";
+}
+
+function buildFfmpegBurnCommand(opts: {
+  ffmpegMode: "cpu" | "nvidia";
+  originalVideoName: string;
+  assFilename: string;
+  outputVideoName: string;
+  filenameCompat: boolean;
+  filenameCompatOs: FfmpegFilenameCompatOs;
+}): string {
+  const { ffmpegMode, originalVideoName, assFilename, outputVideoName, filenameCompat, filenameCompatOs } =
+    opts;
+
+  const subtitlesFilter = filenameCompat
+    ? `subtitles=${FFMPEG_ASS_BURN_ALIAS}`
+    : `subtitles='${assFilename}'`;
+
+  const ffmpegArgs =
+    ffmpegMode === "cpu"
+      ? `ffmpeg -i "${originalVideoName}" -vf "${subtitlesFilter}" -c:v libx264 -crf 18 -preset slow -c:a copy "${outputVideoName}"`
+      : `ffmpeg -i "${originalVideoName}" -vf "${subtitlesFilter}" -c:v h264_nvenc -preset slow -cq 19 -rc constqp -pix_fmt yuv420p -c:a copy "${outputVideoName}"`;
+
+  if (!filenameCompat) {
+    return ffmpegArgs;
+  }
+
+  const setupAss =
+    filenameCompatOs === "unix"
+      ? `ln -sf "${assFilename}" ${FFMPEG_ASS_BURN_ALIAS}`
+      : `copy /Y "${assFilename}" ${FFMPEG_ASS_BURN_ALIAS}`;
+
+  const cleanupAss =
+    filenameCompatOs === "unix"
+      ? `rm -f ${FFMPEG_ASS_BURN_ALIAS}`
+      : `del /F /Q ${FFMPEG_ASS_BURN_ALIAS}`;
+
+  return `${setupAss} && ${ffmpegArgs} && ${cleanupAss}`;
+}
+
 export function getDefaultAssOptions(lrcMetadata: any) {
   const initialTT = lrcMetadata.TT || lrcMetadata.tt;
   const initialTTE = lrcMetadata.TTE || lrcMetadata.tte;
@@ -99,6 +146,10 @@ export function KtvAssExport() {
   const [burnVideoDialogOpen, setBurnVideoDialogOpen] = useState(false);
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
+  const [ffmpegFilenameCompat, setFfmpegFilenameCompat] = useState(true);
+  const [ffmpegFilenameCompatOs, setFfmpegFilenameCompatOs] = useState<FfmpegFilenameCompatOs>(
+    detectFfmpegFilenameCompatOs,
+  );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -184,13 +235,25 @@ export function KtvAssExport() {
   const assFilename = `${baseName}.ass`;
   const outputVideoName = `【KTV】${originalVideoName}`;
 
-  const ffmpegCommand = useMemo(() => {
-    if (ffmpegMode === "cpu") {
-      return `ffmpeg -i "${originalVideoName}" -vf "subtitles='${assFilename}'" -c:v libx264 -crf 18 -preset slow -c:a copy "${outputVideoName}"`;
-    } else {
-      return `ffmpeg -i "${originalVideoName}" -vf "subtitles='${assFilename}'" -c:v h264_nvenc -preset slow -cq 19 -rc constqp -pix_fmt yuv420p -c:a copy "${outputVideoName}"`;
-    }
-  }, [ffmpegMode, originalVideoName, assFilename, outputVideoName]);
+  const ffmpegCommand = useMemo(
+    () =>
+      buildFfmpegBurnCommand({
+        ffmpegMode,
+        originalVideoName,
+        assFilename,
+        outputVideoName,
+        filenameCompat: ffmpegFilenameCompat,
+        filenameCompatOs: ffmpegFilenameCompatOs,
+      }),
+    [
+      ffmpegMode,
+      originalVideoName,
+      assFilename,
+      outputVideoName,
+      ffmpegFilenameCompat,
+      ffmpegFilenameCompatOs,
+    ],
+  );
 
   // 當 Lrc 內部的自訂 KTV 中繼資料被更新時，將歌名、歌手、專輯與自訂欄位同步至 options，確保資料即時更新且不遺失自定義渲染樣式（不自動回退至通用屬性）
   useEffect(() => {
@@ -1859,6 +1922,13 @@ export function KtvAssExport() {
             ⚠️ <strong>開始前提醒：</strong>請確認您已點擊上方 <strong>「下載 .ass 檔」</strong>{" "}
             按鈕將字幕檔案儲存到本機，並與您的原始影片放置在
             <strong>同一個資料夾</strong>中。
+            {ffmpegFilenameCompat && (
+              <>
+                {" "}
+                已啟用加強檔名讀取：指令會透過暫存別名 <code>{FFMPEG_ASS_BURN_ALIAS}</code>{" "}
+                讀取字幕（適用檔名含撇號、空格等特殊字元），完成後會自動刪除該別名檔。
+              </>
+            )}
           </p>
 
           <div className="space-y-2 border border-[var(--app-border-light)] p-4 rounded bg-[var(--app-bg-input)]">
@@ -1881,6 +1951,34 @@ export function KtvAssExport() {
                 ? "CPU 模式使用 libx264 編碼器，設定較高壓縮比與高品質參數 (-crf 18 -preset slow)。"
                 : "Nvidia 模式使用 GPU 硬體加速編碼器 h264_nvenc，可大幅縮短轉檔時間，兼顧超高畫質。"}
             </p>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
+              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={ffmpegFilenameCompat}
+                  onChange={(e) => setFfmpegFilenameCompat(e.target.checked)}
+                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                />
+                <span className="font-semibold">加強檔名讀取正確性</span>
+              </label>
+              <select
+                value={ffmpegFilenameCompatOs}
+                onChange={(e) => setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)}
+                disabled={!ffmpegFilenameCompat}
+                className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="unix">for Linux / macOS</option>
+                <option value="windows">for Windows</option>
+              </select>
+            </div>
+            {ffmpegFilenameCompat && (
+              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                {ffmpegFilenameCompatOs === "unix"
+                  ? "使用 ln -sf 建立符號連結作為字幕別名，壓製成功後以 rm -f 刪除別名（不會刪除原始 .ass）。"
+                  : "使用 copy 建立字幕副本作為別名，壓製成功後以 del 刪除副本（不會刪除原始 .ass）。"}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -1891,7 +1989,7 @@ export function KtvAssExport() {
               <textarea
                 readOnly
                 value={ffmpegCommand}
-                className="w-full bg-black text-green-400 font-mono text-[11px] leading-relaxed p-3.5 pr-12 rounded border border-[var(--app-border-light)] focus:outline-none select-all h-24 resize-none"
+                className="w-full bg-black text-green-400 font-mono text-[11px] leading-relaxed p-3.5 pr-12 rounded border border-[var(--app-border-light)] focus:outline-none select-all h-28 resize-none"
               />
               <button
                 onClick={() => {
