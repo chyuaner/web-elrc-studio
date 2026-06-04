@@ -45,6 +45,7 @@ function buildFfmpegBurnCommand(opts: {
   filenameCompatOs: FfmpegFilenameCompatOs;
   forceFpsEnabled: boolean;
   targetFps: string;
+  forceScale720pEnabled: boolean;
 }): string {
   const {
     ffmpegMode,
@@ -55,15 +56,26 @@ function buildFfmpegBurnCommand(opts: {
     filenameCompatOs,
     forceFpsEnabled,
     targetFps,
+    forceScale720pEnabled,
   } = opts;
 
-  let subtitlesFilter = filenameCompat
-    ? `subtitles=${FFMPEG_ASS_BURN_ALIAS}`
-    : `subtitles='${assFilename}'`;
+  let filterChain: string[] = [];
+
+  if (forceScale720pEnabled) {
+    filterChain.push(`scale=-2:'max(ih,720)'`);
+  }
 
   if (forceFpsEnabled) {
-    subtitlesFilter = `fps=fps='max(source_fps,${targetFps})',${subtitlesFilter}`;
+    filterChain.push(`fps=fps='max(source_fps,${targetFps})'`);
   }
+
+  filterChain.push(
+    filenameCompat
+      ? `subtitles=${FFMPEG_ASS_BURN_ALIAS}`
+      : `subtitles='${assFilename}'`
+  );
+
+  const subtitlesFilter = filterChain.join(",");
 
   const ffmpegArgs =
     ffmpegMode === "cpu"
@@ -172,6 +184,7 @@ export function KtvAssExport() {
   const [copiedFeedback, setCopiedFeedback] = useState(false);
   const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
   const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
+  const [forceScale720pEnabled, setForceScale720pEnabled] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -276,6 +289,7 @@ export function KtvAssExport() {
         filenameCompatOs: ffmpegFilenameCompatOs,
         forceFpsEnabled,
         targetFps,
+        forceScale720pEnabled,
       }),
     [
       ffmpegMode,
@@ -286,6 +300,7 @@ export function KtvAssExport() {
       ffmpegFilenameCompatOs,
       forceFpsEnabled,
       targetFps,
+      forceScale720pEnabled,
     ],
   );
 
@@ -2122,6 +2137,23 @@ export function KtvAssExport() {
             {forceFpsEnabled && (
               <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
                 啟用後，若原始影片的影格數（FPS）低於所選數值，將強制拉高至該 FPS。若原始影片影格數已高於指定值，則保留原始值（絕不降低畫面流暢度）。
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
+              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={forceScale720pEnabled}
+                  onChange={(e) => setForceScale720pEnabled(e.target.checked)}
+                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                />
+                <span className="font-semibold">強制提高到720p以上</span>
+              </label>
+            </div>
+            {forceScale720pEnabled && (
+              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                啟用後，若原始影片的解析度（高度）低於 720p，將強制等比例縮放拉高至 720p。若原始影片已達 720p 或更高，則保留原始解析度（絕不降低畫質或尺寸）。這有助於 YouTube 順利支援高影格率（如 60fps）播放。
               </p>
             )}
           </div>
