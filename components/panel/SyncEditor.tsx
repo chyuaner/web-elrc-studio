@@ -430,16 +430,45 @@ export function SyncEditor() {
         const newLines = [...prev];
         const curr = newLines[globalIndex];
         const prevLine = newLines[globalIndex - 1];
-        const newWords = [...prevLine.words];
 
-        if (newWords.length > 0 && !newWords[newWords.length - 1].text.match(/\s$/)) {
-          newWords.push({ text: " ", start: null, end: null });
+        const prevWords = prevLine.words.map((w) => ({ ...w }));
+        const currWords = curr.words.map((w) => ({ ...w }));
+
+        // 1. Find the last non-empty word in prevWords
+        let lastRealIdx = -1;
+        for (let i = prevWords.length - 1; i >= 0; i--) {
+          if (prevWords[i].text !== "") {
+            lastRealIdx = i;
+            break;
+          }
         }
-        newWords.push(...curr.words);
+
+        // 2. Append space to last non-empty word if it doesn't end with whitespace
+        if (lastRealIdx !== -1) {
+          const lastRealWord = prevWords[lastRealIdx];
+          if (!lastRealWord.text.match(/\s$/)) {
+            lastRealWord.text += " ";
+          }
+        }
+
+        // 3. Filter out any trailing empty words that have the same start timestamp as the first word of the next line
+        const currStart = currWords.length > 0 ? currWords[0].start : null;
+        let filteredPrevWords = [...prevWords];
+        if (currStart !== null && currStart !== undefined) {
+          filteredPrevWords = prevWords.filter((w, idx) => {
+            if (idx > lastRealIdx && w.text === "" && w.start === currStart) {
+              return false; // exclude-out duplicate empty timestamp word
+            }
+            return true;
+          });
+        }
+
+        // 4. Merge words
+        const newWords = [...filteredPrevWords, ...currWords];
 
         const { formatTime } = require("@/lib/lyric-utils");
         const newRaw = newWords
-          .map((w) => (w.start !== null ? `<${formatTime(w.start, true)}>${w.text}` : w.text))
+          .map((w) => (w.start !== null && w.start !== undefined ? `<${formatTime(w.start, true)}>${w.text}` : w.text))
           .join("");
 
         newLines[globalIndex - 1] = { ...prevLine, raw: newRaw, words: newWords };
