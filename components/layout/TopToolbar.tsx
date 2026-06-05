@@ -869,6 +869,25 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                 </>
               )}
               <button
+                disabled={!file}
+                onClick={async () => {
+                  setLoadMediaDropdownOpen(false);
+                  if (file) {
+                    const newFile = new File([file], file.name, {
+                      type: file.type,
+                      lastModified: file.lastModified,
+                    });
+                    if ((file as any).path) {
+                      Object.defineProperty(newFile, "path", { value: (file as any).path });
+                    }
+                    await processAudioFile(newFile, true);
+                  }
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex items-center gap-2"
+              >
+                <RotateCw className="w-3.5 h-3.5" /> 重新載入媒體
+              </button>
+              <button
                 disabled={!audioFileName}
                 onClick={() => {
                   clearMedia();
