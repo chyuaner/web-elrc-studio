@@ -844,7 +844,7 @@ export function KtvAssExport() {
             href="https://fonts.google.com/download?family=Noto%20Sans%20TC"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-[var(--app-text-muted)] hover:text-white underline underline-offset-4 decoration-zinc-500 hover:decoration-white transition-all font-semibold z-10 flex items-center gap-1 mr-3"
+            className="text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] underline underline-offset-4 decoration-zinc-500 hover:decoration-[var(--app-accent)] transition-all font-semibold z-10 flex items-center gap-1 mr-3"
             title="下載推薦的 Noto Sans TC 字體檔"
           >
             <Download className="w-3.5 h-3.5 text-orange-400" /> 下載預設字體
@@ -1037,13 +1037,13 @@ export function KtvAssExport() {
               <div className="flex flex-col gap-1.5">
                 <div
                   onClick={() => setFontConfigOpen(!fontConfigOpen)}
-                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
+                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
                 >
                   <span>字體設定</span>
                   {fontConfigOpen ? (
-                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                   )}
                 </div>
 
@@ -1174,13 +1174,13 @@ export function KtvAssExport() {
                 <div className="flex flex-col gap-1.5">
                   <div
                     onClick={() => setColorConfigOpen(!colorConfigOpen)}
-                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
+                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
                   >
                     <span>字幕顏色設定</span>
                     {colorConfigOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                     )}
                   </div>
 
@@ -1404,13 +1404,13 @@ export function KtvAssExport() {
               <div className="flex flex-col gap-1.5">
                 <div
                   onClick={() => setDotConfigOpen(!dotConfigOpen)}
-                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
+                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
                 >
                   <span>間奏倒數小圓設定</span>
                   {dotConfigOpen ? (
-                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                   )}
                 </div>
 
@@ -1737,13 +1737,13 @@ export function KtvAssExport() {
                 <div className="flex flex-col gap-1.5">
                   <div
                     onClick={() => setTestParamsOpen(!testParamsOpen)}
-                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
+                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
                   >
                     <span>測試參數 (內部)</span>
                     {testParamsOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
                     )}
                   </div>
 

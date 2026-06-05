@@ -47,33 +47,33 @@ export function EditorView() {
       >
         <button
           onClick={() => setMode("text")}
-          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "text" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "text" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"}`}
         >
           {i18n.tabText}
         </button>
         <button
           onClick={() => setMode("sync")}
-          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "sync" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "sync" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"}`}
         >
           {i18n.tabSync}
         </button>
         {!isReallyNarrow && (
           <button
             onClick={() => setMode("dual-sync")}
-            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "dual-sync" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "dual-sync" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"}`}
           >
             {i18n.tabDualSync}
           </button>
         )}
         <button
           onClick={() => setMode("raw")}
-          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "raw" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "raw" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"}`}
         >
           {i18n.tabRaw}
         </button>
         <button
           onClick={() => setMode("ktv-ass")}
-          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "ktv-ass" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "ktv-ass" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"}`}
         >
           KTV ASS輸出
         </button>
