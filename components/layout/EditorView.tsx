@@ -75,7 +75,7 @@ export function EditorView() {
           onClick={() => setMode("ktv-ass")}
           className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 hover:bg-[var(--app-bg-hover)] transition-colors focus:outline-none focus-[var(--app-accent)] focus-visible:ring-2 focus-visible:ring-inset ${mode === "ktv-ass" ? "border-[var(--app-accent)] text-[var(--app-accent)]" : "border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
         >
-          KTV ASS輸出 (測試中)
+          KTV ASS輸出
         </button>
       </div>
 

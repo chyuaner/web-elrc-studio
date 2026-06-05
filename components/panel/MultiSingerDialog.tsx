@@ -9,6 +9,7 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
   const [rDef, setRDef] = useState("");
   const [pDef, setPDef] = useState("");
   const [gDef, setGDef] = useState("");
+  const [oDef, setODef] = useState("");
   const [tDef, setTDef] = useState("");
 
   useEffect(() => {
@@ -21,6 +22,8 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
       setPDef(lrcMetadata.kstyledef_P?.toString() || "");
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setGDef(lrcMetadata.kstyledef_G?.toString() || "合：");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setODef(lrcMetadata.kstyledef_O?.toString() || "");
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTDef(lrcMetadata.kstyledef_T?.toString() || "旁白：");
     }
@@ -36,6 +39,8 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
     else delete nextMeta.kstyledef_P;
     if (gDef) nextMeta.kstyledef_G = gDef;
     else delete nextMeta.kstyledef_G;
+    if (oDef) nextMeta.kstyledef_O = oDef;
+    else delete nextMeta.kstyledef_O;
     if (tDef) nextMeta.kstyledef_T = tDef;
     else delete nextMeta.kstyledef_T;
     setLrcMetadata(nextMeta);
@@ -51,6 +56,7 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
       { key: "R", val: rDef },
       { key: "P", val: pDef },
       { key: "G", val: gDef },
+      { key: "O", val: oDef },
       { key: "T", val: tDef },
     ].filter((d) => Boolean(d.val));
 
@@ -118,6 +124,7 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
       { key: "R", val: rDef },
       { key: "P", val: pDef },
       { key: "G", val: gDef },
+      { key: "O", val: oDef },
       { key: "T", val: tDef },
     ];
 
@@ -222,6 +229,15 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
             placeholder="合："
             value={gDef}
             onChange={(e) => setGDef(e.target.value)}
+          />
+
+          <label className="text-right text-xs text-orange-500 font-bold col-start-1">橘字 (第四人)</label>
+          <input
+            type="text"
+            className="w-full bg-[var(--app-bg-input)] border border-[var(--app-border-base)] rounded px-3 py-1.5 focus:border-[var(--app-accent)] focus:outline-none"
+            placeholder="留空"
+            value={oDef}
+            onChange={(e) => setODef(e.target.value)}
           />
 
           <label className="text-right text-xs text-gray-500 font-bold">灰字 (旁白或背景)</label>

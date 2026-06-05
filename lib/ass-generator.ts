@@ -4,6 +4,7 @@ import { AssVectorItem, parseSvgToAssVector, scaleAssVectorPath } from "./svg-to
 
 export interface AssOptions {
   primaryColor: string; // hex
+  blueColor?: string; // hex
   color2: string; // hex
   color3: string; // hex
   chorusColor: string; // hex
@@ -166,6 +167,8 @@ function getStyleColor(styleId: string | undefined, options: AssOptions): string
     case "O":
       return hexToAssColor(options.orangeColor || "#ff7f00");
     case "B":
+      return hexToAssColor(options.blueColor || "#2A04C8");
+    case "N":
     default:
       return hexToAssColor(options.primaryColor);
   }

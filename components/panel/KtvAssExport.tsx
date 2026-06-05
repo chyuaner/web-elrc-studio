@@ -36,6 +36,28 @@ function detectFfmpegFilenameCompatOs(): FfmpegFilenameCompatOs {
   return /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent) ? "windows" : "unix";
 }
 
+function hasNvidiaGpu(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    if (!gl) return false;
+    const dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
+    if (!dbgRenderInfo) return false;
+    const renderer = (gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL) || "").toString().toLowerCase();
+    const vendor = (gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL) || "").toString().toLowerCase();
+    return (
+      renderer.includes("nvidia") ||
+      renderer.includes("geforce") ||
+      renderer.includes("rtx") ||
+      renderer.includes("gtx") ||
+      vendor.includes("nvidia")
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
 function buildFfmpegBurnCommand(opts: {
   ffmpegMode: "cpu" | "nvidia";
   originalVideoName: string;
@@ -46,6 +68,7 @@ function buildFfmpegBurnCommand(opts: {
   forceFpsEnabled: boolean;
   targetFps: string;
   forceScale720pEnabled: boolean;
+  tempAssAlias: string;
 }): string {
   const {
     ffmpegMode,
@@ -57,6 +80,7 @@ function buildFfmpegBurnCommand(opts: {
     forceFpsEnabled,
     targetFps,
     forceScale720pEnabled,
+    tempAssAlias,
   } = opts;
 
   let filterChain: string[] = [];
@@ -71,7 +95,7 @@ function buildFfmpegBurnCommand(opts: {
 
   filterChain.push(
     filenameCompat
-      ? `subtitles=${FFMPEG_ASS_BURN_ALIAS}`
+      ? `subtitles=${tempAssAlias}`
       : `subtitles='${assFilename}'`
   );
 
@@ -88,13 +112,13 @@ function buildFfmpegBurnCommand(opts: {
 
   const setupAss =
     filenameCompatOs === "unix"
-      ? `ln -sf "${assFilename}" ${FFMPEG_ASS_BURN_ALIAS}`
-      : `copy /Y "${assFilename}" ${FFMPEG_ASS_BURN_ALIAS}`;
+      ? `ln -sf "${assFilename}" ${tempAssAlias}`
+      : `copy /Y "${assFilename}" ${tempAssAlias}`;
 
   const cleanupAss =
     filenameCompatOs === "unix"
-      ? `rm -f ${FFMPEG_ASS_BURN_ALIAS}`
-      : `del /F /Q ${FFMPEG_ASS_BURN_ALIAS}`;
+      ? `rm -f ${tempAssAlias}`
+      : `del /F /Q ${tempAssAlias}`;
 
   return `${setupAss} && ${ffmpegArgs} && ${cleanupAss}`;
 }
@@ -107,7 +131,8 @@ export function getDefaultAssOptions(lrcMetadata: any) {
   const parsedEnd = initialTTE ? parseSeconds(initialTTE) || parsedStart + 6 : parsedStart + 6;
 
   return {
-    primaryColor: "#2A04C8", // Blue
+    primaryColor: "#2A04C8", // Blue N
+    blueColor: "#2A04C8", // Blue B
     color2: "#BC2600", // Red
     color3: "#800080", // Purple
     chorusColor: "#32AA17", // Green
@@ -177,20 +202,76 @@ export function KtvAssExport() {
   const [burnVideoDialogOpen, setBurnVideoDialogOpen] = useState(false);
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
-  const [ffmpegFilenameCompat, setFfmpegFilenameCompat] = useState(true);
+
+  useEffect(() => {
+    if (hasNvidiaGpu()) {
+      const timer = setTimeout(() => {
+        setFfmpegMode("nvidia");
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+  const [ffmpegFilenameCompat, setFfmpegFilenameCompat] = useState(false);
   const [ffmpegFilenameCompatOs, setFfmpegFilenameCompatOs] = useState<FfmpegFilenameCompatOs>(
     detectFfmpegFilenameCompatOs,
   );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+  const [videoPreference, setVideoPreference] = useState<"original" | "best" | "advanced">("original");
   const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
   const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
   const [forceScale720pEnabled, setForceScale720pEnabled] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [options, setOptions] = useState<Omit<AssOptions, "interludeThreshold">>(() =>
     getDefaultAssOptions(lrcMetadata),
   );
+
+  const [dotPreset, setDotPreset] = useState<"anime" | "general" | "custom">(() => {
+    const rawOpts = getDefaultAssOptions(lrcMetadata);
+    const outer = (rawOpts.dotOuterColor || "#eeeeee").toLowerCase();
+    const inner = (rawOpts.dotInnerColor || "#ffffff").toLowerCase();
+    const outerS = rawOpts.dotOuterSize !== undefined ? rawOpts.dotOuterSize : 0.26;
+    const innerS = rawOpts.dotInnerSize !== undefined ? rawOpts.dotInnerSize : 0.24;
+    const spacing = rawOpts.dotSpacing !== undefined ? rawOpts.dotSpacing : 0.75;
+    if (outer === "#eeeeee" && inner === "#ffffff" && outerS === 0.26 && innerS === 0.24 && spacing === 0.75) {
+      return "anime";
+    }
+    if (outer === "#ffffff" && inner === "#ffffff" && outerS === 0.26 && innerS === 0.24 && spacing === 0.75) {
+      return "general";
+    }
+    return "custom";
+  });
+
+  const [tempAssAlias, setTempAssAlias] = useState("__ktv_burn_temp__.ass");
+
+  useEffect(() => {
+    if (burnVideoDialogOpen) {
+      const rand = Math.floor(Math.random() * 1000000).toString(36);
+      const timer = setTimeout(() => {
+        setTempAssAlias(`__ktv_burn_${rand}__.ass`);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [burnVideoDialogOpen]);
+
+  const activeForceFps = useMemo(() => {
+    if (videoPreference === "best") return true;
+    if (videoPreference === "advanced") return forceFpsEnabled;
+    return false;
+  }, [videoPreference, forceFpsEnabled]);
+
+  const activeTargetFps = useMemo(() => {
+    if (videoPreference === "best") return "60";
+    return targetFps;
+  }, [videoPreference, targetFps]);
+
+  const activeForceScale720p = useMemo(() => {
+    if (videoPreference === "best") return true;
+    if (videoPreference === "advanced") return forceScale720pEnabled;
+    return false;
+  }, [videoPreference, forceScale720pEnabled]);
 
   const interludeLogoPreviewSvg = useMemo(() => {
     if (!options.interludeLogoSvg) return "";
@@ -287,9 +368,10 @@ export function KtvAssExport() {
         outputVideoName,
         filenameCompat: ffmpegFilenameCompat,
         filenameCompatOs: ffmpegFilenameCompatOs,
-        forceFpsEnabled,
-        targetFps,
-        forceScale720pEnabled,
+        forceFpsEnabled: activeForceFps,
+        targetFps: activeTargetFps,
+        forceScale720pEnabled: activeForceScale720p,
+        tempAssAlias,
       }),
     [
       ffmpegMode,
@@ -298,9 +380,10 @@ export function KtvAssExport() {
       outputVideoName,
       ffmpegFilenameCompat,
       ffmpegFilenameCompatOs,
-      forceFpsEnabled,
-      targetFps,
-      forceScale720pEnabled,
+      activeForceFps,
+      activeTargetFps,
+      activeForceScale720p,
+      tempAssAlias,
     ],
   );
 
@@ -757,6 +840,16 @@ export function KtvAssExport() {
       <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-base)] border-b border-[var(--app-border-base)] flex items-center justify-between">
         <h2 className="text-sm font-bold text-[var(--app-text-primary)]">KTV ASS 輸出</h2>
         <div className="flex items-center gap-2">
+          <a
+            href="https://fonts.google.com/download?family=Noto%20Sans%20TC"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-[var(--app-text-muted)] hover:text-white underline underline-offset-4 decoration-zinc-500 hover:decoration-white transition-all font-semibold z-10 flex items-center gap-1 mr-3"
+            title="下載推薦的 Noto Sans TC 字體檔"
+          >
+            <Download className="w-3.5 h-3.5 text-orange-400" /> 下載預設字體
+          </a>
+
           <button
             onClick={handleDownload}
             className="text-[11px] flex items-center gap-1.5 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black px-3 py-1.5 rounded transition-colors font-bold z-10 animate-in fade-in duration-200"
@@ -940,196 +1033,6 @@ export function KtvAssExport() {
                 </div>
               </div>
 
-              {/* 字幕顏色設定 */}
-              <div className="flex flex-col gap-1.5">
-                <div
-                  onClick={() => setColorConfigOpen(!colorConfigOpen)}
-                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
-                >
-                  <span>字幕顏色設定</span>
-                  {colorConfigOpen ? (
-                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
-                  )}
-                </div>
-
-                {colorConfigOpen && (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱藍色B (Primary/Blue)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.primaryColor}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              primaryColor: e.target.value,
-                            })
-                          }
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {options.primaryColor.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱紅色R (Color2/Red)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.color2}
-                          onChange={(e) => setOptions({ ...options, color2: e.target.value })}
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {options.color2.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱紫色P (Color3/Purple)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.color3}
-                          onChange={(e) => setOptions({ ...options, color3: e.target.value })}
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {options.color3.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱綠色G（合唱）(Chorus/Green)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.chorusColor}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              chorusColor: e.target.value,
-                            })
-                          }
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {options.chorusColor.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱橘色O (Orange)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.orangeColor || "#FF7F00"}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              orangeColor: e.target.value,
-                            })
-                          }
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {(options.orangeColor || "#FF7F00").toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                        已唱灰色T (Gray)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.grayColor || "#9CA3AF"}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              grayColor: e.target.value,
-                            })
-                          }
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                          {(options.grayColor || "#9CA3AF").toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {SHOW_INTERNAL_TEST_PARAMS && (
-                      <>
-                        <div className="flex flex-col gap-1 border-t border-[var(--app-border-light)] pt-2 col-span-2 mt-1">
-                          <span className="text-[10px] text-[var(--app-accent)] font-semibold">
-                            [內部測試] 開始資訊顏色
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                            標題顏色 (Title)
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={options.songInfoTitleColor || "#BC2600"}
-                              onChange={(e) =>
-                                setOptions({
-                                  ...options,
-                                  songInfoTitleColor: e.target.value,
-                                })
-                              }
-                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                            />
-                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                            主唱/專輯文字顏色 (Info)
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={options.songInfoArtistColor || "#2A04C8"}
-                              onChange={(e) =>
-                                setOptions({
-                                  ...options,
-                                  songInfoArtistColor: e.target.value,
-                                })
-                              }
-                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                            />
-                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
               {/* 字體設定 */}
               <div className="flex flex-col gap-1.5">
                 <div
@@ -1266,146 +1169,568 @@ export function KtvAssExport() {
                 )}
               </div>
 
-              {/* 間奏倒數小圓設定 */}
+              {/* 字幕顏色設定 */}
               {SHOW_INTERNAL_TEST_PARAMS && (
                 <div className="flex flex-col gap-1.5">
                   <div
-                    onClick={() => setDotConfigOpen(!dotConfigOpen)}
+                    onClick={() => setColorConfigOpen(!colorConfigOpen)}
                     className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
                   >
-                    <span>間奏倒數小圓設定 (內部)</span>
-                    {dotConfigOpen ? (
+                    <span>字幕顏色設定</span>
+                    {colorConfigOpen ? (
                       <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
                     ) : (
                       <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
                     )}
                   </div>
 
-                  {dotConfigOpen && (
-                    <div className="flex flex-col gap-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                            外框部分顏色 (Hex)
+                  {colorConfigOpen && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
+                      {/* 已唱預設N（預設） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱預設N (預設)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.primaryColor}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                primaryColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.primaryColor.toUpperCase()}
                           </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={options.dotOuterColor || "#DEDDDA"}
-                              onChange={(e) =>
-                                setOptions({
-                                  ...options,
-                                  dotOuterColor: e.target.value,
-                                })
-                              }
-                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                            />
-                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.dotOuterColor || "#DEDDDA").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                            內圓本體顏色 (Hex)
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={options.dotInnerColor || "#FFFFFF"}
-                              onChange={(e) =>
-                                setOptions({
-                                  ...options,
-                                  dotInnerColor: e.target.value,
-                                })
-                              }
-                              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                            />
-                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                              {(options.dotInnerColor || "#FFFFFF").toUpperCase()}
-                            </span>
-                          </div>
                         </div>
                       </div>
 
+                      {/* 已唱綠色G（合唱） */}
                       <div className="flex flex-col gap-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-[var(--app-text-muted)] font-medium">
-                            外圓形半徑比例
-                          </span>
-                          <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱綠色G (合唱)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.chorusColor}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                chorusColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.chorusColor.toUpperCase()}
                           </span>
                         </div>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="0.5"
-                          step="0.01"
-                          value={options.dotOuterSize !== undefined ? options.dotOuterSize : 0.28}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              dotOuterSize: parseFloat(e.target.value),
-                            })
-                          }
-                          className="w-full accent-[var(--app-accent)]"
-                        />
                       </div>
 
+                      {/* 已唱藍色B（男 or 第一人） */}
                       <div className="flex flex-col gap-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-[var(--app-text-muted)] font-medium">
-                            內圓形半徑比例 (小於外圓形)
-                          </span>
-                          <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotInnerSize !== undefined ? options.dotInnerSize : 0.26}
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱藍色B (男 or 第一人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.blueColor || "#2A04C8"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                blueColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.blueColor || "#2A04C8").toUpperCase()}
                           </span>
                         </div>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.4"
-                          step="0.01"
-                          value={options.dotInnerSize !== undefined ? options.dotInnerSize : 0.26}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              dotInnerSize: parseFloat(e.target.value),
-                            })
-                          }
-                          className="w-full accent-[var(--app-accent)]"
-                        />
                       </div>
 
+                      {/* 已唱紅色R（女 or 第二人） */}
                       <div className="flex flex-col gap-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-[var(--app-text-muted)] font-medium">
-                            小白圓間距比例
-                          </span>
-                          <span className="font-mono text-[var(--app-text-primary)]">
-                            {options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱紅色R (女 or 第二人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.color2}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                color2: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.color2.toUpperCase()}
                           </span>
                         </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="1.2"
-                          step="0.01"
-                          value={options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
-                          onChange={(e) =>
-                            setOptions({
-                              ...options,
-                              dotSpacing: parseFloat(e.target.value),
-                            })
-                          }
-                          className="w-full accent-[var(--app-accent)]"
-                        />
+                      </div>
+
+                      {/* 已唱紫色P（第三人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱紫色P (第三人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.color3}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                color3: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.color3.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱橘色O（第四人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱橘色O (第四人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.orangeColor || "#FF7F00"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                orangeColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.orangeColor || "#FF7F00").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱灰色T（旁白） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium font-semibold">
+                          已唱灰色T (旁白)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.grayColor || "#9CA3AF"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                grayColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.grayColor || "#9CA3AF").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 開始資訊顏色 */}
+                      <div className="flex flex-col gap-1 border-t border-[var(--app-border-light)] pt-2 col-span-2 mt-1">
+                        <span className="text-[10px] text-[var(--app-accent)] font-semibold">
+                          開始資訊顏色
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          標題顏色 (Title)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.songInfoTitleColor || "#BC2600"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                songInfoTitleColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-semibold font-medium">
+                          主唱/專輯文字顏色 (Info)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.songInfoArtistColor || "#2A04C8"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                songInfoArtistColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
               )}
+
+              {/* 間奏倒數小圓設定 */}
+              <div className="flex flex-col gap-1.5">
+                <div
+                  onClick={() => setDotConfigOpen(!dotConfigOpen)}
+                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-white transition-colors"
+                >
+                  <span>間奏倒數小圓設定</span>
+                  {dotConfigOpen ? (
+                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-white" />
+                  )}
+                </div>
+
+                {dotConfigOpen && (
+                  <div className="flex flex-col gap-3.5 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
+                    
+                    {/* Live Visual Countdown Dots Preview */}
+                    <div className="flex flex-col gap-1 bg-black/35 p-2 rounded border border-zinc-900/60 shadow-inner">
+                      <span className="text-[9px] text-zinc-500 font-bold select-none px-1 tracking-wide uppercase">
+                        倒數計時小圓視覺預覽 (即時反應)
+                      </span>
+                      <div className="relative flex items-center justify-center h-20 bg-zinc-950 rounded overflow-hidden border border-zinc-900/40">
+                        {/* Dark background overlay simulating video scene */}
+                        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_14px]" />
+                        <div className="absolute top-1.5 left-2 px-1 py-0.5 bg-black/60 rounded border border-zinc-850 pointer-events-none">
+                          <span className="text-[8px] font-mono tracking-tight text-white/50">1920x1080 KTV VIEW</span>
+                        </div>
+                        
+                        <div className="absolute bottom-1.5 right-2 font-mono text-[8px] text-white/30 pointer-events-none">
+                          {options.dotOuterColor?.toUpperCase()} / {options.dotInnerColor?.toUpperCase()}
+                        </div>
+
+                        {/* High-fidelity dots flex */}
+                        <div 
+                          className="flex items-center z-10" 
+                          style={{ 
+                            gap: `${(options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 44}px` 
+                          }}
+                        >
+                          {[1, 2, 3, 4].map((i) => {
+                            const outerS = (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) * 110;
+                            const innerS = (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) * 110;
+                            return (
+                              <div
+                                key={i}
+                                className="rounded-full flex items-center justify-center transition-all duration-300 shadow-md"
+                                style={{
+                                  width: `${outerS}px`,
+                                  height: `${outerS}px`,
+                                  backgroundColor: options.dotOuterColor || "#eeeeee",
+                                }}
+                              >
+                                <div
+                                  className="rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${innerS}px`,
+                                    height: `${innerS}px`,
+                                    backgroundColor: options.dotInnerColor || "#ffffff",
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preset Choice Cards (Grid Layout) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Preset Option: 外框白圓 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDotPreset("anime");
+                          setOptions((o) => ({
+                            ...o,
+                            dotOuterColor: "#EEEEEE",
+                            dotInnerColor: "#FFFFFF",
+                            dotOuterSize: 0.26,
+                            dotInnerSize: 0.24,
+                            dotSpacing: 0.75,
+                          }));
+                        }}
+                        className={`flex flex-col items-center justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                          dotPreset === "anime"
+                            ? "bg-orange-500/10 border-orange-500/80 ring-1 ring-orange-500/30"
+                            : "bg-zinc-900/40 border-[var(--app-border-light)] hover:border-[var(--app-border-base)]"
+                        }`}
+                      >
+                        <div className="w-full flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">外框白圓</span>
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                            dotPreset === "anime" ? "border-orange-500" : "border-zinc-600"
+                          }`}>
+                            {dotPreset === "anime" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          </div>
+                        </div>
+                        
+                        {/* Preset mini visualization */}
+                        <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center gap-1.5 mb-1.5 border border-zinc-900">
+                          {[1, 2, 3].map((idx) => (
+                            <div key={idx} className="w-3.5 h-3.5 rounded-full bg-[#EEEEEE] flex items-center justify-center">
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF]" />
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">適合動漫 MV</span>
+                      </button>
+
+                      {/* Preset Option: 一般白圓 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDotPreset("general");
+                          setOptions((o) => ({
+                            ...o,
+                            dotOuterColor: "#FFFFFF",
+                            dotInnerColor: "#FFFFFF",
+                            dotOuterSize: 0.26,
+                            dotInnerSize: 0.24,
+                            dotSpacing: 0.75,
+                          }));
+                        }}
+                        className={`flex flex-col items-center justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                          dotPreset === "general"
+                            ? "bg-orange-500/10 border-orange-500/80 ring-1 ring-orange-500/30"
+                            : "bg-zinc-900/40 border-[var(--app-border-light)] hover:border-[var(--app-border-base)]"
+                        }`}
+                      >
+                        <div className="w-full flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">一般白圓</span>
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                            dotPreset === "general" ? "border-orange-500" : "border-zinc-600"
+                          }`}>
+                            {dotPreset === "general" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          </div>
+                        </div>
+                        
+                        {/* Preset mini visualization */}
+                        <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center gap-1.5 mb-1.5 border border-zinc-900">
+                          {[1, 2, 3].map((idx) => (
+                            <div key={idx} className="w-3.5 h-3.5 rounded-full bg-[#FFFFFF] flex items-center justify-center">
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF]" />
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">一般 MV 適用</span>
+                      </button>
+
+                      {/* Preset Option: 自訂 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDotPreset("custom");
+                        }}
+                        className={`flex flex-col items-center justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                          dotPreset === "custom"
+                            ? "bg-orange-500/10 border-orange-500/80 ring-1 ring-orange-500/30"
+                            : "bg-zinc-900/40 border-[var(--app-border-light)] hover:border-[var(--app-border-base)]"
+                        }`}
+                      >
+                        <div className="w-full flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">自訂</span>
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                            dotPreset === "custom" ? "border-orange-500" : "border-zinc-600"
+                          }`}>
+                            {dotPreset === "custom" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          </div>
+                        </div>
+                        
+                        {/* Preset mini visualization */}
+                        <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center mb-1.5 border border-zinc-900 relative overflow-hidden">
+                          <div className="flex items-center gap-1" style={{ gap: `${Math.max(2, Math.min(8, (options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 8))}px` }}>
+                            {[1, 2, 3].map((idx) => {
+                              const sizeS = (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) * 50;
+                              const innerS = (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) * 50;
+                              return (
+                                <div
+                                  key={idx}
+                                  className="rounded-full flex items-center justify-center shrink-0"
+                                  style={{
+                                    width: `${Math.max(6, Math.min(18, sizeS))}px`,
+                                    height: `${Math.max(6, Math.min(18, sizeS))}px`,
+                                    backgroundColor: options.dotOuterColor || "#eeeeee",
+                                  }}
+                                >
+                                  <div
+                                    className="rounded-full shrink-0"
+                                    style={{
+                                      width: `${Math.max(4, Math.min(16, innerS))}px`,
+                                      height: `${Math.max(4, Math.min(16, innerS))}px`,
+                                      backgroundColor: options.dotInnerColor || "#ffffff",
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">手動微調</span>
+                      </button>
+                    </div>
+
+                    {/* Collapsible custom parameters, visible only if dotPreset is custom */}
+                    {dotPreset === "custom" && (
+                      <div className="space-y-3 bg-black/15 p-3 rounded border border-[var(--app-border-light)] mt-1 animate-in slide-in-from-top-2 duration-200">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                              外框部分顏色 (Hex)
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={options.dotOuterColor || "#eeeeee"}
+                                onChange={(e) =>
+                                  setOptions({
+                                    ...options,
+                                    dotOuterColor: e.target.value,
+                                  })
+                                }
+                                className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                              />
+                              <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                                {(options.dotOuterColor || "#eeeeee").toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                              內圓本體顏色 (Hex)
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={options.dotInnerColor || "#FFFFFF"}
+                                onChange={(e) =>
+                                  setOptions({
+                                    ...options,
+                                    dotInnerColor: e.target.value,
+                                  })
+                                }
+                                className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                              />
+                              <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                                {(options.dotInnerColor || "#FFFFFF").toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-[var(--app-text-muted)] font-medium">
+                              外圓形半徑比例
+                            </span>
+                            <span className="font-mono text-[var(--app-text-primary)]">
+                              {options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="0.5"
+                            step="0.01"
+                            value={options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                dotOuterSize: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-full accent-[var(--app-accent)]"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-[var(--app-text-muted)] font-medium">
+                              內圓形半徑比例 (小於外圓形)
+                            </span>
+                            <span className="font-mono text-[var(--app-text-primary)]">
+                              {options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.05"
+                            max="0.4"
+                            step="0.01"
+                            value={options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                dotInnerSize: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-full accent-[var(--app-accent)]"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-[var(--app-text-muted)] font-medium">
+                              小白圓間距比例
+                            </span>
+                            <span className="font-mono text-[var(--app-text-primary)]">
+                              {options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1.2"
+                            step="0.01"
+                            value={options.dotSpacing !== undefined ? options.dotSpacing : 0.75}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                dotSpacing: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-full accent-[var(--app-accent)]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* 密集測試區 */}
               {SHOW_INTERNAL_TEST_PARAMS && (
@@ -2056,13 +2381,13 @@ export function KtvAssExport() {
             {ffmpegFilenameCompat && (
               <>
                 {" "}
-                已啟用加強檔名讀取：指令會透過暫存別名 <code>{FFMPEG_ASS_BURN_ALIAS}</code>{" "}
+                已啟用加強檔名讀取：指令會透過暫存別名 <code>{tempAssAlias}</code>{" "}
                 讀取字幕（適用檔名含撇號、空格等特殊字元），完成後會自動刪除該別名檔。
               </>
             )}
           </p>
 
-          <div className="space-y-2 border border-[var(--app-border-light)] p-4 rounded bg-[var(--app-bg-input)]">
+          <div className="space-y-4 border border-[var(--app-border-light)] p-4 rounded bg-[var(--app-bg-input)]">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <label className="text-xs font-semibold text-[var(--app-text-primary)]">
                 選擇硬體加速/解碼模式：
@@ -2083,79 +2408,185 @@ export function KtvAssExport() {
                 : "Nvidia 模式使用 GPU 硬體加速編碼器 h264_nvenc，可大幅縮短轉檔時間，兼顧超高畫質。"}
             </p>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
-              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={ffmpegFilenameCompat}
-                  onChange={(e) => setFfmpegFilenameCompat(e.target.checked)}
-                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
-                />
-                <span className="font-semibold">加強檔名讀取正確性</span>
+            <div className="space-y-2.5 pt-3 border-t border-[var(--app-border-light)]">
+              <label className="text-xs font-semibold text-[var(--app-text-primary)] block font-semibold text-[var(--app-accent)]">
+                影片品質偏好：
               </label>
-              <select
-                value={ffmpegFilenameCompatOs}
-                onChange={(e) => setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)}
-                disabled={!ffmpegFilenameCompat}
-                className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="unix">for Linux / macOS</option>
-                <option value="windows">for Windows</option>
-              </select>
-            </div>
-            {ffmpegFilenameCompat && (
-              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                {ffmpegFilenameCompatOs === "unix"
-                  ? "使用 ln -sf 建立符號連結作為字幕別名，壓製成功後以 rm -f 刪除別名（不會刪除原始 .ass）。"
-                  : "使用 copy 建立字幕副本作為別名，壓製成功後以 del 刪除副本（不會刪除原始 .ass）。"}
-              </p>
-            )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoPreference("original");
+                    setAdvancedOpen(false);
+                  }}
+                  className={`px-3 py-2.5 rounded border text-left flex flex-col transition-all cursor-pointer ${
+                    videoPreference === "original"
+                      ? "border-[var(--app-accent)] bg-[var(--app-accent)]/5 text-[var(--app-accent)]"
+                      : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
+                  }`}
+                >
+                  <span className="text-xs font-semibold block">同原影片畫質 (僅壓製字幕)</span>
+                  <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
+                    同原影片畫質與影格數。
+                  </span>
+                </button>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
-              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={forceFpsEnabled}
-                  onChange={(e) => setForceFpsEnabled(e.target.checked)}
-                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
-                />
-                <span className="font-semibold">強制提高fps到</span>
-              </label>
-              <select
-                value={targetFps}
-                onChange={(e) => setTargetFps(e.target.value as any)}
-                disabled={!forceFpsEnabled}
-                className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed font-mono"
-              >
-                <option value="60">60fps</option>
-                <option value="59.94">59.94fps</option>
-                <option value="50">50fps</option>
-                <option value="30">30fps</option>
-                <option value="29.97">29.97fps</option>
-              </select>
-            </div>
-            {forceFpsEnabled && (
-              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                啟用後，若原始影片的影格數（FPS）低於所選數值，將強制拉高至該 FPS。若原始影片影格數已高於指定值，則保留原始值（絕不降低畫面流暢度）。
-              </p>
-            )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoPreference("best");
+                    setAdvancedOpen(false);
+                  }}
+                  className={`px-3 py-2.5 rounded border text-left flex flex-col transition-all cursor-pointer ${
+                    videoPreference === "best"
+                      ? "border-[var(--app-accent)] bg-[var(--app-accent)]/15 text-[var(--app-accent)]"
+                      : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
+                  }`}
+                >
+                  <span className="text-xs font-semibold block">最佳觀賞體驗 (強制拉高60fps、720p)</span>
+                  <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
+                    強制拉高60fps與720p以上（專為 YouTube 與 BiliBili 最佳體驗設計）。
+                  </span>
+                </button>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-[var(--app-border-light)]">
-              <label className="flex items-center gap-2 text-xs text-[var(--app-text-primary)] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={forceScale720pEnabled}
-                  onChange={(e) => setForceScale720pEnabled(e.target.checked)}
-                  className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
-                />
-                <span className="font-semibold">強制提高到720p以上</span>
-              </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoPreference("advanced");
+                    setAdvancedOpen(true);
+                  }}
+                  className={`px-3 py-2.5 rounded border text-left flex flex-col transition-all cursor-pointer ${
+                    videoPreference === "advanced"
+                      ? "border-[var(--app-accent)] bg-[var(--app-accent)]/5 text-[var(--app-accent)]"
+                      : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
+                  }`}
+                >
+                  <span className="text-xs font-semibold block">自訂/進階自訂區</span>
+                  <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
+                    自訂 FPS 跟縮放尺寸設定。
+                  </span>
+                </button>
+              </div>
+
+              {/* 最佳觀賞體驗說明 */}
+              {videoPreference === "best" && (
+                <div className="bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] text-[11px] text-[var(--app-text-primary)] leading-normal space-y-1 mt-2">
+                  <p className="font-semibold text-[var(--app-accent)] flex items-center gap-1 text-xs">
+                    ✨ 最佳觀賞體驗：強制提高到 60fps 與 720p 以上
+                  </p>
+                  <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                    本設定會強制將轉檔影格率拉升至 60fps、並將低於 720p 的原始影片等比例縮放至 720p。這兩項設定是為了能在 YouTube 與 Bilibili 上開啟「高影格率 60fps」播放選項的關鍵。
+                  </p>
+                  <p className="text-[10px] text-orange-400 mt-1 leading-relaxed font-semibold">
+                    ⚠️ 說明：本程式僅做 KTV 字幕演譯最佳化生成，不包含 AI 補影格 (AI Frame Interpolation) 技術，檔案體積會變大但不會干涉原影片品質，非常適合用在 YouTube 與 Bilibili 上。
+                  </p>
+                </div>
+              )}
+
+              {/* 加強檔名讀取正確性 (獨立選項) */}
+              <div className="space-y-1.5 bg-black/15 p-2.5 rounded border border-[var(--app-border-light)] text-xs mt-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={ffmpegFilenameCompat}
+                      onChange={(e) => setFfmpegFilenameCompat(e.target.checked)}
+                      className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                    />
+                    <span>加強檔名讀取正確性 (建議！防止多並行任務衝突)</span>
+                  </label>
+                  <select
+                    value={ffmpegFilenameCompatOs}
+                    onChange={(e) => setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)}
+                    disabled={!ffmpegFilenameCompat}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--app-text-primary)]"
+                  >
+                    <option value="unix">for Linux / macOS</option>
+                    <option value="windows">for Windows</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                  啟用後，轉檔時會使用隨機的臨時字幕別名檔讀取字幕（如 <code>{tempAssAlias}</code>），避免特殊字元或中文檔名衝突，完成後會自動清理隨機檔。
+                </p>
+              </div>
             </div>
-            {forceScale720pEnabled && (
-              <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                啟用後，若原始影片的解析度（高度）低於 720p，將強制等比例縮放拉高至 720p。若原始影片已達 720p 或更高，則保留原始解析度（絕不降低畫質或尺寸）。這有助於 YouTube 順利支援高影格率（如 60fps）播放。
-              </p>
-            )}
+
+            {/* 進階自訂區 (預設收合) */}
+            <div className="border-t border-[var(--app-border-light)] pt-3 mt-3">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(!advancedOpen)}
+                className="flex items-center justify-between w-full text-xs font-semibold text-[var(--app-text-primary)] hover:text-[var(--app-accent)] transition-colors cursor-pointer select-none"
+              >
+                <span className="flex items-center gap-1">
+                  ⚙️ 調整與進階參數自訂 (進階選項)
+                </span>
+                <span className="text-[10px] text-[var(--app-text-muted)] border border-[var(--app-border-light)] rounded px-1.5 py-0.5">
+                  {advancedOpen ? "點擊收合 ▴" : "點擊展開 ▾"}
+                </span>
+              </button>
+
+              {advancedOpen && (
+                <div className="mt-3 space-y-3 pl-1 animate-fade-in text-xs">
+                  {/* 強制提高 fps */}
+                  <div className="space-y-1 bg-black/10 p-2.5 rounded border border-[var(--app-border-light)]">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={videoPreference === "advanced" ? forceFpsEnabled : activeForceFps}
+                          disabled={videoPreference !== "advanced"}
+                          onChange={(e) => setForceFpsEnabled(e.target.checked)}
+                          className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] disabled:opacity-40"
+                        />
+                        <span>強制提高影格數 (FPS) 至：</span>
+                      </label>
+                      <select
+                        value={activeTargetFps}
+                        onChange={(e) => setTargetFps(e.target.value as any)}
+                        disabled={videoPreference !== "advanced" || !forceFpsEnabled}
+                        className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] font-mono focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="60">60fps</option>
+                        <option value="59.94">59.94fps</option>
+                        <option value="50">50fps</option>
+                        <option value="30">30fps</option>
+                        <option value="29.97">29.97fps</option>
+                      </select>
+                    </div>
+                    <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                      若原始影片的影格率 (FPS) 低於此數值，將強制拉高至該值（若原影片影格率已大於指定值，則保留原影格，絕不降低流暢度）。
+                    </p>
+                  </div>
+
+                  {/* 強制提高 720p */}
+                  <div className="space-y-1 bg-black/10 p-2.5 rounded border border-[var(--app-border-light)]">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={videoPreference === "advanced" ? forceScale720pEnabled : activeForceScale720p}
+                          disabled={videoPreference !== "advanced"}
+                          onChange={(e) => setForceScale720pEnabled(e.target.checked)}
+                          className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] disabled:opacity-40"
+                        />
+                        <span>強制等比例放大至 720p 以上</span>
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                      若原始影片的高度低於 720px，將強制等比例縮放至 720p。已達 720p 或更高者則保留原始解析度，不破壞原畫質尺寸。
+                    </p>
+                  </div>
+
+                  {/* 進階狀態提醒 */}
+                  {videoPreference !== "advanced" && (
+                    <p className="text-[10px] text-orange-400 font-medium">
+                      💡 目前非「自訂/進階自訂區」模式，上方 FPS 與 720p 勾選狀態已被簡便設置鎖定（同選擇的偏好）。如需手動微調請先在「影片品質偏好」中點擊「自訂/進階自訂區」。
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -2173,7 +2604,7 @@ export function KtvAssExport() {
                   navigator.clipboard.writeText(ffmpegCommand);
                   setCopiedFeedback(true);
                   setTimeout(() => setCopiedFeedback(false), 2000);
-                  showToast("已將 ffmpeg 指令複製到剪貼簿！");
+                  showToast("已將 ffmpeg 指令複製 to 剪貼簿！");
                 }}
                 className="absolute right-3 top-3 p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors"
                 title="複製指令"
@@ -2187,7 +2618,7 @@ export function KtvAssExport() {
             </div>
           </div>
 
-          <div className="space-y-1.5 border-t border-[var(--app-border-base)] pt-3 text-xs text-[var(--app-text-muted)] space-y-1">
+          <div className="space-y-1.5 border-t border-[var(--app-border-base)] pt-3 text-xs text-[var(--app-text-muted)]">
             <p className="font-semibold text-[var(--app-text-primary)]">💡 執行步驟：</p>
             <ol className="list-decimal pl-5 space-y-1 text-[var(--app-text-secondary)]">
               <li>
