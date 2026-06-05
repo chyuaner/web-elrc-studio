@@ -37,16 +37,48 @@ function detectFfmpegFilenameCompatOs(): FfmpegFilenameCompatOs {
   return /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent) ? "windows" : "unix";
 }
 
-function hasNvidiaGpu(): boolean {
+async function hasNvidiaGpu(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+
+  // 1. Electron 環境偵測 (更精準的系統 API)
+  const electronAPI = (window as any).electronAPI;
+  if (electronAPI?.getGpuInfo) {
+    try {
+      const gpuInfo = await electronAPI.getGpuInfo();
+      const gpuDevices = gpuInfo?.gpuDevice || [];
+      const hasNvidia = gpuDevices.some((device: any) => {
+        const vendorId = device.vendorId;
+        const vendor = (device.vendorString || "").toString().toLowerCase();
+        const renderer = (device.deviceString || "").toString().toLowerCase();
+        return (
+          vendorId === 0x10de || // NVIDIA PCI Vendor ID
+          vendor.includes("nvidia") ||
+          renderer.includes("nvidia") ||
+          renderer.includes("geforce") ||
+          renderer.includes("rtx") ||
+          renderer.includes("gtx")
+        );
+      });
+      if (hasNvidia) return true;
+    } catch (e) {
+      console.error("Failed to detect GPU via Electron API:", e);
+    }
+  }
+
+  // 2. WebGL 偵測 (通用備援)
   try {
     const canvas = document.createElement("canvas");
-    const gl = (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    const gl = (canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
     if (!gl) return false;
     const dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
     if (!dbgRenderInfo) return false;
-    const renderer = (gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL) || "").toString().toLowerCase();
-    const vendor = (gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL) || "").toString().toLowerCase();
+    const renderer = (gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL) || "")
+      .toString()
+      .toLowerCase();
+    const vendor = (gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL) || "")
+      .toString()
+      .toLowerCase();
     return (
       renderer.includes("nvidia") ||
       renderer.includes("geforce") ||
@@ -94,11 +126,7 @@ function buildFfmpegBurnCommand(opts: {
     filterChain.push(`fps=fps='max(source_fps,${targetFps})'`);
   }
 
-  filterChain.push(
-    filenameCompat
-      ? `subtitles=${tempAssAlias}`
-      : `subtitles='${assFilename}'`
-  );
+  filterChain.push(filenameCompat ? `subtitles=${tempAssAlias}` : `subtitles='${assFilename}'`);
 
   const subtitlesFilter = filterChain.join(",");
 
@@ -117,9 +145,7 @@ function buildFfmpegBurnCommand(opts: {
       : `copy /Y "${assFilename}" ${tempAssAlias}`;
 
   const cleanupAss =
-    filenameCompatOs === "unix"
-      ? `rm -f ${tempAssAlias}`
-      : `del /F /Q ${tempAssAlias}`;
+    filenameCompatOs === "unix" ? `rm -f ${tempAssAlias}` : `del /F /Q ${tempAssAlias}`;
 
   return `${setupAss} && ${ffmpegArgs} && ${cleanupAss}`;
 }
@@ -181,7 +207,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
 }
 
 function adjustColorBrightness(hex: string, percent: number): string {
-  let cleanHex = hex.replace(/^\s*#|\s*$/g, '');
+  let cleanHex = hex.replace(/^\s*#|\s*$/g, "");
   if (cleanHex.length === 3) {
     cleanHex = cleanHex[0] + cleanHex[0] + cleanHex[1] + cleanHex[1] + cleanHex[2] + cleanHex[2];
   }
@@ -192,7 +218,7 @@ function adjustColorBrightness(hex: string, percent: number): string {
   r = Math.min(255, Math.max(0, r + Math.round((percent / 100) * 255)));
   g = Math.min(255, Math.max(0, g + Math.round((percent / 100) * 255)));
   b = Math.min(255, Math.max(0, b + Math.round((percent / 100) * 255)));
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 export function KtvAssExport() {
@@ -222,19 +248,25 @@ export function KtvAssExport() {
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
 
   useEffect(() => {
-    if (hasNvidiaGpu()) {
-      const timer = setTimeout(() => {
-        setFfmpegMode("nvidia");
-      }, 0);
-      return () => clearTimeout(timer);
-    }
+    let active = true;
+    const checkGpu = async () => {
+      if (await hasNvidiaGpu()) {
+        if (active) setFfmpegMode("nvidia");
+      }
+    };
+    checkGpu();
+    return () => {
+      active = false;
+    };
   }, []);
   const [ffmpegFilenameCompat, setFfmpegFilenameCompat] = useState(false);
   const [ffmpegFilenameCompatOs, setFfmpegFilenameCompatOs] = useState<FfmpegFilenameCompatOs>(
     detectFfmpegFilenameCompatOs,
   );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
-  const [videoPreference, setVideoPreference] = useState<"original" | "best" | "advanced">("original");
+  const [videoPreference, setVideoPreference] = useState<"original" | "best" | "advanced">(
+    "original",
+  );
   const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
   const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
   const [forceScale720pEnabled, setForceScale720pEnabled] = useState(false);
@@ -253,10 +285,22 @@ export function KtvAssExport() {
     const outerS = rawOpts.dotOuterSize !== undefined ? rawOpts.dotOuterSize : 0.26;
     const innerS = rawOpts.dotInnerSize !== undefined ? rawOpts.dotInnerSize : 0.24;
     const spacing = rawOpts.dotSpacing !== undefined ? rawOpts.dotSpacing : 0.75;
-    if (outer === "#eeeeee" && inner === "#ffffff" && outerS === 0.26 && innerS === 0.24 && spacing === 0.75) {
+    if (
+      outer === "#eeeeee" &&
+      inner === "#ffffff" &&
+      outerS === 0.26 &&
+      innerS === 0.24 &&
+      spacing === 0.75
+    ) {
       return "anime";
     }
-    if (outer === "#ffffff" && inner === "#ffffff" && outerS === 0.26 && innerS === 0.24 && spacing === 0.75) {
+    if (
+      outer === "#ffffff" &&
+      inner === "#ffffff" &&
+      outerS === 0.26 &&
+      innerS === 0.24 &&
+      spacing === 0.75
+    ) {
       return "general";
     }
     return "custom";
@@ -837,7 +881,8 @@ export function KtvAssExport() {
       const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
       const loadedKlgno = lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
       const loadedLogoMonochrome = lrcMetadata.klgbm === "true";
-      const loadedLogoMonochromeColor = lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF";
+      const loadedLogoMonochromeColor =
+        lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -1457,7 +1502,6 @@ export function KtvAssExport() {
 
                 {dotConfigOpen && (
                   <div className="flex flex-col gap-3.5 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
-                    
                     {/* Live Visual Countdown Dots Preview */}
                     <div className="flex flex-col gap-1 bg-black/35 p-2 rounded border border-zinc-900/60 shadow-inner">
                       <div className="flex items-center justify-between px-1 flex-wrap gap-1">
@@ -1466,8 +1510,10 @@ export function KtvAssExport() {
                         </span>
 
                         <div className="flex items-center gap-1.5 bg-black/45 px-1.5 py-0.5 rounded border border-zinc-850">
-                          <span className="text-[8px] text-zinc-400 font-semibold select-none">模擬背景：</span>
-                          
+                          <span className="text-[8px] text-zinc-400 font-semibold select-none">
+                            模擬背景：
+                          </span>
+
                           {/* Built-in presets */}
                           <div className="flex items-center gap-1">
                             {[
@@ -1492,18 +1538,18 @@ export function KtvAssExport() {
                               />
                             ))}
                           </div>
-                          
+
                           {/* Interactive Color Picker */}
                           <div className="w-px h-2.5 bg-zinc-800 mx-0.5" />
-                          <label 
-                            className="relative w-3.5 h-3.5 rounded-full border border-zinc-600/80 cursor-pointer overflow-hidden flex items-center justify-center bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)] hover:scale-110 transition-transform shadow mr-1" 
+                          <label
+                            className="relative w-3.5 h-3.5 rounded-full border border-zinc-600/80 cursor-pointer overflow-hidden flex items-center justify-center bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)] hover:scale-110 transition-transform shadow mr-1"
                             title="自訂背景主色"
                           >
-                            <input 
-                              type="color" 
-                              value={previewBgColor} 
-                              onChange={(e) => setPreviewBgColor(e.target.value)} 
-                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
+                            <input
+                              type="color"
+                              value={previewBgColor}
+                              onChange={(e) => setPreviewBgColor(e.target.value)}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                             />
                           </label>
 
@@ -1518,16 +1564,20 @@ export function KtvAssExport() {
                             }`}
                             title="開啟/關閉背景格線"
                           >
-                            {showPreviewGrid ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                            {showPreviewGrid ? (
+                              <Eye className="w-2.5 h-2.5" />
+                            ) : (
+                              <EyeOff className="w-2.5 h-2.5" />
+                            )}
                             <span>格線</span>
                           </button>
                         </div>
                       </div>
 
-                      <div 
+                      <div
                         className="relative flex items-center justify-center h-20 rounded overflow-hidden border border-zinc-900/40 shadow-inner"
                         style={{
-                          background: `linear-gradient(135deg, ${adjustColorBrightness(previewBgColor, -25)} 0%, ${adjustColorBrightness(previewBgColor, 20)} 50%, ${adjustColorBrightness(previewBgColor, 10)} 51%, ${adjustColorBrightness(previewBgColor, 35)} 100%)`
+                          background: `linear-gradient(135deg, ${adjustColorBrightness(previewBgColor, -25)} 0%, ${adjustColorBrightness(previewBgColor, 20)} 50%, ${adjustColorBrightness(previewBgColor, 10)} 51%, ${adjustColorBrightness(previewBgColor, 35)} 100%)`,
                         }}
                       >
                         {/* Dark background overlay simulating video scene */}
@@ -1535,25 +1585,32 @@ export function KtvAssExport() {
                           <>
                             <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_14px]" />
                             <div className="absolute top-1.5 left-2 px-1 py-0.5 bg-black/60 rounded border border-zinc-850 pointer-events-none">
-                              <span className="text-[8px] font-mono tracking-tight text-white/50">1920x1080 KTV VIEW</span>
+                              <span className="text-[8px] font-mono tracking-tight text-white/50">
+                                1920x1080 KTV VIEW
+                              </span>
                             </div>
                           </>
                         )}
-                        
+
                         <div className="absolute bottom-1.5 right-2 font-mono text-[8px] text-white/30 pointer-events-none">
-                          {options.dotOuterColor?.toUpperCase()} / {options.dotInnerColor?.toUpperCase()}
+                          {options.dotOuterColor?.toUpperCase()} /{" "}
+                          {options.dotInnerColor?.toUpperCase()}
                         </div>
 
                         {/* High-fidelity dots flex */}
-                        <div 
-                          className="flex items-center z-10" 
-                          style={{ 
-                            gap: `${(options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 44}px` 
+                        <div
+                          className="flex items-center z-10"
+                          style={{
+                            gap: `${(options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 44}px`,
                           }}
                         >
                           {[1, 2, 3, 4].map((i) => {
-                            const outerS = (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) * 110;
-                            const innerS = (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) * 110;
+                            const outerS =
+                              (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) *
+                              110;
+                            const innerS =
+                              (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) *
+                              110;
                             return (
                               <div
                                 key={i}
@@ -1602,23 +1659,34 @@ export function KtvAssExport() {
                         }`}
                       >
                         <div className="w-full flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">外框白圓</span>
-                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
-                            dotPreset === "anime" ? "border-orange-500" : "border-zinc-600"
-                          }`}>
-                            {dotPreset === "anime" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">
+                            外框白圓
+                          </span>
+                          <div
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                              dotPreset === "anime" ? "border-orange-500" : "border-zinc-600"
+                            }`}
+                          >
+                            {dotPreset === "anime" && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                            )}
                           </div>
                         </div>
-                        
+
                         {/* Preset mini visualization */}
                         <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center gap-1.5 mb-1.5 border border-zinc-900">
                           {[1, 2, 3].map((idx) => (
-                            <div key={idx} className="w-3.5 h-3.5 rounded-full bg-[#EEEEEE] flex items-center justify-center">
+                            <div
+                              key={idx}
+                              className="w-3.5 h-3.5 rounded-full bg-[#EEEEEE] flex items-center justify-center"
+                            >
                               <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF]" />
                             </div>
                           ))}
                         </div>
-                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">適合動漫 MV</span>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">
+                          適合動漫 MV
+                        </span>
                       </button>
 
                       {/* Preset Option: 一般白圓 */}
@@ -1642,23 +1710,34 @@ export function KtvAssExport() {
                         }`}
                       >
                         <div className="w-full flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">一般白圓</span>
-                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
-                            dotPreset === "general" ? "border-orange-500" : "border-zinc-600"
-                          }`}>
-                            {dotPreset === "general" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">
+                            一般白圓
+                          </span>
+                          <div
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                              dotPreset === "general" ? "border-orange-500" : "border-zinc-600"
+                            }`}
+                          >
+                            {dotPreset === "general" && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                            )}
                           </div>
                         </div>
-                        
+
                         {/* Preset mini visualization */}
                         <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center gap-1.5 mb-1.5 border border-zinc-900">
                           {[1, 2, 3].map((idx) => (
-                            <div key={idx} className="w-3.5 h-3.5 rounded-full bg-[#FFFFFF] flex items-center justify-center">
+                            <div
+                              key={idx}
+                              className="w-3.5 h-3.5 rounded-full bg-[#FFFFFF] flex items-center justify-center"
+                            >
                               <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF]" />
                             </div>
                           ))}
                         </div>
-                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">一般 MV 適用</span>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">
+                          一般 MV 適用
+                        </span>
                       </button>
 
                       {/* Preset Option: 自訂 */}
@@ -1674,20 +1753,35 @@ export function KtvAssExport() {
                         }`}
                       >
                         <div className="w-full flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">自訂</span>
-                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
-                            dotPreset === "custom" ? "border-orange-500" : "border-zinc-600"
-                          }`}>
-                            {dotPreset === "custom" && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">
+                            自訂
+                          </span>
+                          <div
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                              dotPreset === "custom" ? "border-orange-500" : "border-zinc-600"
+                            }`}
+                          >
+                            {dotPreset === "custom" && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                            )}
                           </div>
                         </div>
-                        
+
                         {/* Preset mini visualization */}
                         <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center mb-1.5 border border-zinc-900 relative overflow-hidden">
-                          <div className="flex items-center gap-1" style={{ gap: `${Math.max(2, Math.min(8, (options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 8))}px` }}>
+                          <div
+                            className="flex items-center gap-1"
+                            style={{
+                              gap: `${Math.max(2, Math.min(8, (options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 8))}px`,
+                            }}
+                          >
                             {[1, 2, 3].map((idx) => {
-                              const sizeS = (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) * 50;
-                              const innerS = (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) * 50;
+                              const sizeS =
+                                (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) *
+                                50;
+                              const innerS =
+                                (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) *
+                                50;
                               return (
                                 <div
                                   key={idx}
@@ -1711,7 +1805,9 @@ export function KtvAssExport() {
                             })}
                           </div>
                         </div>
-                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">手動微調</span>
+                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">
+                          手動微調
+                        </span>
                       </button>
                     </div>
 
@@ -2558,7 +2654,9 @@ export function KtvAssExport() {
                       : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
                   }`}
                 >
-                  <span className="text-xs font-semibold block">最佳觀賞體驗 (強制拉高60fps、720p)</span>
+                  <span className="text-xs font-semibold block">
+                    最佳觀賞體驗 (強制拉高60fps、720p)
+                  </span>
                   <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
                     強制拉高60fps與720p以上（專為 YouTube 與 BiliBili 最佳體驗設計）。
                   </span>
@@ -2590,10 +2688,14 @@ export function KtvAssExport() {
                     ✨ 最佳觀賞體驗：強制提高到 60fps 與 720p 以上
                   </p>
                   <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                    本設定會強制將轉檔影格率拉升至 60fps、並將低於 720p 的原始影片等比例縮放至 720p。這兩項設定是為了能在 YouTube 與 Bilibili 上開啟「高影格率 60fps」播放選項的關鍵。
+                    本設定會強制將轉檔影格率拉升至 60fps、並將低於 720p 的原始影片等比例縮放至
+                    720p。這兩項設定是為了能在 YouTube 與 Bilibili 上開啟「高影格率
+                    60fps」播放選項的關鍵。
                   </p>
                   <p className="text-[10px] text-orange-400 mt-1 leading-relaxed font-semibold">
-                    ⚠️ 說明：本程式僅做 KTV 字幕演譯最佳化生成，不包含 AI 補影格 (AI Frame Interpolation) 技術，檔案體積會變大但不會干涉原影片品質，非常適合用在 YouTube 與 Bilibili 上。
+                    ⚠️ 說明：本程式僅做 KTV 字幕演譯最佳化生成，不包含 AI 補影格 (AI Frame
+                    Interpolation) 技術，檔案體積會變大但不會干涉原影片品質，非常適合用在 YouTube 與
+                    Bilibili 上。
                   </p>
                 </div>
               )}
@@ -2612,7 +2714,9 @@ export function KtvAssExport() {
                   </label>
                   <select
                     value={ffmpegFilenameCompatOs}
-                    onChange={(e) => setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)}
+                    onChange={(e) =>
+                      setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)
+                    }
                     disabled={!ffmpegFilenameCompat}
                     className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--app-text-primary)]"
                   >
@@ -2621,7 +2725,8 @@ export function KtvAssExport() {
                   </select>
                 </div>
                 <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                  啟用後，轉檔時會使用隨機的臨時字幕別名檔讀取字幕（如 <code>{tempAssAlias}</code>），避免特殊字元或中文檔名衝突，完成後會自動清理隨機檔。
+                  啟用後，轉檔時會使用隨機的臨時字幕別名檔讀取字幕（如 <code>{tempAssAlias}</code>
+                  ），避免特殊字元或中文檔名衝突，完成後會自動清理隨機檔。
                 </p>
               </div>
             </div>
@@ -2633,9 +2738,7 @@ export function KtvAssExport() {
                 onClick={() => setAdvancedOpen(!advancedOpen)}
                 className="flex items-center justify-between w-full text-xs font-semibold text-[var(--app-text-primary)] hover:text-[var(--app-accent)] transition-colors cursor-pointer select-none"
               >
-                <span className="flex items-center gap-1">
-                  ⚙️ 調整與進階參數自訂 (進階選項)
-                </span>
+                <span className="flex items-center gap-1">⚙️ 調整與進階參數自訂 (進階選項)</span>
                 <span className="text-[10px] text-[var(--app-text-muted)] border border-[var(--app-border-light)] rounded px-1.5 py-0.5">
                   {advancedOpen ? "點擊收合 ▴" : "點擊展開 ▾"}
                 </span>
@@ -2649,7 +2752,9 @@ export function KtvAssExport() {
                       <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none font-semibold">
                         <input
                           type="checkbox"
-                          checked={videoPreference === "advanced" ? forceFpsEnabled : activeForceFps}
+                          checked={
+                            videoPreference === "advanced" ? forceFpsEnabled : activeForceFps
+                          }
                           disabled={videoPreference !== "advanced"}
                           onChange={(e) => setForceFpsEnabled(e.target.checked)}
                           className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] disabled:opacity-40"
@@ -2670,7 +2775,8 @@ export function KtvAssExport() {
                       </select>
                     </div>
                     <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                      若原始影片的影格率 (FPS) 低於此數值，將強制拉高至該值（若原影片影格率已大於指定值，則保留原影格，絕不降低流暢度）。
+                      若原始影片的影格率 (FPS)
+                      低於此數值，將強制拉高至該值（若原影片影格率已大於指定值，則保留原影格，絕不降低流暢度）。
                     </p>
                   </div>
 
@@ -2680,7 +2786,11 @@ export function KtvAssExport() {
                       <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none font-semibold">
                         <input
                           type="checkbox"
-                          checked={videoPreference === "advanced" ? forceScale720pEnabled : activeForceScale720p}
+                          checked={
+                            videoPreference === "advanced"
+                              ? forceScale720pEnabled
+                              : activeForceScale720p
+                          }
                           disabled={videoPreference !== "advanced"}
                           onChange={(e) => setForceScale720pEnabled(e.target.checked)}
                           className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] disabled:opacity-40"
@@ -2689,14 +2799,16 @@ export function KtvAssExport() {
                       </label>
                     </div>
                     <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                      若原始影片的高度低於 720px，將強制等比例縮放至 720p。已達 720p 或更高者則保留原始解析度，不破壞原畫質尺寸。
+                      若原始影片的高度低於 720px，將強制等比例縮放至 720p。已達 720p
+                      或更高者則保留原始解析度，不破壞原畫質尺寸。
                     </p>
                   </div>
 
                   {/* 進階狀態提醒 */}
                   {videoPreference !== "advanced" && (
                     <p className="text-[10px] text-orange-400 font-medium">
-                      💡 目前非「自訂/進階自訂區」模式，上方 FPS 與 720p 勾選狀態已被簡便設置鎖定（同選擇的偏好）。如需手動微調請先在「影片品質偏好」中點擊「自訂/進階自訂區」。
+                      💡 目前非「自訂/進階自訂區」模式，上方 FPS 與 720p
+                      勾選狀態已被簡便設置鎖定（同選擇的偏好）。如需手動微調請先在「影片品質偏好」中點擊「自訂/進階自訂區」。
                     </p>
                   )}
                 </div>
