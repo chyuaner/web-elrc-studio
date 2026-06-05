@@ -610,7 +610,7 @@ export function KtvAssExport() {
 
     // 把所有的LRC屬性「自訂標籤」（排除本系統專用的標籤）也一起填入「自訂內容」
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length", "tool"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
 
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {

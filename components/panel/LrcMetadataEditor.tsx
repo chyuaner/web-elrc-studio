@@ -259,7 +259,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   const [formData, setFormData] = useState<LrcMetadata>(() => ({ ...lrcMetadata }));
   const [customKeys, setCustomKeys] = useState<{ key: string; value: string }[]>(() => {
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
     const isSystemKey = (key: string) => {
       const lower = key.toLowerCase();
       return (
@@ -281,7 +281,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
   });
   const [systemKeys, setSystemKeys] = useState<{ key: string; value: string }[]>(() => {
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
     const isSystemKey = (key: string) => {
       const lower = key.toLowerCase();
       return (
@@ -334,7 +334,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
 
     setFormData({ ...lrcMetadata });
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
     const isSystemKey = (key: string) => {
       const lower = key.toLowerCase();
       return (
@@ -533,7 +533,7 @@ export function LrcMetadataEditor({ onClose }: { onClose?: () => void }) {
     const newSystemKeys = [...systemKeys];
     const newFormData = { ...formData };
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
     const isSystemKey = (key: string) => {
       const lower = key.toLowerCase();
       return (
