@@ -174,8 +174,8 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     logoMaxWidth: 450,
     logoMaxHeight: 300,
     logoMinInterludeGap: 9.0,
-    logoMonochrome: false,
-    logoMonochromeColor: "#FFFFFF",
+    logoMonochrome: lrcMetadata.klgbm === "true",
+    logoMonochromeColor: lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
   };
 }
@@ -688,6 +688,21 @@ export function KtvAssExport() {
         delete updatedMeta.klgno;
       }
     }
+    // 同步 Logo 單色與縮寫屬性
+    if (newOptions.logoMonochrome !== undefined) {
+      if (newOptions.logoMonochrome) {
+        updatedMeta.klgbm = "true";
+      } else {
+        delete updatedMeta.klgbm;
+      }
+    }
+    if (newOptions.logoMonochromeColor !== undefined) {
+      if (newOptions.logoMonochromeColor) {
+        updatedMeta.klgbmc = newOptions.logoMonochromeColor;
+      } else {
+        delete updatedMeta.klgbmc;
+      }
+    }
 
     lastCommittedMetaRef.current = updatedMeta;
     commitLrcMetadata(updatedMeta, "Update Custom KTV Info and Times");
@@ -803,6 +818,8 @@ export function KtvAssExport() {
         startInfoEndTime: 7,
         interludeLogoSvg: "",
         klgno: "",
+        logoMonochrome: false,
+        logoMonochromeColor: "#FFFFFF",
       }));
     } else {
       const extTT = lrcMetadata.TT || lrcMetadata.tt;
@@ -819,6 +836,8 @@ export function KtvAssExport() {
       const loadedCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
       const loadedLogo = lrcMetadata.klg !== undefined ? lrcMetadata.klg : "";
       const loadedKlgno = lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "";
+      const loadedLogoMonochrome = lrcMetadata.klgbm === "true";
+      const loadedLogoMonochromeColor = lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -832,6 +851,8 @@ export function KtvAssExport() {
         startInfoEndTime: extEnd,
         interludeLogoSvg: loadedLogo,
         klgno: loadedKlgno,
+        logoMonochrome: loadedLogoMonochrome,
+        logoMonochromeColor: loadedLogoMonochromeColor,
       }));
     }
   }, [
@@ -846,6 +867,8 @@ export function KtvAssExport() {
     lrcMetadata.ko,
     lrcMetadata.klg,
     lrcMetadata.klgno,
+    lrcMetadata.klgbm,
+    lrcMetadata.klgbmc,
     lrcMetadata.TT,
     lrcMetadata.TTE,
     lrcMetadata.tt,
@@ -2218,12 +2241,14 @@ export function KtvAssExport() {
                         <input
                           type="checkbox"
                           checked={!!options.logoMonochrome}
-                          onChange={(e) =>
-                            setOptions({
+                          onChange={(e) => {
+                            const updated = {
                               ...options,
                               logoMonochrome: e.target.checked,
-                            })
-                          }
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
                           className="rounded border-[var(--app-border-input)]"
                         />
                         <span>變為單色</span>
@@ -2235,12 +2260,14 @@ export function KtvAssExport() {
                           type="color"
                           value={options.logoMonochromeColor ?? "#FFFFFF"}
                           disabled={!options.logoMonochrome}
-                          onChange={(e) =>
-                            setOptions({
+                          onChange={(e) => {
+                            const updated = {
                               ...options,
                               logoMonochromeColor: e.target.value,
-                            })
-                          }
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
                           className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
                         />
                         <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
