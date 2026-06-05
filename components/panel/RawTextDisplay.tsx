@@ -493,8 +493,8 @@ export function RawTextDisplay({
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`px-3 py-1.5 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border transition-colors ${
               isSearchOpen
-                ? "border-blue-500/50 text-blue-400 bg-blue-500/10"
-                : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-white"
+                ? "border-[var(--app-accent)]/50 text-[var(--app-accent)] bg-[var(--app-accent)]/10"
+                : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
             }`}
             title="搜尋 (Ctrl+F)"
           >

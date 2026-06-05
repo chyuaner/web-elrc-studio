@@ -385,8 +385,8 @@ export function TextEditor() {
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`px-3 py-1 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border transition-colors ${
               isSearchOpen
-                ? "border-blue-500/50 text-blue-400 bg-blue-500/10"
-                : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-white"
+                ? "border-[var(--app-accent)]/50 text-[var(--app-accent)] bg-[var(--app-accent)]/10"
+                : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
             }`}
             title="Search & Replace (Ctrl+F)"
           >
@@ -416,7 +416,7 @@ export function TextEditor() {
                 return next;
               });
             }}
-            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-white transition-colors"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
           >
             轉成繁體
           </button>
@@ -430,7 +430,7 @@ export function TextEditor() {
                 return next;
               });
             }}
-            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-white transition-colors"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
           >
             轉成簡體
           </button>
@@ -447,7 +447,7 @@ export function TextEditor() {
                 return next;
               });
             }}
-            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-orange-400 transition-colors"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
           >
             轉成 標準LRC (逐行同步)
           </button>
@@ -466,7 +466,7 @@ export function TextEditor() {
                 return next;
               });
             }}
-            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-red-900/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
           >
             轉成 簡易歌詞 (無時間戳)
           </button>

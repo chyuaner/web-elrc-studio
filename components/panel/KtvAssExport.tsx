@@ -15,6 +15,7 @@ import {
   Clock,
   Copy,
   Download,
+  Eye,
   EyeOff,
   Film,
   Image as ImageIcon,
@@ -179,6 +180,21 @@ export function getDefaultAssOptions(lrcMetadata: any) {
   };
 }
 
+function adjustColorBrightness(hex: string, percent: number): string {
+  let cleanHex = hex.replace(/^\s*#|\s*$/g, '');
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex[0] + cleanHex[0] + cleanHex[1] + cleanHex[1] + cleanHex[2] + cleanHex[2];
+  }
+  let r = parseInt(cleanHex.substring(0, 2), 16);
+  let g = parseInt(cleanHex.substring(2, 4), 16);
+  let b = parseInt(cleanHex.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  r = Math.min(255, Math.max(0, r + Math.round((percent / 100) * 255)));
+  g = Math.min(255, Math.max(0, g + Math.round((percent / 100) * 255)));
+  b = Math.min(255, Math.max(0, b + Math.round((percent / 100) * 255)));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 export function KtvAssExport() {
   const {
     lines,
@@ -198,6 +214,8 @@ export function KtvAssExport() {
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
+  const [previewBgColor, setPreviewBgColor] = useState("#0b0c10");
+  const [showPreviewGrid, setShowPreviewGrid] = useState(true);
   const [testParamsOpen, setTestParamsOpen] = useState(false);
   const [burnVideoDialogOpen, setBurnVideoDialogOpen] = useState(false);
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
@@ -1419,15 +1437,85 @@ export function KtvAssExport() {
                     
                     {/* Live Visual Countdown Dots Preview */}
                     <div className="flex flex-col gap-1 bg-black/35 p-2 rounded border border-zinc-900/60 shadow-inner">
-                      <span className="text-[9px] text-zinc-500 font-bold select-none px-1 tracking-wide uppercase">
-                        倒數計時小圓視覺預覽 (即時反應)
-                      </span>
-                      <div className="relative flex items-center justify-center h-20 bg-zinc-950 rounded overflow-hidden border border-zinc-900/40">
-                        {/* Dark background overlay simulating video scene */}
-                        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_14px]" />
-                        <div className="absolute top-1.5 left-2 px-1 py-0.5 bg-black/60 rounded border border-zinc-850 pointer-events-none">
-                          <span className="text-[8px] font-mono tracking-tight text-white/50">1920x1080 KTV VIEW</span>
+                      <div className="flex items-center justify-between px-1 flex-wrap gap-1">
+                        <span className="text-[9px] text-zinc-500 font-bold select-none tracking-wide uppercase">
+                          倒數計時小圓視覺預覽 (即時反應)
+                        </span>
+
+                        <div className="flex items-center gap-1.5 bg-black/45 px-1.5 py-0.5 rounded border border-zinc-850">
+                          <span className="text-[8px] text-zinc-400 font-semibold select-none">模擬背景：</span>
+                          
+                          {/* Built-in presets */}
+                          <div className="flex items-center gap-1">
+                            {[
+                              { label: "漆黑", value: "#0c0c10" },
+                              { label: "藍調", value: "#1e5799" },
+                              { label: "魅紫", value: "#3c1b50" },
+                              { label: "深綠", value: "#0d2c1d" },
+                              { label: "緋紅", value: "#541515" },
+                              { label: "全白", value: "#ffffff" },
+                            ].map((preset) => (
+                              <button
+                                key={preset.value}
+                                type="button"
+                                onClick={() => setPreviewBgColor(preset.value)}
+                                className={`w-2.5 h-2.5 rounded-full border transition-all duration-150 hover:scale-125 ${
+                                  previewBgColor.toLowerCase() === preset.value.toLowerCase()
+                                    ? "border-white ring-1 ring-zinc-500"
+                                    : "border-zinc-700/50"
+                                }`}
+                                style={{ backgroundColor: preset.value }}
+                                title={`${preset.label} 模擬背景`}
+                              />
+                            ))}
+                          </div>
+                          
+                          {/* Interactive Color Picker */}
+                          <div className="w-px h-2.5 bg-zinc-800 mx-0.5" />
+                          <label 
+                            className="relative w-3.5 h-3.5 rounded-full border border-zinc-600/80 cursor-pointer overflow-hidden flex items-center justify-center bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)] hover:scale-110 transition-transform shadow mr-1" 
+                            title="自訂背景主色"
+                          >
+                            <input 
+                              type="color" 
+                              value={previewBgColor} 
+                              onChange={(e) => setPreviewBgColor(e.target.value)} 
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
+                            />
+                          </label>
+
+                          {/* Toggle Grid */}
+                          <button
+                            type="button"
+                            onClick={() => setShowPreviewGrid(!showPreviewGrid)}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-bold rounded transition-all select-none border border-zinc-800/80 hover:border-zinc-700 ${
+                              showPreviewGrid
+                                ? "bg-[var(--app-accent)]/10 text-[var(--app-accent)] hover:bg-[var(--app-accent)]/20"
+                                : "bg-zinc-900/60 text-zinc-500 hover:text-zinc-300"
+                            }`}
+                            title="開啟/關閉背景格線"
+                          >
+                            {showPreviewGrid ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                            <span>格線</span>
+                          </button>
                         </div>
+                      </div>
+
+                      <div 
+                        className="relative flex items-center justify-center h-20 rounded overflow-hidden border border-zinc-900/40 shadow-inner"
+                        style={{
+                          background: `linear-gradient(135deg, ${adjustColorBrightness(previewBgColor, -25)} 0%, ${adjustColorBrightness(previewBgColor, 20)} 50%, ${adjustColorBrightness(previewBgColor, 10)} 51%, ${adjustColorBrightness(previewBgColor, 35)} 100%)`
+                        }}
+                      >
+                        {/* Dark background overlay simulating video scene */}
+                        {showPreviewGrid && (
+                          <>
+                            <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_14px]" />
+                            <div className="absolute top-1.5 left-2 px-1 py-0.5 bg-black/60 rounded border border-zinc-850 pointer-events-none">
+                              <span className="text-[8px] font-mono tracking-tight text-white/50">1920x1080 KTV VIEW</span>
+                            </div>
+                          </>
+                        )}
                         
                         <div className="absolute bottom-1.5 right-2 font-mono text-[8px] text-white/30 pointer-events-none">
                           {options.dotOuterColor?.toUpperCase()} / {options.dotInnerColor?.toUpperCase()}
@@ -1446,7 +1534,7 @@ export function KtvAssExport() {
                             return (
                               <div
                                 key={i}
-                                className="rounded-full flex items-center justify-center transition-all duration-300 shadow-md"
+                                className="rounded-full flex items-center justify-center transition-all duration-300"
                                 style={{
                                   width: `${outerS}px`,
                                   height: `${outerS}px`,
