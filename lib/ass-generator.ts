@@ -896,18 +896,28 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           if (pNextStart - pPrevEnd >= minGap) {
             const logoEnd = pInfos[idx + 1].blockDisplayStart - INTRO_DELAY_BUFFER_TIME;
             if (logoEnd > logoStart) {
-              logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+              // 檢查此段落間奏與「歌曲開始資訊」的顯示區間是否重疊
+              const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+              if (!overlapsWithSongInfo) {
+                logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+              }
             }
           }
         } else {
           // Outro - after the last paragraph
           if (options.songDuration && options.songDuration > logoStart) {
             const logoEnd = options.songDuration;
-            logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: 1000 }); // "最後1秒會再淡出"
+            const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+            if (!overlapsWithSongInfo) {
+              logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: 1000 }); // "最後1秒會再淡出"
+            }
           } else if (!options.songDuration) {
             // Fallback if no songDuration available
             const logoEnd = logoStart + 10.0;
-            logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+            const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+            if (!overlapsWithSongInfo) {
+              logoAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs });
+            }
           }
         }
       }
