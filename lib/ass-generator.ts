@@ -62,7 +62,7 @@ const INTRO_DELAY_BUFFER_TIME = 1;
 // 間奏 Logo 預設尺寸與間奏門檻常數
 const DEFAULT_LOGO_MAX_WIDTH = 450;
 const DEFAULT_LOGO_MAX_HEIGHT = 300;
-const LOGO_MIN_INTERLUDE_GAP = 9.0;
+const LOGO_MIN_INTERLUDE_GAP = 12.0;
 
 // =========================================================================
 // 【核心設計與模式微調參數】

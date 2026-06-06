@@ -199,7 +199,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     songInfoArtistColor: "#2A04C8",
     logoMaxWidth: 450,
     logoMaxHeight: 300,
-    logoMinInterludeGap: 9.0,
+    logoMinInterludeGap: 12.0,
     logoMonochrome: lrcMetadata.klgbm === "true",
     logoMonochromeColor: lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF",
     logoOutlineEnabled: lrcMetadata.klgo === "true",
