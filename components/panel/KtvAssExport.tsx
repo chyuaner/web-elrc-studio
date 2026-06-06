@@ -7,7 +7,7 @@ import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { useI18n } from "@/hooks/useI18n";
 import { AssOptions, generateAss } from "@/lib/ass-generator";
 import { formatTime, parseSeconds } from "@/lib/lyric-utils";
-import { recolorSvgMonochrome } from "@/lib/svg-to-ass-vector";
+import { applySvgLogoOutline, recolorSvgMonochrome } from "@/lib/svg-to-ass-vector";
 import {
   Check,
   ChevronDown,
@@ -202,6 +202,10 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     logoMinInterludeGap: 9.0,
     logoMonochrome: lrcMetadata.klgbm === "true",
     logoMonochromeColor: lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF",
+    logoOutlineEnabled: lrcMetadata.klgo === "true",
+    logoOutlineWidth:
+      lrcMetadata.klgow !== undefined ? parseFloat(lrcMetadata.klgow) || 3 : 3,
+    logoOutlineColor: lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
   };
 }
@@ -341,8 +345,22 @@ export function KtvAssExport() {
     if (options.logoMonochrome) {
       svg = recolorSvgMonochrome(svg, options.logoMonochromeColor ?? "#FFFFFF");
     }
+    if (options.logoOutlineEnabled && (options.logoOutlineWidth ?? 0) > 0) {
+      svg = applySvgLogoOutline(
+        svg,
+        options.logoOutlineWidth ?? 3,
+        options.logoOutlineColor ?? "#FFFFFF",
+      );
+    }
     return svg.replace(/<svg/i, '<svg style="width:100%;height:100%"');
-  }, [options.interludeLogoSvg, options.logoMonochrome, options.logoMonochromeColor]);
+  }, [
+    options.interludeLogoSvg,
+    options.logoMonochrome,
+    options.logoMonochromeColor,
+    options.logoOutlineEnabled,
+    options.logoOutlineWidth,
+    options.logoOutlineColor,
+  ]);
 
   const [newExcludeStart, setNewExcludeStart] = useState("");
   const [newExcludeEnd, setNewExcludeEnd] = useState("");
@@ -747,6 +765,27 @@ export function KtvAssExport() {
         delete updatedMeta.klgbmc;
       }
     }
+    if (newOptions.logoOutlineEnabled !== undefined) {
+      if (newOptions.logoOutlineEnabled) {
+        updatedMeta.klgo = "true";
+      } else {
+        delete updatedMeta.klgo;
+      }
+    }
+    if (newOptions.logoOutlineWidth !== undefined) {
+      if (newOptions.logoOutlineEnabled && newOptions.logoOutlineWidth > 0) {
+        updatedMeta.klgow = String(newOptions.logoOutlineWidth);
+      } else {
+        delete updatedMeta.klgow;
+      }
+    }
+    if (newOptions.logoOutlineColor !== undefined) {
+      if (newOptions.logoOutlineEnabled && newOptions.logoOutlineColor) {
+        updatedMeta.klgoc = newOptions.logoOutlineColor;
+      } else {
+        delete updatedMeta.klgoc;
+      }
+    }
 
     lastCommittedMetaRef.current = updatedMeta;
     commitLrcMetadata(updatedMeta, "Update Custom KTV Info and Times");
@@ -864,6 +903,9 @@ export function KtvAssExport() {
         klgno: "",
         logoMonochrome: false,
         logoMonochromeColor: "#FFFFFF",
+        logoOutlineEnabled: false,
+        logoOutlineWidth: 3,
+        logoOutlineColor: "#FFFFFF",
       }));
     } else {
       const extTT = lrcMetadata.TT || lrcMetadata.tt;
@@ -883,6 +925,11 @@ export function KtvAssExport() {
       const loadedLogoMonochrome = lrcMetadata.klgbm === "true";
       const loadedLogoMonochromeColor =
         lrcMetadata.klgbmc !== undefined ? lrcMetadata.klgbmc : "#FFFFFF";
+      const loadedLogoOutlineEnabled = lrcMetadata.klgo === "true";
+      const loadedLogoOutlineWidth =
+        lrcMetadata.klgow !== undefined ? parseFloat(lrcMetadata.klgow) || 3 : 3;
+      const loadedLogoOutlineColor =
+        lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -898,6 +945,9 @@ export function KtvAssExport() {
         klgno: loadedKlgno,
         logoMonochrome: loadedLogoMonochrome,
         logoMonochromeColor: loadedLogoMonochromeColor,
+        logoOutlineEnabled: loadedLogoOutlineEnabled,
+        logoOutlineWidth: loadedLogoOutlineWidth,
+        logoOutlineColor: loadedLogoOutlineColor,
       }));
     }
   }, [
@@ -914,6 +964,9 @@ export function KtvAssExport() {
     lrcMetadata.klgno,
     lrcMetadata.klgbm,
     lrcMetadata.klgbmc,
+    lrcMetadata.klgo,
+    lrcMetadata.klgow,
+    lrcMetadata.klgoc,
     lrcMetadata.TT,
     lrcMetadata.TTE,
     lrcMetadata.tt,
@@ -2371,6 +2424,69 @@ export function KtvAssExport() {
                         </span>
                       </div>
                     </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!options.logoOutlineEnabled}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoOutlineEnabled: e.target.checked,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="rounded border-[var(--app-border-input)]"
+                        />
+                        <span>外框描邊</span>
+                      </label>
+                      <div
+                        className={`flex items-center gap-2 ${options.logoOutlineEnabled ? "" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
+                          <span>粗細</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            step={1}
+                            value={options.logoOutlineWidth ?? 3}
+                            disabled={!options.logoOutlineEnabled}
+                            onChange={(e) => {
+                              const updated = {
+                                ...options,
+                                logoOutlineWidth: parseInt(e.target.value, 10) || 1,
+                              };
+                              setOptions(updated);
+                              syncToLrcMetadata(updated);
+                            }}
+                            className="w-12 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1 py-0.5 text-[10px] text-center font-mono disabled:cursor-not-allowed"
+                          />
+                          <span>px</span>
+                        </label>
+                        <input
+                          type="color"
+                          value={options.logoOutlineColor ?? "#FFFFFF"}
+                          disabled={!options.logoOutlineEnabled}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoOutlineColor: e.target.value,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
+                          {(options.logoOutlineColor ?? "#FFFFFF").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                      外框沿 Logo 實際形狀描邊，非方形外圍；可保留原色並加白邊提升辨識度。
+                    </p>
                     <div className="flex items-start gap-3">
                       <div
                         className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"

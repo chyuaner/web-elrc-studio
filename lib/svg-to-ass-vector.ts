@@ -34,15 +34,40 @@ function hexToAssColor(hex: string): string {
   return "&H00FFFFFF";
 }
 
+function isPaintNone(value: string | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim().toLowerCase();
+  return v === "none" || v === "transparent";
+}
+
 function parseCssColor(value: string): string | undefined {
   const v = value.trim().toLowerCase();
-  if (v === "none" || v === "transparent") return undefined;
+  if (v === "none" || v === "transparent" || v === "currentcolor") return undefined;
   if (v.startsWith("#")) return hexToAssColor(v);
-  const rgbMatch = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  const rgbMatch = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
   if (rgbMatch) {
+    const alpha = rgbMatch[4] !== undefined ? parseFloat(rgbMatch[4]) : 1;
+    if (alpha <= 0) return undefined;
     const r = parseInt(rgbMatch[1]).toString(16).padStart(2, "0");
     const g = parseInt(rgbMatch[2]).toString(16).padStart(2, "0");
     const b = parseInt(rgbMatch[3]).toString(16).padStart(2, "0");
+    return hexToAssColor(`#${r}${g}${b}`);
+  }
+  const rgbPctMatch = v.match(
+    /rgba?\(\s*([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*([\d.]+))?\s*\)/,
+  );
+  if (rgbPctMatch) {
+    const alpha = rgbPctMatch[4] !== undefined ? parseFloat(rgbPctMatch[4]) : 1;
+    if (alpha <= 0) return undefined;
+    const r = Math.round(parseFloat(rgbPctMatch[1]) * 2.55)
+      .toString(16)
+      .padStart(2, "0");
+    const g = Math.round(parseFloat(rgbPctMatch[2]) * 2.55)
+      .toString(16)
+      .padStart(2, "0");
+    const b = Math.round(parseFloat(rgbPctMatch[3]) * 2.55)
+      .toString(16)
+      .padStart(2, "0");
     return hexToAssColor(`#${r}${g}${b}`);
   }
   const named: Record<string, string> = {
@@ -54,6 +79,48 @@ function parseCssColor(value: string): string | undefined {
   };
   if (named[v]) return hexToAssColor(named[v]);
   return undefined;
+}
+
+function parseGradientDefs(svg: Element): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const grad of svg.querySelectorAll("linearGradient, radialGradient")) {
+    const id = grad.getAttribute("id");
+    if (!id) continue;
+    let chosen: string | undefined;
+    for (const stop of grad.querySelectorAll("stop")) {
+      const styleAttr = stop.getAttribute("style");
+      const inline = styleAttr ? parseInlineStyle(styleAttr) : {};
+      const opacityRaw = stop.getAttribute("stop-opacity") || inline["stop-opacity"] || inline.stopOpacity;
+      if (opacityRaw !== undefined && parseFloat(opacityRaw) <= 0) continue;
+      const raw =
+        stop.getAttribute("stop-color") || inline["stop-color"] || inline.stopColor || "";
+      if (raw && !isPaintNone(raw)) chosen = raw.trim();
+    }
+    if (chosen) map.set(id, chosen);
+  }
+  return map;
+}
+
+function resolvePaintReference(
+  raw: string | undefined,
+  gradientDefs: Map<string, string>,
+): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  const urlMatch = trimmed.match(/^url\(\s*["']?#([^"')]+)["']?\s*\)$/i);
+  if (urlMatch) {
+    return gradientDefs.get(urlMatch[1]);
+  }
+  return trimmed;
+}
+
+function paintToAssColor(
+  raw: string | undefined,
+  gradientDefs: Map<string, string>,
+): string | undefined {
+  const resolved = resolvePaintReference(raw, gradientDefs);
+  if (!resolved || isPaintNone(resolved)) return undefined;
+  return parseCssColor(resolved);
 }
 
 function parseStyleBlock(svgText: string): Map<string, Record<string, string>> {
@@ -464,94 +531,28 @@ function getElementStyles(
   return result;
 }
 
-function collectElements(
-  parent: Element,
+interface InheritedPaint {
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+}
+
+const EMPTY_PAINT: InheritedPaint = {};
+
+function mergePaint(inherited: InheritedPaint, local: InheritedPaint): InheritedPaint {
+  return {
+    fill: local.fill !== undefined ? local.fill : inherited.fill,
+    stroke: local.stroke !== undefined ? local.stroke : inherited.stroke,
+    strokeWidth: local.strokeWidth ?? inherited.strokeWidth,
+  };
+}
+
+function resolvePaint(
+  el: Element,
   cssClasses: Map<string, Record<string, string>>,
-  inheritedTransform: Transform,
-  items: AssVectorItem[],
-): void {
-  for (const child of Array.from(parent.children)) {
-    const tag = child.tagName.toLowerCase();
-    if (tag === "style" || tag === "defs" || tag === "text") continue;
-
-    let transform = inheritedTransform;
-    const transformAttr = child.getAttribute("transform");
-    if (transformAttr) {
-      transform = multiplyTransform(inheritedTransform, parseTransformAttr(transformAttr));
-    }
-
-    const styles = getElementStyles(child, cssClasses);
-    const fillIsNone =
-      styles.fill === "none" || styles.fill === "transparent";
-    let fillAss = styles.fill ? parseCssColor(styles.fill) : undefined;
-    if (!fillAss && !fillIsNone && styles.fill === undefined) {
-      fillAss = hexToAssColor("#000000");
-    }
-    const strokeAss = styles.stroke ? parseCssColor(styles.stroke) : undefined;
-    const strokeWidth = styles.strokeWidth ?? 1;
-    const strokeIsNone = styles.stroke === "none" || !strokeAss;
-
-    let d = "";
-    if (tag === "path") {
-      d = child.getAttribute("d") || "";
-    } else if (tag === "rect") {
-      d = rectToPath(
-        parseFloat(child.getAttribute("x") || "0"),
-        parseFloat(child.getAttribute("y") || "0"),
-        parseFloat(child.getAttribute("width") || "0"),
-        parseFloat(child.getAttribute("height") || "0"),
-        parseFloat(child.getAttribute("rx") || "0"),
-        parseFloat(child.getAttribute("ry") || "0"),
-      );
-    } else if (tag === "circle") {
-      d = circleToPath(
-        parseFloat(child.getAttribute("cx") || "0"),
-        parseFloat(child.getAttribute("cy") || "0"),
-        parseFloat(child.getAttribute("r") || "0"),
-      );
-    } else if (tag === "ellipse") {
-      const cx = parseFloat(child.getAttribute("cx") || "0");
-      const cy = parseFloat(child.getAttribute("cy") || "0");
-      const rx = parseFloat(child.getAttribute("rx") || "0");
-      const ry = parseFloat(child.getAttribute("ry") || "0");
-      d = `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
-    } else if (tag === "polygon" || tag === "polyline") {
-      const pts = (child.getAttribute("points") || "")
-        .trim()
-        .split(/[\s,]+/)
-        .map(Number);
-      if (pts.length >= 2) {
-        d = `M ${pts[0]} ${pts[1]}`;
-        for (let p = 2; p < pts.length; p += 2) {
-          d += ` L ${pts[p]} ${pts[p + 1]}`;
-        }
-        if (tag === "polygon") d += " Z";
-      }
-    } else if (tag === "line") {
-      d = `M ${child.getAttribute("x1")} ${child.getAttribute("y1")} L ${child.getAttribute("x2")} ${child.getAttribute("y2")}`;
-    } else if (tag === "g") {
-      collectElements(child, cssClasses, transform, items);
-      continue;
-    }
-
-    if (d) {
-      const assPath = svgPathToAss(d, transform);
-      if (assPath) {
-        if (fillAss && !fillIsNone) {
-          items.push({ path: assPath, fillColor: fillAss });
-        } else if (strokeAss && !strokeIsNone) {
-          items.push({
-            path: assPath,
-            strokeColor: strokeAss,
-            strokeWidth,
-            strokeOnly: true,
-          });
-        }
-      }
-    } else if (tag === "g") {
-      collectElements(child, cssClasses, transform, items);
-    }
-  }
+  inherited: InheritedPaint,
+): InheritedPaint {
+  return mergePaint(inherited, getElementStyles(el, cssClasses));
 }
 
 const SHAPE_TAGS = new Set([
@@ -564,16 +565,145 @@ const SHAPE_TAGS = new Set([
   "line",
 ]);
 
-function hasVisibleSvgFill(styles: { fill?: string }): boolean {
-  if (styles.fill === "none" || styles.fill === "transparent") return false;
-  if (styles.fill) return !!parseCssColor(styles.fill);
-  return true;
+function shapePathFromElement(el: Element, tag: string): string {
+  if (tag === "path") {
+    return el.getAttribute("d") || "";
+  }
+  if (tag === "rect") {
+    return rectToPath(
+      parseFloat(el.getAttribute("x") || "0"),
+      parseFloat(el.getAttribute("y") || "0"),
+      parseFloat(el.getAttribute("width") || "0"),
+      parseFloat(el.getAttribute("height") || "0"),
+      parseFloat(el.getAttribute("rx") || "0"),
+      parseFloat(el.getAttribute("ry") || "0"),
+    );
+  }
+  if (tag === "circle") {
+    return circleToPath(
+      parseFloat(el.getAttribute("cx") || "0"),
+      parseFloat(el.getAttribute("cy") || "0"),
+      parseFloat(el.getAttribute("r") || "0"),
+    );
+  }
+  if (tag === "ellipse") {
+    const cx = parseFloat(el.getAttribute("cx") || "0");
+    const cy = parseFloat(el.getAttribute("cy") || "0");
+    const rx = parseFloat(el.getAttribute("rx") || "0");
+    const ry = parseFloat(el.getAttribute("ry") || "0");
+    return `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
+  }
+  if (tag === "polygon" || tag === "polyline") {
+    const pts = (el.getAttribute("points") || "")
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0]} ${pts[1]}`;
+    for (let p = 2; p < pts.length; p += 2) {
+      d += ` L ${pts[p]} ${pts[p + 1]}`;
+    }
+    if (tag === "polygon") d += " Z";
+    return d;
+  }
+  if (tag === "line") {
+    return `M ${el.getAttribute("x1")} ${el.getAttribute("y1")} L ${el.getAttribute("x2")} ${el.getAttribute("y2")}`;
+  }
+  return "";
 }
 
-function hasVisibleSvgStroke(styles: { stroke?: string }): boolean {
-  if (styles.stroke === "none" || styles.stroke === "transparent") return false;
-  if (styles.stroke) return !!parseCssColor(styles.stroke);
-  return false;
+function pushShapeItems(
+  d: string,
+  transform: Transform,
+  paint: InheritedPaint,
+  gradientDefs: Map<string, string>,
+  items: AssVectorItem[],
+): void {
+  const assPath = svgPathToAss(d, transform);
+  if (!assPath) return;
+
+  const fillAss = paintToAssColor(paint.fill, gradientDefs);
+  const strokeAss = paintToAssColor(paint.stroke, gradientDefs);
+  const strokeWidth = paint.strokeWidth ?? 1;
+
+  if (fillAss) {
+    items.push({ path: assPath, fillColor: fillAss });
+  }
+  if (strokeAss) {
+    items.push({
+      path: assPath,
+      strokeColor: strokeAss,
+      strokeWidth,
+      strokeOnly: true,
+    });
+  }
+}
+
+interface CollectContext {
+  cssClasses: Map<string, Record<string, string>>;
+  gradientDefs: Map<string, string>;
+  doc: Document;
+}
+
+function collectElements(
+  parent: Element,
+  ctx: CollectContext,
+  inheritedTransform: Transform,
+  inheritedPaint: InheritedPaint,
+  items: AssVectorItem[],
+): void {
+  for (const child of Array.from(parent.children)) {
+    const tag = child.tagName.toLowerCase();
+    if (tag === "style" || tag === "defs" || tag === "text") continue;
+
+    let transform = inheritedTransform;
+    const transformAttr = child.getAttribute("transform");
+    if (transformAttr) {
+      transform = multiplyTransform(inheritedTransform, parseTransformAttr(transformAttr));
+    }
+
+    const paint = resolvePaint(child, ctx.cssClasses, inheritedPaint);
+
+    if (tag === "g") {
+      collectElements(child, ctx, transform, paint, items);
+      continue;
+    }
+
+    if (tag === "use") {
+      const href = child.getAttribute("href") || child.getAttribute("xlink:href");
+      if (!href?.startsWith("#")) continue;
+      const refId = href.slice(1);
+      const refEl = ctx.doc.getElementById(refId);
+      if (!refEl) continue;
+
+      const x = parseFloat(child.getAttribute("x") || "0");
+      const y = parseFloat(child.getAttribute("y") || "0");
+      const useTransform = multiplyTransform(transform, { ...IDENTITY, e: x, f: y });
+      const refTag = refEl.tagName.toLowerCase();
+
+      if (refTag === "g") {
+        collectElements(refEl, ctx, useTransform, paint, items);
+      } else if (SHAPE_TAGS.has(refTag)) {
+        const refPaint = resolvePaint(refEl, ctx.cssClasses, paint);
+        const d = shapePathFromElement(refEl, refTag);
+        if (d) pushShapeItems(d, useTransform, refPaint, ctx.gradientDefs, items);
+      }
+      continue;
+    }
+
+    if (!SHAPE_TAGS.has(tag)) continue;
+
+    const d = shapePathFromElement(child, tag);
+    if (d) pushShapeItems(d, transform, paint, ctx.gradientDefs, items);
+  }
+}
+
+function hasVisibleSvgFill(paint: InheritedPaint, gradientDefs: Map<string, string>): boolean {
+  return !!paintToAssColor(paint.fill, gradientDefs);
+}
+
+function hasVisibleSvgStroke(paint: InheritedPaint, gradientDefs: Map<string, string>): boolean {
+  return !!paintToAssColor(paint.stroke, gradientDefs);
 }
 
 /** 將 SVG 中所有非透明繪製區域改為指定 hex 色（供預覽與另存） */
@@ -586,23 +716,25 @@ export function recolorSvgMonochrome(svgText: string, hexColor: string): string 
     if (!svg || doc.querySelector("parsererror")) return svgText;
 
     const cssClasses = parseStyleBlock(svgText);
+    const gradientDefs = parseGradientDefs(svg);
 
-    const recolorTree = (parent: Element) => {
+    const recolorTree = (parent: Element, inheritedPaint: InheritedPaint) => {
       for (const child of Array.from(parent.children)) {
         const tag = child.tagName.toLowerCase();
         if (tag === "style" || tag === "defs" || tag === "text") continue;
 
+        const paint = resolvePaint(child, cssClasses, inheritedPaint);
+
         if (tag === "g") {
-          recolorTree(child);
+          recolorTree(child, paint);
           continue;
         }
 
         if (SHAPE_TAGS.has(tag)) {
-          const styles = getElementStyles(child, cssClasses);
-          if (hasVisibleSvgFill(styles)) {
+          if (hasVisibleSvgFill(paint, gradientDefs)) {
             child.setAttribute("fill", hexColor);
           }
-          if (hasVisibleSvgStroke(styles)) {
+          if (hasVisibleSvgStroke(paint, gradientDefs)) {
             child.setAttribute("stroke", hexColor);
           }
           child.removeAttribute("class");
@@ -610,11 +742,11 @@ export function recolorSvgMonochrome(svgText: string, hexColor: string): string 
           if (styleAttr) {
             const inline = parseInlineStyle(styleAttr);
             let changed = false;
-            if (inline.fill && hasVisibleSvgFill({ fill: inline.fill })) {
+            if (inline.fill && hasVisibleSvgFill({ fill: inline.fill }, gradientDefs)) {
               inline.fill = hexColor;
               changed = true;
             }
-            if (inline.stroke && hasVisibleSvgStroke({ stroke: inline.stroke })) {
+            if (inline.stroke && hasVisibleSvgStroke({ stroke: inline.stroke }, gradientDefs)) {
               inline.stroke = hexColor;
               changed = true;
             }
@@ -626,12 +758,56 @@ export function recolorSvgMonochrome(svgText: string, hexColor: string): string 
             }
           }
         } else if (tag === "g") {
-          recolorTree(child);
+          recolorTree(child, paint);
         }
       }
     };
 
-    recolorTree(svg);
+    const rootPaint = resolvePaint(svg, cssClasses, EMPTY_PAINT);
+    recolorTree(svg, rootPaint);
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return svgText;
+  }
+}
+
+/** 為 SVG 可見形狀加上描邊外框（保留原填色，供預覽） */
+export function applySvgLogoOutline(svgText: string, width: number, hexColor: string): string {
+  if (typeof DOMParser === "undefined" || width <= 0) return svgText;
+
+  try {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svg = doc.querySelector("svg");
+    if (!svg || doc.querySelector("parsererror")) return svgText;
+
+    const cssClasses = parseStyleBlock(svgText);
+    const gradientDefs = parseGradientDefs(svg);
+
+    const outlineTree = (parent: Element, inheritedPaint: InheritedPaint) => {
+      for (const child of Array.from(parent.children)) {
+        const tag = child.tagName.toLowerCase();
+        if (tag === "style" || tag === "defs" || tag === "text") continue;
+
+        const paint = resolvePaint(child, cssClasses, inheritedPaint);
+        if (tag === "g") {
+          outlineTree(child, paint);
+          continue;
+        }
+        if (!SHAPE_TAGS.has(tag)) continue;
+
+        const hasShape =
+          hasVisibleSvgFill(paint, gradientDefs) || hasVisibleSvgStroke(paint, gradientDefs);
+        if (!hasShape) continue;
+
+        child.setAttribute("stroke", hexColor);
+        child.setAttribute("stroke-width", String(width));
+        child.setAttribute("paint-order", "stroke fill");
+        child.setAttribute("stroke-linejoin", "round");
+        child.setAttribute("stroke-linecap", "round");
+      }
+    };
+
+    outlineTree(svg, resolvePaint(svg, cssClasses, EMPTY_PAINT));
     return new XMLSerializer().serializeToString(svg);
   } catch {
     return svgText;
@@ -677,8 +853,16 @@ export function parseSvgToAssVector(svgText: string): AssVectorGraphic | null {
     if (!width || !height) return null;
 
     const cssClasses = parseStyleBlock(svgText);
+    const gradientDefs = parseGradientDefs(svg);
     const items: AssVectorItem[] = [];
-    collectElements(svg, cssClasses, IDENTITY, items);
+    const rootPaint = resolvePaint(svg, cssClasses, EMPTY_PAINT);
+    collectElements(
+      svg,
+      { cssClasses, gradientDefs, doc },
+      IDENTITY,
+      rootPaint,
+      items,
+    );
 
     if (items.length === 0) return null;
 

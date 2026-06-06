@@ -45,6 +45,9 @@ export interface AssOptions {
   interludeLogoSvg?: string; // SVG 原始文字，匯出時轉為 ASS 向量圖
   logoMonochrome?: boolean; // 將 Logo 非透明區域統一為單色
   logoMonochromeColor?: string; // 單色 hex（預設 #FFFFFF）
+  logoOutlineEnabled?: boolean; // 沿 Logo 形狀繪製外框
+  logoOutlineWidth?: number; // 外框粗細（px，隨 Logo 等比縮放）
+  logoOutlineColor?: string; // 外框 hex（預設 #FFFFFF）
   songDuration?: number; // duration of the song in seconds
   logoMaxWidth?: number; // maximum logo width in pixels
   logoMaxHeight?: number; // maximum logo height in pixels
@@ -920,14 +923,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
       }
 
-      for (const item of logoItems) {
-        const scaledPath = scaleAssVectorPath(item.path, fitScale);
-        for (const appearance of logoAppearances) {
-          if (appearance.start >= appearance.end) continue;
+      const outlineEnabled =
+        !!options.logoOutlineEnabled && (options.logoOutlineWidth ?? 0) > 0;
+      const outlineAss = hexToAssColor(options.logoOutlineColor ?? "#FFFFFF");
+      const outlineBord = Math.max(
+        1,
+        Math.round((options.logoOutlineWidth ?? 3) * fitScale),
+      );
 
-          const startStr = formatAssTime(appearance.start);
-          const endStr = formatAssTime(appearance.end);
-          const fadeText = `\\fad(${fadeMs},${appearance.fadeOutDuration})`;
+      const silhouettePaths = new Set<string>();
+      for (const item of logoItems) {
+        if (item.fillColor || item.strokeColor) {
+          silhouettePaths.add(item.path);
+        }
+      }
+
+      for (const appearance of logoAppearances) {
+        if (appearance.start >= appearance.end) continue;
+
+        const startStr = formatAssTime(appearance.start);
+        const endStr = formatAssTime(appearance.end);
+        const fadeText = `\\fad(${fadeMs},${appearance.fadeOutDuration})`;
+
+        if (outlineEnabled) {
+          for (const path of silhouettePaths) {
+            const scaledPath = scaleAssVectorPath(path, fitScale);
+            ass += `Dialogue: 3,${startStr},${endStr},TopLeft,,0,0,0,,{\\an7\\pos(${logoX},${logoY})${fadeText}\\1a&HFF&\\3c${outlineAss}&\\bord${outlineBord}\\shad0}{\\p1}${scaledPath}{\\p0}\n`;
+          }
+        }
+
+        for (const item of logoItems) {
+          const scaledPath = scaleAssVectorPath(item.path, fitScale);
 
           if (item.strokeOnly && item.strokeColor) {
             const bord = Math.max(1, Math.round((item.strokeWidth || 1) * fitScale));
