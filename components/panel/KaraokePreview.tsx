@@ -52,6 +52,50 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     return () => cancelAnimationFrame(rafId);
   }, [playerRef]);
 
+  const getLineEndTime = React.useCallback((lineIdx: number) => {
+    const line = lines[lineIdx];
+    if (!line) return 0;
+    if (line.end !== null) return line.end;
+    if (line.words && line.words.length > 0) {
+      const lastWord = line.words[line.words.length - 1];
+      return lastWord?.end ?? lastWord?.start ?? line.start ?? 0;
+    }
+    return line.start ?? 0;
+  }, [lines]);
+
+  const overlappingPairs = React.useMemo(() => {
+    const pairs: Array<{ top: number; bottom: number; start: number; end: number }> = [];
+    const processed = new Set<number>();
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (processed.has(i)) continue;
+      const start_i = lines[i].start;
+      if (start_i === null) continue;
+      const end_i = getLineEndTime(i);
+
+      for (let j = i + 1; j < lines.length; j++) {
+        const start_j = lines[j].start;
+        if (start_j === null) continue;
+
+        // If the next line starts after or at the end of the current line, we stop searching
+        if (start_j >= end_i) break;
+
+        // Overlap detected!
+        const end_j = getLineEndTime(j);
+        pairs.push({
+          top: i,
+          bottom: j,
+          start: Math.min(start_i, start_j),
+          end: Math.max(end_i, end_j),
+        });
+        processed.add(i);
+        processed.add(j);
+        break; // Only pair i with its direct overlapping partner
+      }
+    }
+    return pairs;
+  }, [lines, getLineEndTime]);
+
   let topIndex = -1;
   let bottomIndex = -1;
   let previewLineIndex = activeLineIndex;
@@ -65,81 +109,92 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     return -1;
   }, [lines]);
 
-  const getLineEndTime = (lineIdx: number) => {
-    const line = lines[lineIdx];
-    if (!line) return 0;
-    if (line.end !== null) return line.end;
-    if (line.words && line.words.length > 0) {
-      const lastWord = line.words[line.words.length - 1];
-      return lastWord?.end ?? lastWord?.start ?? line.start ?? 0;
-    }
-    return line.start ?? 0;
-  };
+  const activePair = React.useMemo(() => {
+    return overlappingPairs.find(
+      (p) => currentTime >= p.start && currentTime < p.end
+    );
+  }, [overlappingPairs, currentTime]);
 
-  if (lines.length > 0) {
-    if (firstStampedIndex !== -1 && currentTime <= lines[firstStampedIndex].start!) {
-      previewLineIndex = firstStampedIndex;
-    } else if (activeLineIndex + 1 < lines.length) {
-      const nextLine = lines[activeLineIndex + 1];
-      const currentLineEndTime = getLineEndTime(activeLineIndex);
-      if (
-        paragraphStarts[activeLineIndex + 1] &&
-        nextLine.start !== null &&
-        currentTime >= currentLineEndTime
-      ) {
-        const gap = nextLine.start - currentTime;
-        if (gap > 0 && gap <= dualLineGapSec) {
-          previewLineIndex = activeLineIndex + 1;
+  if (activePair) {
+    topIndex = activePair.top;
+    bottomIndex = activePair.bottom;
+  } else {
+    if (lines.length > 0) {
+      if (firstStampedIndex !== -1 && currentTime <= lines[firstStampedIndex].start!) {
+        previewLineIndex = firstStampedIndex;
+      } else if (activeLineIndex + 1 < lines.length) {
+        const nextLine = lines[activeLineIndex + 1];
+        const currentLineEndTime = getLineEndTime(activeLineIndex);
+        if (
+          paragraphStarts[activeLineIndex + 1] &&
+          nextLine.start !== null &&
+          currentTime >= currentLineEndTime
+        ) {
+          const gap = nextLine.start - currentTime;
+          if (gap > 0 && gap <= dualLineGapSec) {
+            previewLineIndex = activeLineIndex + 1;
+          }
         }
       }
     }
-  }
 
-  if (lines.length > 0) {
-    let paraStart = previewLineIndex;
-    while (paraStart > 0 && !paragraphStarts[paraStart]) paraStart--;
+    if (lines.length > 0) {
+      let paraStart = previewLineIndex;
+      while (paraStart > 0 && !paragraphStarts[paraStart]) paraStart--;
 
-    let paraEnd = previewLineIndex + 1;
-    while (paraEnd < lines.length && !paragraphStarts[paraEnd]) paraEnd++;
+      let paraEnd = previewLineIndex + 1;
+      while (paraEnd < lines.length && !paragraphStarts[paraEnd]) paraEnd++;
 
-    const activeTrack = trackAssignments[previewLineIndex] || 0;
+      const activeTrack = trackAssignments[previewLineIndex] || 0;
 
-    if (activeTrack === 0) {
-      const pairIndex = previewLineIndex + 1;
-      if (pairIndex < paraEnd) {
-        topIndex = previewLineIndex;
-        bottomIndex = pairIndex;
-      } else {
-        topIndex = -1;
-        bottomIndex = previewLineIndex;
-      }
-    } else {
-      bottomIndex = previewLineIndex;
-      const nextTop = previewLineIndex + 1;
-
-      if (nextTop < paraEnd) {
-        const nextTopIsAlone = nextTop + 1 >= paraEnd;
-        if (nextTopIsAlone) {
-          topIndex = previewLineIndex - 1;
+      if (activeTrack === 0) {
+        const pairIndex = previewLineIndex + 1;
+        if (pairIndex < paraEnd) {
+          topIndex = previewLineIndex;
+          bottomIndex = pairIndex;
         } else {
-          topIndex = nextTop;
+          topIndex = -1;
+          bottomIndex = previewLineIndex;
         }
       } else {
-        topIndex = previewLineIndex - 1;
+        bottomIndex = previewLineIndex;
+        const nextTop = previewLineIndex + 1;
+
+        if (nextTop < paraEnd) {
+          const nextTopIsAlone = nextTop + 1 >= paraEnd;
+          if (nextTopIsAlone) {
+            topIndex = previewLineIndex - 1;
+          } else {
+            topIndex = nextTop;
+          }
+        } else {
+          topIndex = previewLineIndex - 1;
+        }
       }
     }
-  }
 
-  if (lines.length > 0 && lines[previewLineIndex]?.isSingleLine) {
-    topIndex = -1;
-    bottomIndex = previewLineIndex;
+    if (lines.length > 0 && lines[previewLineIndex]?.isSingleLine) {
+      topIndex = -1;
+      bottomIndex = previewLineIndex;
+    }
   }
 
   const isTopOnly = topIndex !== -1 && bottomIndex === -1;
   const isBottomOnly = bottomIndex !== -1 && topIndex === -1;
 
-  const topIsActive = topIndex === previewLineIndex;
-  const bottomIsActive = bottomIndex === previewLineIndex;
+  const topIsActive = topIndex === previewLineIndex || (
+    topIndex !== -1 &&
+    lines[topIndex]?.start !== null &&
+    currentTime >= lines[topIndex].start! &&
+    currentTime < getLineEndTime(topIndex)
+  );
+
+  const bottomIsActive = bottomIndex === previewLineIndex || (
+    bottomIndex !== -1 &&
+    lines[bottomIndex]?.start !== null &&
+    currentTime >= lines[bottomIndex].start! &&
+    currentTime < getLineEndTime(bottomIndex)
+  );
 
   const [touchBtnWidth, setTouchBtnWidth] = useState(140);
   const dragRef = useRef(false);
@@ -231,10 +286,53 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
 
   const getWordColor = (lineIdx: number, wordIdx: number) => {
     const line = lines[lineIdx];
-    const word = line?.words[wordIdx];
-    const effectiveStyle = word?.style || line?.style;
+    if (!line) return "";
+    const word = line.words[wordIdx];
+    const effectiveStyle = word?.style || line.style;
     const theme = getStyleClasses(effectiveStyle);
 
+    // Check if we are currently displaying an overlapping duet pair
+    const inActivePair = !!activePair;
+
+    if (inActivePair) {
+      if (line.start === null) {
+        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+      }
+
+      const endTime = getLineEndTime(lineIdx);
+
+      if (currentTime < line.start) {
+        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+      }
+
+      if (currentTime >= endTime) {
+        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
+      }
+
+      const isLineSynced = line.words.every((w: any) => w.start === null);
+      if (syncMode === "line" || isLineSynced) {
+        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+      }
+
+      let foundWIndex = 0;
+      for (let w = line.words.length - 1; w >= 0; w--) {
+        const wStart = line.words[w].start;
+        if (wStart !== null && wStart <= currentTime) {
+          foundWIndex = w;
+          break;
+        }
+      }
+
+      if (wordIdx < foundWIndex) {
+        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
+      } else if (wordIdx === foundWIndex) {
+        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+      } else {
+        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+      }
+    }
+
+    // Fallback to original index-based highlighting when no duet overlap is active (perfect for standard stamping/editing)
     if (lineIdx < activeLineIndex) {
       return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
     } else if (lineIdx === activeLineIndex) {

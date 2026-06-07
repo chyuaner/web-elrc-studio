@@ -698,6 +698,47 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       lineDisplayEnds.push(end);
     }
 
+    const getRowForLine = (idxVal: number) => {
+      const lastIsCentered = p.length % 2 !== 0 && p.length >= 3;
+      const isLast = idxVal === p.length - 1;
+      const isCentered = isLast && lastIsCentered;
+      const isSingleLine = p.length === 1;
+      const isReallyCentered = isCentered || isSingleLine;
+      return isReallyCentered ? 2 : idxVal % 2 === 0 ? 1 : 2;
+    };
+
+    // Ensure duet/overlapping lines and standard lines stay on screen until they finish singing
+    for (let i = 0; i < p.length; i++) {
+      const physicalEnd = getLineEndTime(p[i]);
+      if (lineDisplayEnds[i] < physicalEnd) {
+        lineDisplayEnds[i] = physicalEnd;
+      }
+    }
+
+    // Propagate constraints sequentially on the same row to avoid overlapped display intervals
+    for (let i = 0; i < p.length; i++) {
+      const rowI = getRowForLine(i);
+      let nextSameRowIdx = -1;
+      for (let j = i + 1; j < p.length; j++) {
+        if (rowI === getRowForLine(j)) {
+          nextSameRowIdx = j;
+          break;
+        }
+      }
+      if (nextSameRowIdx !== -1) {
+        if (lineDisplayStarts[nextSameRowIdx] < lineDisplayEnds[i]) {
+          lineDisplayStarts[nextSameRowIdx] = lineDisplayEnds[i];
+        }
+      }
+    }
+
+    // Guarantee that display starts do not exceed display ends
+    for (let i = 0; i < p.length; i++) {
+      if (lineDisplayStarts[i] > lineDisplayEnds[i]) {
+        lineDisplayStarts[i] = lineDisplayEnds[i] - 0.1 > 0 ? lineDisplayEnds[i] - 0.1 : lineDisplayEnds[i];
+      }
+    }
+
     for (let i = 0; i < p.length; i++) {
       const line = p[i];
       const displayStart = lineDisplayStarts[i];
