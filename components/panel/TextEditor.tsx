@@ -254,6 +254,7 @@ export function TextEditor() {
           if (!lineText.trim()) continue;
 
           if (/^\[ktv\s*:\s*singleline\]$/i.test(lineText.trim())) continue;
+          if (/^\[ktv\s*:\s*center\]$/i.test(lineText.trim())) continue;
           if (/^\[ktvsp\s*:\s*(\d+:\d+(?:\.\d+)?)\]$/i.exec(lineText.trim())) continue;
 
           currentLineIndex++;

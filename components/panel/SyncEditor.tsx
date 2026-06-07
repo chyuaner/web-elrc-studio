@@ -87,20 +87,24 @@ const SyncCell = memo(
         className={`p-0 align-top group cursor-pointer border-r border-[var(--app-border-base)] transition-colors relative ${isDual ? "w-1/2" : "w-full"}
         ${
           isActive
-            ? line.isSingleLine
-              ? "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_3px_0_0_0_#a855f7]"
-              : line.ktvsp != null
-                ? "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_3px_0_0_0_#22c55e]"
-                : "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_2px_0_0_0_var(--app-accent)]"
-            : line.isSingleLine
-              ? "bg-purple-500/10 dark:bg-purple-950/30 hover:bg-purple-500/20 dark:hover:bg-purple-950/50 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_#a855f7]"
-              : line.ktvsp != null
-                ? "bg-green-500/10 dark:bg-green-950/30 hover:bg-green-500/20 dark:hover:bg-green-950/50 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_#22c55e]"
-                : paragraphStart
-                  ? "bg-[#293B33]/40 hover:bg-[#293B33]/60 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_rgba(65,168,125,0.5)]"
-                  : "hover:bg-[var(--app-bg-panel-alt)] text-[var(--app-text-muted)]"
+            ? line.isCenter
+              ? "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_3px_0_0_0_#38bdf8]"
+              : line.isSingleLine
+                ? "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_3px_0_0_0_#a855f7]"
+                : line.ktvsp != null
+                  ? "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_3px_0_0_0_#22c55e]"
+                  : "bg-[var(--app-border-base)] text-[var(--app-text-primary)] shadow-[inset_2px_0_0_0_var(--app-accent)]"
+            : line.isCenter
+              ? "bg-sky-500/10 dark:bg-sky-950/30 hover:bg-sky-500/20 dark:hover:bg-sky-950/50 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_#38bdf8]"
+              : line.isSingleLine
+                ? "bg-purple-500/10 dark:bg-purple-950/30 hover:bg-purple-500/20 dark:hover:bg-purple-950/50 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_#a855f7]"
+                : line.ktvsp != null
+                  ? "bg-green-500/10 dark:bg-green-950/30 hover:bg-green-500/20 dark:hover:bg-green-950/50 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_#22c55e]"
+                  : paragraphStart
+                    ? "bg-[#293B33]/40 hover:bg-[#293B33]/60 text-[var(--app-text-muted)] shadow-[inset_2px_0_0_0_rgba(65,168,125,0.5)]"
+                    : "hover:bg-[var(--app-bg-panel-alt)] text-[var(--app-text-muted)]"
         }
-        ${!isActive && isPassed && !paragraphStart && !line.isSingleLine && line.ktvsp == null ? " opacity-60" : ""}`}
+        ${!isActive && isPassed && !paragraphStart && !line.isSingleLine && !line.isCenter && line.ktvsp == null ? " opacity-60" : ""}`}
       >
         <LyricCellContent
           line={line}
@@ -570,6 +574,18 @@ export function SyncEditor() {
           return { ...line, isSingleLine: !line.isSingleLine };
         });
       }, "Toggle Single Line");
+    },
+    [commitLines],
+  );
+
+  const handleToggleCenter = useCallback(
+    (globalIndex: number) => {
+      commitLines((prev) => {
+        return prev.map((line, i) => {
+          if (i !== globalIndex) return line;
+          return { ...line, isCenter: !line.isCenter };
+        });
+      }, "Toggle Force Center");
     },
     [commitLines],
   );
@@ -1190,31 +1206,6 @@ export function SyncEditor() {
                   }}
                 />
               </ContextMenuSub>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                icon={
-                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">
-                    繁
-                  </span>
-                }
-                label="這行字轉繁體"
-                onClick={() => {
-                  handleLineConvertToTraditional(ctxMenu.globalIndex);
-                  setCtxMenu(null);
-                }}
-              />
-              <ContextMenuItem
-                icon={
-                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">
-                    簡
-                  </span>
-                }
-                label="這行字轉簡體"
-                onClick={() => {
-                  handleLineConvertToSimplified(ctxMenu.globalIndex);
-                  setCtxMenu(null);
-                }}
-              />
               <ContextMenuItem
                 icon={
                   <span className="w-3.5 h-3.5 flex items-center justify-center font-semibold text-[10px] text-purple-500">
@@ -1228,6 +1219,22 @@ export function SyncEditor() {
                 }
                 onClick={() => {
                   handleToggleSingleLine(ctxMenu.globalIndex);
+                  setCtxMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                icon={
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px] text-blue-400">
+                    C
+                  </span>
+                }
+                label={
+                  lines[ctxMenu.globalIndex]?.isCenter
+                    ? "✓ 這一句置中 (已啟用)"
+                    : "這一句置中 ([ktv:center])"
+                }
+                onClick={() => {
+                  handleToggleCenter(ctxMenu.globalIndex);
                   setCtxMenu(null);
                 }}
               />
@@ -1250,6 +1257,31 @@ export function SyncEditor() {
                     text:
                       line.ktvsp != null ? formatTime(line.ktvsp, true) : formatTime(defSec, true),
                   });
+                  setCtxMenu(null);
+                }}
+              />
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                icon={
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">
+                    繁
+                  </span>
+                }
+                label="這行字轉繁體"
+                onClick={() => {
+                  handleLineConvertToTraditional(ctxMenu.globalIndex);
+                  setCtxMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                icon={
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">
+                    簡
+                  </span>
+                }
+                label="這行字轉簡體"
+                onClick={() => {
+                  handleLineConvertToSimplified(ctxMenu.globalIndex);
                   setCtxMenu(null);
                 }}
               />

@@ -12,6 +12,7 @@ export interface LyricLine {
   words: LyricWord[];
   raw?: string;
   isSingleLine?: boolean;
+  isCenter?: boolean;
   ktvsp?: number | null;
   style?: "B" | "R" | "P" | "G" | string;
 }
@@ -140,6 +141,7 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
   const wordTimeRegex = /<([^>]+)>([^<]*)/g;
 
   let pendingSingleLine = false;
+  let pendingCenter = false;
   let pendingKtvsp: number | null = null;
   let currentStyle: string | undefined = undefined;
   let blockStyleEncountered: string | undefined = undefined;
@@ -150,6 +152,12 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
     // Check if this line is [ktv:singleline]
     if (/^\[ktv\s*:\s*singleline\]$/i.test(line.trim())) {
       pendingSingleLine = true;
+      continue;
+    }
+
+    // Check if this line is [ktv:center]
+    if (/^\[ktv\s*:\s*center\]$/i.test(line.trim())) {
+      pendingCenter = true;
       continue;
     }
 
@@ -265,10 +273,12 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
               })),
         raw: cleanText.replace(/<[^>]+>/g, ""),
         isSingleLine: pendingSingleLine ? true : undefined,
+        isCenter: pendingCenter ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
         style: explicitLineStyle,
       });
       pendingSingleLine = false;
+      pendingCenter = false;
       pendingKtvsp = null;
     } else {
       result.push({
@@ -278,10 +288,12 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
         words: splitWordsAegisub(cleanText).map((w) => ({ ...w, style: undefined })),
         raw: cleanText,
         isSingleLine: pendingSingleLine ? true : undefined,
+        isCenter: pendingCenter ? true : undefined,
         ktvsp: pendingKtvsp ? pendingKtvsp : undefined,
         style: explicitLineStyle,
       });
       pendingSingleLine = false;
+      pendingCenter = false;
       pendingKtvsp = null;
     }
   }
@@ -344,6 +356,10 @@ export function exportLrc(
     if (isSimple) {
       lrc += `${line.words.map((w) => w.text).join("")}\n`;
       continue;
+    }
+
+    if (line.isCenter) {
+      lrc += `[ktv:center]\n`;
     }
 
     if (line.isSingleLine) {

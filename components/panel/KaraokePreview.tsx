@@ -182,6 +182,27 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
   const isTopOnly = topIndex !== -1 && bottomIndex === -1;
   const isBottomOnly = bottomIndex !== -1 && topIndex === -1;
 
+  const isTopCentered = !!(lines[topIndex]?.isCenter || isTopOnly);
+  const isBottomCentered = !!(lines[bottomIndex]?.isCenter || isBottomOnly);
+
+  let countdownAlign = "left";
+  if (lines.length > 0 && previewLineIndex >= 0 && previewLineIndex < lines.length) {
+    let pStartIdx = previewLineIndex;
+    while (pStartIdx > 0 && !paragraphStarts[pStartIdx]) {
+      pStartIdx--;
+    }
+    let pEndIdx = pStartIdx + 1;
+    while (pEndIdx < lines.length && !paragraphStarts[pEndIdx]) {
+      pEndIdx++;
+    }
+    const pCount = pEndIdx - pStartIdx;
+    if (pCount === 1) {
+      countdownAlign = "center";
+    } else {
+      countdownAlign = lines[pStartIdx]?.isCenter ? "center" : "left";
+    }
+  }
+
   const topIsActive = topIndex === previewLineIndex || (
     topIndex !== -1 &&
     lines[topIndex]?.start !== null &&
@@ -423,14 +444,14 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
         <div className="flex px-4 pb-4 gap-4 relative">
           <div className="flex-1 min-w-0 flex flex-col gap-4">
             <div
-              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isTopOnly ? "justify-center" : "justify-start"} ${topIsActive ? "" : "opacity-70"}`}
+              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isTopCentered ? "justify-center" : "justify-start"} ${topIsActive ? "" : "opacity-70"}`}
             >
               <div className="relative w-full">
                 {lines[topIndex] ? (
                   <>
                     {topIsActive && dotsCount > 0 && (
                       <span
-                        className={`absolute bottom-full mb-3 flex gap-2 ${isTopOnly ? "left-1/2 -translate-x-1/2" : "left-0"}`}
+                        className={`absolute bottom-full mb-3 flex gap-2 ${countdownAlign === "center" ? "left-1/2 -translate-x-1/2" : "left-0"}`}
                       >
                         {[...Array(dotsCount)].map((_, i) => (
                           <React.Fragment key={i}>{DotNode}</React.Fragment>
@@ -439,7 +460,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                     )}
                     <div className="overflow-hidden w-full">
                       <p
-                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopOnly ? "justify-center text-center" : "justify-start text-left"}`}
+                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopCentered ? "justify-center text-center" : "justify-start text-left"}`}
                       >
                         {lines[topIndex].words.map((w: any, i: number) => (
                           <span key={i} className={getWordColor(topIndex, i)}>
@@ -452,7 +473,9 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                 ) : (
                   <>
                     {topIsActive && dotsCount > 0 && (
-                      <span className="absolute bottom-full mb-3 left-0 flex gap-2">
+                      <span
+                        className={`absolute bottom-full mb-3 flex gap-2 ${countdownAlign === "center" ? "left-1/2 -translate-x-1/2" : "left-0"}`}
+                      >
                         {[...Array(dotsCount)].map((_, i) => (
                           <React.Fragment key={i}>{DotNode}</React.Fragment>
                         ))}
@@ -469,14 +492,14 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
             </div>
 
             <div
-              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isBottomOnly ? "justify-center" : "justify-end"} ${bottomIsActive ? "" : "opacity-70"}`}
+              className={`px-4 py-3 relative min-h-[4.5rem] flex items-center w-full ${isBottomCentered ? "justify-center" : "justify-end"} ${bottomIsActive ? "" : "opacity-70"}`}
             >
               <div className="relative w-full">
                 {lines[bottomIndex] ? (
                   <>
                     {bottomIsActive && dotsCount > 0 && (
                       <span
-                        className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? "left-1/2 -translate-x-1/2" : "right-0"}`}
+                        className={`absolute bottom-full mb-3 flex gap-2 ${countdownAlign === "center" ? "left-1/2 -translate-x-1/2" : "right-0"}`}
                       >
                         {[...Array(dotsCount)].map((_, i) => (
                           <React.Fragment key={i}>{DotNode}</React.Fragment>
@@ -485,7 +508,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                     )}
                     <div className="overflow-hidden w-full">
                       <p
-                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomOnly ? "justify-center text-center" : "justify-end text-right"}`}
+                        className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomCentered ? "justify-center text-center" : "justify-end text-right"}`}
                       >
                         {lines[bottomIndex].words.map((w: any, i: number) => (
                           <span key={i} className={getWordColor(bottomIndex, i)}>
@@ -499,7 +522,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                   <>
                     {bottomIsActive && dotsCount > 0 && (
                       <span
-                        className={`absolute bottom-full mb-3 flex gap-2 ${isBottomOnly ? "left-1/2 -translate-x-1/2" : "right-0"}`}
+                        className={`absolute bottom-full mb-3 flex gap-2 ${countdownAlign === "center" ? "left-1/2 -translate-x-1/2" : "right-0"}`}
                       >
                         {[...Array(dotsCount)].map((_, i) => (
                           <React.Fragment key={i}>{DotNode}</React.Fragment>
@@ -508,7 +531,7 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                     )}
                     <div className="overflow-hidden w-full">
                       <p
-                        className={`text-xl md:text-2xl font-bold w-full h-full flex items-center flex-nowrap whitespace-nowrap ${isBottomOnly ? "justify-center" : "justify-end"}`}
+                        className={`text-xl md:text-2xl font-bold w-full h-full flex items-center flex-nowrap whitespace-nowrap ${isBottomCentered ? "justify-center" : "justify-end"}`}
                       >
                         &nbsp;
                       </p>

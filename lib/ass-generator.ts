@@ -242,6 +242,7 @@ Style: TopCenter,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFF
 Style: TopRight,${finalFontChain},${Math.round(72 * scale)},&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${(1.5 * scale).toFixed(1)},0,9,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
 Style: BottomLeft,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,1,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV + dualRowSpacing},0
 Style: BottomCenter,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,2,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV},0
+Style: BottomCenterRow1,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,2,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV + dualRowSpacing},0
 Style: BottomRight,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,3,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV},0
 Style: CenterInfo,${finalFontChain},${infoFontSize},${primaryAssColor},&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,5,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
 `;
@@ -596,6 +597,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     // 產生倒數小白圓的 Events
     if (dotCount > 0) {
       const isSingleLine = p.length === 1;
+      const isCenterLayout = isSingleLine || !!p[0]?.isCenter;
 
       let xPos = 0;
       let yPos = 0;
@@ -604,11 +606,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const offset15 = Math.round(15 * scale);
       const offset20 = Math.round(20 * scale);
       // 計算第一行文字上方的適當座標位置
-      if (isSingleLine) {
+      if (isCenterLayout) {
         const totalW = (dotCount - 1) * dotSpacing + 2 * dotRadius;
-        // BottomCenter 座標
+        // 居中對齊座標
         xPos = centerX - totalW / 2 + dotRadius;
-        yPos = playResY - currentMarginV - fontSize - dotRadius - offset20;
+        if (isSingleLine) {
+          yPos = playResY - currentMarginV - fontSize - dotRadius - offset20;
+        } else {
+          yPos = playResY - currentMarginV - fontSize - dotRadius - offset20 - dualRowSpacing;
+        }
       } else {
         // BottomLeft 座標，小白圓發端對齊 BottomLeft 歌詞的起始位置（外外多出 15px 左右與第一行歌詞對齊）
         xPos = currentMarginL + offset15 + dotRadius;
@@ -677,10 +683,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const isLast = i === p.length - 1;
       const isCentered = isLast && lastIsCentered;
       const isSingleLine = p.length === 1;
-      const isReallyCentered = isCentered || isSingleLine;
+      const isClassicCentered = isCentered || isSingleLine;
 
       let end = truncatedBlockEnd;
-      if (isReallyCentered) {
+      if (isClassicCentered) {
         end = truncatedBlockEnd;
       } else if (lastIsCentered && i >= p.length - 3 && i !== p.length - 1) {
         end = getLineEndTime(p[p.length - 2]);
@@ -703,8 +709,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const isLast = idxVal === p.length - 1;
       const isCentered = isLast && lastIsCentered;
       const isSingleLine = p.length === 1;
-      const isReallyCentered = isCentered || isSingleLine;
-      return isReallyCentered ? 2 : idxVal % 2 === 0 ? 1 : 2;
+      if (isSingleLine || isCentered) {
+        return 2;
+      }
+      return idxVal % 2 === 0 ? 1 : 2;
     };
 
     // Ensure duet/overlapping lines and standard lines stay on screen until they finish singing
@@ -748,10 +756,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const isLast = i === p.length - 1;
       const isCentered = isLast && lastIsCentered;
       const isSingleLine = p.length === 1;
-      const isReallyCentered = isCentered || isSingleLine;
+      const isReallyCentered = isCentered || isSingleLine || !!line.isCenter;
 
-      const row = isReallyCentered ? 2 : i % 2 === 0 ? 1 : 2;
-      const style = isReallyCentered ? "BottomCenter" : row === 1 ? "BottomLeft" : "BottomRight";
+      const row = getRowForLine(i);
+      const style = isReallyCentered
+        ? (row === 1 ? "BottomCenterRow1" : "BottomCenter")
+        : (row === 1 ? "BottomLeft" : "BottomRight");
 
       const fadeIn = displayStart === blockDisplayStart && isStartRealInterlude ? fadeMs : 0;
       const fadeOut = displayEnd === truncatedBlockEnd && isEndRealInterlude ? fadeMs : 0;
@@ -867,11 +877,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       }
 
       // 核心定位座標計算：解析目前樣式對應的對齊與位置
-      let alignment = 2; // Default BottomCenter
+      let alignment = 2; // Default BottomCenter / BottomCenterRow1
       let baseX = centerX;
       let baseY = playResY - dualRowMarginV; // MarginV is dualRowMarginV scaled
 
-      if (style === "BottomLeft") {
+      if (style === "BottomCenterRow1") {
+        alignment = 2;
+        baseX = centerX;
+        baseY = playResY - (dualRowMarginV + dualRowSpacing);
+      } else if (style === "BottomLeft") {
         alignment = 1;
         baseX = dualRowMarginL;
         baseY = playResY - (dualRowMarginV + dualRowSpacing);
