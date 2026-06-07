@@ -88,7 +88,7 @@ const SIMULATED_OUTLINE_WIDTH = 3;
 const ALWAYS_STRETCH_KARAOKE = false;
 
 //    - KARAOKE_LIMIT_CHINESE: 非英文字（如中/日/韓文等）的追光動畫上限制（單位為厘秒，1厘秒 = 0.01秒），預設為 50 厘秒 (0.5 秒)。
-const KARAOKE_LIMIT_CHINESE = 100;
+const KARAOKE_LIMIT_CHINESE = 75;
 
 //    - KARAOKE_LIMIT_ENGLISH: 英文單字或字母（只要含英文字母 A-Z, a-z）的追光動畫上限制（單位為厘秒），預設為 100 厘秒 (1.0 秒)。
 const KARAOKE_LIMIT_ENGLISH = 100;
