@@ -46,7 +46,7 @@ const extractors: Extractor[] = [
           return null;
         }
 
-        if (["词", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
+        if (["词", "詞", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
         if (["演唱", "歌手", "vocal", "vocals", "singer"].includes(lowerKey)) key = "ar";
         if (["专辑", "專輯", "album"].includes(lowerKey)) key = "al";
         return [{ key, value }];
@@ -77,7 +77,7 @@ const extractors: Extractor[] = [
 
         const originalLowerKey = lowerKey;
 
-        if (["词", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
+        if (["词", "詞", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
         if (["演唱", "歌手", "vocal", "vocals", "singer"].includes(lowerKey)) key = "ar";
         if (["专辑", "專輯", "album"].includes(lowerKey)) key = "al";
 
@@ -98,26 +98,37 @@ const extractors: Extractor[] = [
           ].some((k) => key.toLowerCase().includes(k)) ||
           [
             "词",
+            "詞",
             "曲",
             "编",
+            "編",
             "唱",
             "后",
+            "後",
             "混",
             "母带",
+            "母帶",
             "制作",
+            "製作",
             "吉他",
             "贝斯",
+            "貝斯",
             "鼓",
             "键盘",
+            "鍵盤",
             "和声",
+            "和聲",
             "弦乐",
+            "弦樂",
             "乐器",
+            "樂器",
             "歌名",
             "标题",
             "標題",
             "原唱",
             "翻唱",
             "鸣谢",
+            "鳴謝",
           ].some((k) => originalLowerKey.includes(k));
 
         if (!isKnown) {

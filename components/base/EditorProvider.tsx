@@ -1,6 +1,6 @@
 "use client";
 
-import { LrcMetadata, LyricLine, splitWordsAegisub } from "@/lib/lyric-utils";
+import { LrcMetadata, LyricLine, splitWordsAegisub, formatTime, parseSeconds } from "@/lib/lyric-utils";
 import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from "react";
 
 interface Hotkeys {
@@ -568,6 +568,56 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   const redo = (steps = 1) => dispatchLines({ type: "REDO", payload: steps });
 
   const shiftTime = (offsetSec: number) => {
+    const oldMeta = historyState.present.lrcMetadata;
+    const updatedMeta = { ...oldMeta };
+
+    // 1. tt (歌曲自訂開始顯示時間)
+    const initialTT = updatedMeta.TT || updatedMeta.tt;
+    if (initialTT) {
+      const key = updatedMeta.TT ? "TT" : "tt";
+      const sec = parseSeconds(initialTT);
+      const newSec = Math.max(0, sec + offsetSec);
+      updatedMeta[key] = formatTime(newSec, false);
+    }
+
+    // 2. tte (歌曲自訂結束顯示時間)
+    const initialTTE = updatedMeta.TTE || updatedMeta.tte;
+    if (initialTTE) {
+      const key = updatedMeta.TTE ? "TTE" : "tte";
+      const sec = parseSeconds(initialTTE);
+      const newSec = Math.max(0, sec + offsetSec);
+      updatedMeta[key] = formatTime(newSec, false);
+    }
+
+    // 3. klgno (特殊指定不顯示 Logo 時段)
+    if (updatedMeta.klgno) {
+      const intervals = updatedMeta.klgno.split(";");
+      const newIntervals = intervals
+        .map((part) => {
+          if (!part.trim()) return "";
+          const times = part.split("-");
+          if (times.length === 2) {
+            const startVal = times[0].trim();
+            const endVal = times[1].trim();
+
+            const startSec = startVal.includes(":") ? parseSeconds(startVal) : parseFloat(startVal);
+            const endSec = endVal.includes(":") ? parseSeconds(endVal) : parseFloat(endVal);
+
+            if (!isNaN(startSec) && !isNaN(endSec)) {
+              const newStartSec = Math.max(0, startSec + offsetSec);
+              const newEndSec = Math.max(0, endSec + offsetSec);
+              
+              const newStartStr = startVal.includes(":") ? formatTime(newStartSec, false) : newStartSec.toFixed(2);
+              const newEndStr = endVal.includes(":") ? formatTime(newEndSec, false) : newEndSec.toFixed(2);
+              return `${newStartStr}-${newEndStr}`;
+            }
+          }
+          return part;
+        })
+        .filter(Boolean);
+      updatedMeta.klgno = newIntervals.join(";");
+    }
+
     commitLines(
       (prev) =>
         prev.map((line) => {
@@ -578,9 +628,14 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
             start: w.start !== null ? Math.max(0, w.start + offsetSec) : null,
             end: w.end !== null ? Math.max(0, w.end + offsetSec) : null,
           }));
-          return { ...line, start, end, words };
+          const updatedLine: any = { ...line, start, end, words };
+          if (line.ktvsp != null) {
+            updatedLine.ktvsp = Math.max(0, line.ktvsp + offsetSec);
+          }
+          return updatedLine;
         }),
       `Shift Time ${offsetSec > 0 ? "+" : ""}${offsetSec}s`,
+      updatedMeta,
     );
   };
 
@@ -596,7 +651,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
             start: w.start !== null ? Math.max(0, w.start + offsetSec) : null,
             end: w.end !== null ? Math.max(0, w.end + offsetSec) : null,
           }));
-          return { ...line, start, end, words };
+          const updatedLine: any = { ...line, start, end, words };
+          if (line.ktvsp != null) {
+            updatedLine.ktvsp = Math.max(0, line.ktvsp + offsetSec);
+          }
+          return updatedLine;
         }),
       `Shift ${offsetSec > 0 ? "+" : ""}${offsetSec}s From #${index + 1}`,
     );

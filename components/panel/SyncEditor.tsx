@@ -1740,7 +1740,7 @@ export function SyncEditor() {
                 return words.map((w: any, i: number) => (
                   <span
                     key={i}
-                    className="px-2 py-0.5 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-dark)] rounded text-xs text-[var(--app-text-primary)] group relative font-mono"
+                    className="px-2 py-0.5 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-dark)] rounded text-xs text-[var(--app-text-primary)] group relative font-mono whitespace-pre-wrap"
                   >
                     {w.text || "⏎"}
                     {w.start !== null && (

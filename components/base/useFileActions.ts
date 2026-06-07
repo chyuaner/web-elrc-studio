@@ -585,37 +585,40 @@ export function useFileActions() {
     [lines, lyricFileName, audioFileName, lrcMetadata, file, duration],
   );
 
+  const doClearLyricsState = useCallback(() => {
+    resetHistory([], {});
+    setLyricFileName(null);
+    setLyricFile(null);
+  }, [resetHistory, setLyricFileName, setLyricFile]);
+
   const clearMedia = useCallback(async () => {
     if (audioFileName) {
       if (await dialogs.confirm("確定要清除目前的媒體檔案嗎？")) {
         setFile(null);
         setMetadata(null);
-        resetHistory([]);
-        setLyricFileName(null);
-        setLyricFile(null);
         setAudioSpecs(null);
+        if (autoLoadLyrics) {
+          doClearLyricsState();
+        }
       }
     }
   }, [
     audioFileName,
+    autoLoadLyrics,
     setFile,
     setMetadata,
-    resetHistory,
-    setLyricFileName,
-    setLyricFile,
     setAudioSpecs,
     dialogs,
+    doClearLyricsState,
   ]);
 
   const clearLyrics = useCallback(async () => {
-    if (lines.length > 0) {
-      if (await dialogs.confirm("確定要清除目前的歌詞嗎？")) {
-        commitLines([], "Clear Lyrics");
-        setLyricFileName(null);
-        setLyricFile(null);
+    if (lines.length > 0 || Object.keys(lrcMetadata).length > 0 || lyricFileName) {
+      if (await dialogs.confirm("確定要清除目前的歌詞與屬性資訊嗎？")) {
+        doClearLyricsState();
       }
     }
-  }, [lines.length, commitLines, setLyricFileName, setLyricFile, dialogs]);
+  }, [lines.length, lrcMetadata, lyricFileName, dialogs, doClearLyricsState]);
 
   const loadEmbeddedLyrics = useCallback(
     async (metadata: any) => {

@@ -152,7 +152,7 @@ export function LyricCellContent({
                     >
                       <span
                         className={`
-                        px-1 py-0.5 rounded transition-all select-none
+                        px-1 py-0.5 rounded transition-all select-none whitespace-pre-wrap
                         ${isWordActive ? "bg-[var(--app-accent)] text-black font-bold ring-2 ring-[var(--app-accent)]/50 cursor-pointer" : "cursor-pointer"}
                         ${isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/30` : `${getStyleColorClass(effectiveWordStyle)} ${customBg || "bg-[var(--app-border-base)]"}`) : ""}
                         ${!isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/20` : `text-[var(--app-text-muted)] ${customBg || "bg-[var(--app-bg-panel)]"}`) : ""}

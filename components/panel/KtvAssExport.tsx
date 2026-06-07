@@ -269,7 +269,7 @@ export function KtvAssExport() {
   );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
   const [videoPreference, setVideoPreference] = useState<"original" | "best" | "advanced">(
-    "original",
+    "best",
   );
   const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
   const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
@@ -2735,6 +2735,37 @@ export function KtvAssExport() {
                 : "Nvidia 模式使用 GPU 硬體加速編碼器 h264_nvenc，可大幅縮短轉檔時間，兼顧超高畫質。"}
             </p>
 
+            {/* 加強檔名讀取正確性 (獨立選項) */}
+              <div className="space-y-1.5 bg-black/15 p-2.5 rounded border border-[var(--app-border-light)] text-xs mt-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={ffmpegFilenameCompat}
+                      onChange={(e) => setFfmpegFilenameCompat(e.target.checked)}
+                      className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                    />
+                    <span>加強檔名讀取正確性 (建議！防止多並行任務衝突)</span>
+                  </label>
+                  <select
+                    value={ffmpegFilenameCompatOs}
+                    onChange={(e) =>
+                      setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)
+                    }
+                    disabled={!ffmpegFilenameCompat}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--app-text-primary)]"
+                  >
+                    <option value="unix">for Linux / macOS</option>
+                    <option value="windows">for Windows</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
+                  啟用後，轉檔時會使用隨機的臨時字幕別名檔讀取字幕（如 <code>{tempAssAlias}</code>
+                  ），避免特殊字元或中文檔名衝突，完成後會自動清理隨機檔。
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2.5 pt-3 border-t border-[var(--app-border-light)]">
               <label className="text-xs font-semibold text-[var(--app-text-primary)] block font-semibold text-[var(--app-accent)]">
                 影片品質偏好：
@@ -2752,9 +2783,9 @@ export function KtvAssExport() {
                       : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
                   }`}
                 >
-                  <span className="text-xs font-semibold block">同原影片畫質 (僅壓製字幕)</span>
+                  <span className="text-xs font-semibold block">同原影片畫質</span>
                   <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
-                    同原影片畫質與影格數。
+                    同原影片畫質與影格數，僅壓製字幕。追求原汁原味創作者使用。
                   </span>
                 </button>
 
@@ -2771,7 +2802,7 @@ export function KtvAssExport() {
                   }`}
                 >
                   <span className="text-xs font-semibold block">
-                    最佳觀賞體驗 (強制拉高60fps、720p)
+                    最佳觀賞體驗
                   </span>
                   <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
                     強制拉高60fps與720p以上（專為 YouTube 與 BiliBili 最佳體驗設計）。
@@ -2815,37 +2846,6 @@ export function KtvAssExport() {
                   </p>
                 </div>
               )}
-
-              {/* 加強檔名讀取正確性 (獨立選項) */}
-              <div className="space-y-1.5 bg-black/15 p-2.5 rounded border border-[var(--app-border-light)] text-xs mt-2.5">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={ffmpegFilenameCompat}
-                      onChange={(e) => setFfmpegFilenameCompat(e.target.checked)}
-                      className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
-                    />
-                    <span>加強檔名讀取正確性 (建議！防止多並行任務衝突)</span>
-                  </label>
-                  <select
-                    value={ffmpegFilenameCompatOs}
-                    onChange={(e) =>
-                      setFfmpegFilenameCompatOs(e.target.value as FfmpegFilenameCompatOs)
-                    }
-                    disabled={!ffmpegFilenameCompat}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--app-text-primary)]"
-                  >
-                    <option value="unix">for Linux / macOS</option>
-                    <option value="windows">for Windows</option>
-                  </select>
-                </div>
-                <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                  啟用後，轉檔時會使用隨機的臨時字幕別名檔讀取字幕（如 <code>{tempAssAlias}</code>
-                  ），避免特殊字元或中文檔名衝突，完成後會自動清理隨機檔。
-                </p>
-              </div>
-            </div>
 
             {/* 進階自訂區 (預設收合) */}
             <div className="border-t border-[var(--app-border-light)] pt-3 mt-3">
