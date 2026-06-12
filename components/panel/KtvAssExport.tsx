@@ -101,6 +101,7 @@ function buildFfmpegBurnCommand(opts: {
   forceFpsEnabled: boolean;
   targetFps: string;
   forceScale720pEnabled: boolean;
+  forceScale1080pEnabled: boolean;
   tempAssAlias: string;
 }): string {
   const {
@@ -113,12 +114,15 @@ function buildFfmpegBurnCommand(opts: {
     forceFpsEnabled,
     targetFps,
     forceScale720pEnabled,
+    forceScale1080pEnabled,
     tempAssAlias,
   } = opts;
 
   let filterChain: string[] = [];
 
-  if (forceScale720pEnabled) {
+  if (forceScale1080pEnabled) {
+    filterChain.push(`scale=-2:'max(ih,1080)'`);
+  } else if (forceScale720pEnabled) {
     filterChain.push(`scale=-2:'max(ih,720)'`);
   }
 
@@ -268,12 +272,13 @@ export function KtvAssExport() {
     detectFfmpegFilenameCompatOs,
   );
   const [copiedFeedback, setCopiedFeedback] = useState(false);
-  const [videoPreference, setVideoPreference] = useState<"original" | "best" | "advanced">(
-    "best",
+  const [videoPreference, setVideoPreference] = useState<"original" | "best" | "best_bilibili" | "advanced">(
+    "best_bilibili",
   );
   const [forceFpsEnabled, setForceFpsEnabled] = useState(false);
   const [targetFps, setTargetFps] = useState<"60" | "59.94" | "50" | "30" | "29.97">("60");
-  const [forceScale720pEnabled, setForceScale720pEnabled] = useState(false);
+  const [forceScaleEnabled, setForceScaleEnabled] = useState(false);
+  const [targetScaleRes, setTargetScaleRes] = useState<"720p" | "1080p">("1080p");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -323,21 +328,27 @@ export function KtvAssExport() {
   }, [burnVideoDialogOpen]);
 
   const activeForceFps = useMemo(() => {
-    if (videoPreference === "best") return true;
+    if (videoPreference === "best" || videoPreference === "best_bilibili") return true;
     if (videoPreference === "advanced") return forceFpsEnabled;
     return false;
   }, [videoPreference, forceFpsEnabled]);
 
   const activeTargetFps = useMemo(() => {
-    if (videoPreference === "best") return "60";
+    if (videoPreference === "best" || videoPreference === "best_bilibili") return "60";
     return targetFps;
   }, [videoPreference, targetFps]);
 
   const activeForceScale720p = useMemo(() => {
     if (videoPreference === "best") return true;
-    if (videoPreference === "advanced") return forceScale720pEnabled;
+    if (videoPreference === "advanced") return forceScaleEnabled && targetScaleRes === "720p";
     return false;
-  }, [videoPreference, forceScale720pEnabled]);
+  }, [videoPreference, forceScaleEnabled, targetScaleRes]);
+
+  const activeForceScale1080p = useMemo(() => {
+    if (videoPreference === "best_bilibili") return true;
+    if (videoPreference === "advanced") return forceScaleEnabled && targetScaleRes === "1080p";
+    return false;
+  }, [videoPreference, forceScaleEnabled, targetScaleRes]);
 
   const interludeLogoPreviewSvg = useMemo(() => {
     if (!options.interludeLogoSvg) return "";
@@ -451,6 +462,7 @@ export function KtvAssExport() {
         forceFpsEnabled: activeForceFps,
         targetFps: activeTargetFps,
         forceScale720pEnabled: activeForceScale720p,
+        forceScale1080pEnabled: activeForceScale1080p,
         tempAssAlias,
       }),
     [
@@ -463,6 +475,7 @@ export function KtvAssExport() {
       activeForceFps,
       activeTargetFps,
       activeForceScale720p,
+      activeForceScale1080p,
       tempAssAlias,
     ],
   );
@@ -2770,7 +2783,7 @@ export function KtvAssExport() {
               <label className="text-xs font-semibold text-[var(--app-text-primary)] block font-semibold text-[var(--app-accent)]">
                 影片品質偏好：
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -2802,10 +2815,30 @@ export function KtvAssExport() {
                   }`}
                 >
                   <span className="text-xs font-semibold block">
-                    最佳觀賞體驗
+                    最佳觀賞體驗(Youtube)
                   </span>
                   <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
-                    強制拉高60fps與720p以上（專為 YouTube 與 BiliBili 最佳體驗設計）。
+                    強制拉高60fps與720p以上（專為 YouTube 與各平台的標準高畫質設計）。
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoPreference("best_bilibili");
+                    setAdvancedOpen(false);
+                  }}
+                  className={`px-3 py-2.5 rounded border text-left flex flex-col transition-all cursor-pointer ${
+                    videoPreference === "best_bilibili"
+                      ? "border-[var(--app-accent)] bg-[var(--app-accent)]/15 text-[var(--app-accent)]"
+                      : "border-[var(--app-border-input)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-muted)]"
+                  }`}
+                >
+                  <span className="text-xs font-semibold block">
+                    最佳觀賞體驗(Bilibili+Youtube)
+                  </span>
+                  <span className="text-[10px] mt-1 leading-tight text-[var(--app-text-muted)]">
+                    強制拉高60fps與1080p以上（專為 Bilibili 開啟 60fps 高畫質最佳方案設計）。
                   </span>
                 </button>
 
@@ -2828,21 +2861,35 @@ export function KtvAssExport() {
                 </button>
               </div>
 
-              {/* 最佳觀賞體驗說明 */}
+              {/* 最佳觀賞體驗(Youtube)說明 */}
               {videoPreference === "best" && (
                 <div className="bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] text-[11px] text-[var(--app-text-primary)] leading-normal space-y-1 mt-2">
                   <p className="font-semibold text-[var(--app-accent)] flex items-center gap-1 text-xs">
-                    ✨ 最佳觀賞體驗：強制提高到 60fps 與 720p 以上
+                    ✨ 最佳觀賞體驗(Youtube)：強制提高到 60fps 與 720p 以上
                   </p>
                   <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
                     本設定會強制將轉檔影格率拉升至 60fps、並將低於 720p 的原始影片等比例縮放至
-                    720p。這兩項設定是為了能在 YouTube 與 Bilibili 上開啟「高影格率
-                    60fps」播放選項的關鍵。
+                    720p。這兩項設定是為了能在 YouTube 上開啟「高影格率 60fps」播放選項的第一步。
                   </p>
                   <p className="text-[10px] text-orange-400 mt-1 leading-relaxed font-semibold">
                     ⚠️ 說明：本程式僅做 KTV 字幕演譯最佳化生成，不包含 AI 補影格 (AI Frame
-                    Interpolation) 技術，檔案體積會變大但不會干涉原影片品質，非常適合用在 YouTube 與
-                    Bilibili 上。
+                    Interpolation) 技術，檔案體積會變大但不會干涉原影片品質。
+                  </p>
+                </div>
+              )}
+
+              {/* 最佳觀賞體驗(Bilibili+Youtube)說明 */}
+              {videoPreference === "best_bilibili" && (
+                <div className="bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] text-[11px] text-[var(--app-text-primary)] leading-normal space-y-1 mt-2">
+                  <p className="font-semibold text-[var(--app-accent)] flex items-center gap-1 text-xs">
+                    ✨ 最佳觀賞體驗(Bilibili+Youtube)：強制提高到 60fps 與 1080p 以上
+                  </p>
+                  <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                    本設定會強制將轉檔影格率拉升至 60fps、並將低於 1080p 的原始影片等比例縮放至
+                    1080p。這對於 Bilibili 創作者極其關鍵，因為 Bilibili 的 60fps 播放選項在許多影片中「只開放給 1080p 或更高畫質」的影片。
+                  </p>
+                  <p className="text-[10px] text-orange-400 mt-1 leading-relaxed font-semibold">
+                    ⚠️ 說明：此選項能完美釋放 Bilibili 及 YouTube 播放時滿血 60fps 流暢感，本程式僅做 KTV 字幕演譯最佳化生成，不包含 AI 補影格。
                   </p>
                 </div>
               )}
@@ -2896,35 +2943,49 @@ export function KtvAssExport() {
                     </p>
                   </div>
 
-                  {/* 強制提高 720p */}
+                  {/* 強制等比例縮放解析度 */}
                   <div className="space-y-1 bg-black/10 p-2.5 rounded border border-[var(--app-border-light)]">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none font-semibold">
+                      <label className="flex items-center gap-2 font-semibold text-[var(--app-text-primary)] cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={
                             videoPreference === "advanced"
-                              ? forceScale720pEnabled
-                              : activeForceScale720p
+                              ? forceScaleEnabled
+                              : (activeForceScale720p || activeForceScale1080p)
                           }
                           disabled={videoPreference !== "advanced"}
-                          onChange={(e) => setForceScale720pEnabled(e.target.checked)}
+                          onChange={(e) => setForceScaleEnabled(e.target.checked)}
                           className="rounded border-[var(--app-border-input)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] disabled:opacity-40"
                         />
-                        <span>強制等比例放大至 720p 以上</span>
+                        <span>強制等比例放大至：</span>
                       </label>
+                      <select
+                        value={
+                          videoPreference === "advanced"
+                            ? targetScaleRes
+                            : (activeForceScale1080p ? "1080p" : "720p")
+                        }
+                        onChange={(e) => setTargetScaleRes(e.target.value as "720p" | "1080p")}
+                        disabled={
+                          videoPreference !== "advanced" ||
+                          !(videoPreference === "advanced" ? forceScaleEnabled : (activeForceScale720p || activeForceScale1080p))
+                        }
+                        className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-0.5 text-[11px] font-mono focus:outline-none focus:border-[var(--app-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="720p">720p (HD)</option>
+                        <option value="1080p">1080p (Full HD)</option>
+                      </select>
                     </div>
                     <p className="text-[10px] text-[var(--app-text-muted)] leading-tight">
-                      若原始影片的高度低於 720px，將強制等比例縮放至 720p。已達 720p
-                      或更高者則保留原始解析度，不破壞原畫質尺寸。
+                      若原始影片的高度低於所選解析度，將強制等比例縮放至該解析度（如 720p 或 1080p）。已達該解析度或更高者則保留原始解析度，不破壞原畫質尺寸。
                     </p>
                   </div>
 
                   {/* 進階狀態提醒 */}
                   {videoPreference !== "advanced" && (
                     <p className="text-[10px] text-orange-400 font-medium">
-                      💡 目前非「自訂/進階自訂區」模式，上方 FPS 與 720p
-                      勾選狀態已被簡便設置鎖定（同選擇的偏好）。如需手動微調請先在「影片品質偏好」中點擊「自訂/進階自訂區」。
+                      💡 目前非「自訂/進階自訂區」模式，上方 FPS、解析度縮放狀態已被簡便設置鎖定（同選擇的偏好）。如需手動微調請先在「影片品質偏好」中點擊「自訂/進階自訂區」。
                     </p>
                   )}
                 </div>
