@@ -77,6 +77,7 @@ export const defaultI18n = {
   timeMode: "時間",
   actionMode: "操作",
   autoScroll: "自動捲動",
+  autoJump: "自動跳轉",
   timestampWords: "打點",
   nextLine: "換行",
   leftTrack: "左軌",

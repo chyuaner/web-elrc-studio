@@ -249,6 +249,8 @@ export function SyncEditor() {
     setDualLineGapSec,
     autoScrollEnabled,
     setAutoScrollEnabled,
+    autoJumpEnabled,
+    setAutoJumpEnabled,
     trackAssignments,
     paragraphStarts,
     shiftTimeFromIndex,
@@ -346,7 +348,8 @@ export function SyncEditor() {
 
   const handleEditRawText = useCallback(
     (globalIndex: number) => {
-      const defaultRaw = getLineRawText(lines[globalIndex]);
+      let defaultRaw = getLineRawText(lines[globalIndex]);
+      defaultRaw = defaultRaw.replace(/^\[kstyle\s*[:：]\s*[^\]]+\]\s*/i, "");
       setEditingText({ globalIndex, text: defaultRaw, type: "raw" });
     },
     [lines],
@@ -924,15 +927,27 @@ export function SyncEditor() {
             </Tooltip>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--app-text-primary)] transition-colors">
-            <input
-              type="checkbox"
-              checked={autoScrollEnabled}
-              onChange={(e) => setAutoScrollEnabled(e.target.checked)}
-              className="accent-[var(--app-accent)]"
-            />
-            <span className="uppercase font-bold tracking-widest">{i18n.autoScroll}</span>
-          </label>
+          <div className="flex flex-col gap-1.5 border-l border-r border-[var(--app-border-light)] px-3 py-0.5 justify-center">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-[var(--app-text-primary)] transition-colors">
+              <input
+                type="checkbox"
+                checked={autoScrollEnabled}
+                onChange={(e) => setAutoScrollEnabled(e.target.checked)}
+                className="accent-[var(--app-accent)] h-2.5 w-2.5"
+              />
+              <span className="uppercase font-bold tracking-widest text-[10px] leading-none">{i18n.autoScroll}</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-[var(--app-text-primary)] transition-colors">
+              <input
+                type="checkbox"
+                checked={autoJumpEnabled}
+                onChange={(e) => setAutoJumpEnabled(e.target.checked)}
+                className="accent-[var(--app-accent)] h-2.5 w-2.5"
+              />
+              <span className="uppercase font-bold tracking-widest text-[10px] leading-none">{i18n.autoJump}</span>
+            </label>
+          </div>
 
           <div className="flex items-center gap-2 bg-[var(--app-bg-panel)] p-1.5 rounded border border-[var(--app-border-base)] shadow-sm">
             <span className="uppercase">{i18n.gapToggledAt}</span>

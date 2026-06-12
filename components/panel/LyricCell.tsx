@@ -1,6 +1,7 @@
 import { Tooltip } from "@/components/common/Tooltip";
 import { formatTime } from "@/lib/lyric-utils";
 import React from "react";
+import { useEditor } from "@/components/base/EditorProvider";
 
 const getStyleColorClass = (style?: string, isWarning: boolean = false) => {
   switch (style?.toUpperCase()) {
@@ -88,6 +89,7 @@ export function LyricCellContent({
   onWordContextMenu?: (e: React.MouseEvent, globalIndex: number, wordIndex: number) => void;
   onTimeContextMenu?: (e: React.MouseEvent, globalIndex: number) => void;
 }) {
+  const { autoJumpEnabled } = useEditor();
   const isStamped = line.start !== null;
 
   return (
@@ -102,7 +104,7 @@ export function LyricCellContent({
         onClick={(e) => {
           e.stopPropagation();
           const { current: player } = playerRef;
-          if (player instanceof HTMLMediaElement && line.start !== null) {
+          if (player instanceof HTMLMediaElement && line.start !== null && autoJumpEnabled) {
             player.currentTime = line.start;
           }
         }}
@@ -162,7 +164,7 @@ export function LyricCellContent({
                           setActiveLineIndex(globalIndex);
                           setActiveWordIndex(wIdx);
                           const { current: player } = playerRef;
-                          if (player instanceof HTMLMediaElement && word.start !== null) {
+                          if (player instanceof HTMLMediaElement && word.start !== null && autoJumpEnabled) {
                             player.currentTime = word.start;
                           }
                         }}

@@ -46,7 +46,6 @@ const extractors: Extractor[] = [
           return null;
         }
 
-        if (["词", "詞", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
         if (["演唱", "歌手", "vocal", "vocals", "singer"].includes(lowerKey)) key = "ar";
         if (["专辑", "專輯", "album"].includes(lowerKey)) key = "al";
         return [{ key, value }];
@@ -77,7 +76,6 @@ const extractors: Extractor[] = [
 
         const originalLowerKey = lowerKey;
 
-        if (["词", "詞", "作词", "作詞", "lyrics", "lyricist"].includes(lowerKey)) key = "au";
         if (["演唱", "歌手", "vocal", "vocals", "singer"].includes(lowerKey)) key = "ar";
         if (["专辑", "專輯", "album"].includes(lowerKey)) key = "al";
 

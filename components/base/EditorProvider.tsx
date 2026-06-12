@@ -181,6 +181,8 @@ interface EditorContextType {
   paragraphStarts: boolean[];
   autoScrollEnabled: boolean;
   setAutoScrollEnabled: (enabled: boolean) => void;
+  autoJumpEnabled: boolean;
+  setAutoJumpEnabled: (enabled: boolean) => void;
 
   lines: LyricLine[];
   setLines: (payload: LyricLine[] | ((prev: LyricLine[]) => LyricLine[])) => void;
@@ -274,6 +276,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   const [exportFormat, setExportFormat] = useState<ExportFormat>("standard");
   const [dualLineGapSec, setDualLineGapSec] = useState<number>(6);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(false);
+  const [autoJumpEnabled, setAutoJumpEnabled] = useState<boolean>(true);
   const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [rawMode, setRawMode] = useState<EditorMode>("sync");
   const [syncMode, setSyncMode] = useState<SyncMode>("line");
@@ -700,6 +703,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         paragraphStarts: trackAssignments.pStarts,
         autoScrollEnabled,
         setAutoScrollEnabled,
+        autoJumpEnabled,
+        setAutoJumpEnabled,
         canUndo: historyState.past.length > 0,
         canRedo: historyState.future.length > 0,
         pastCount: historyState.past.length,
