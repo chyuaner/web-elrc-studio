@@ -58,12 +58,12 @@ export const LineNumberedTextarea = React.forwardRef<HTMLTextAreaElement, Props>
       >
         <div
           ref={lineNumRef}
-          className="w-12 shrink-0 py-4 select-none flex flex-col items-end px-2 sm:px-3 text-xs font-mono text-[var(--app-text-muted)] bg-[var(--app-bg-panel-alt)] border-r border-[var(--app-border-base)] overflow-hidden"
+          className="w-12 shrink-0 py-4 select-none flex flex-col items-end px-2 sm:px-3 text-sm font-mono text-[var(--app-text-muted)] bg-[var(--app-bg-panel-alt)] border-r border-[var(--app-border-base)] overflow-hidden"
         >
           {/* We add extra padding-bottom to match the textarea scroll height padding if needed */}
           <div style={{ paddingBottom: "20vh" }}>
             {linesArr.map((num) => (
-              <div key={num} className="leading-relaxed min-h-[1.5rem] opacity-60">
+              <div key={num} className="leading-relaxed opacity-60">
                 {num}
               </div>
             ))}

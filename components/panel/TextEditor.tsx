@@ -31,7 +31,7 @@ export function TextEditor() {
   const [searchText, setSearchText] = useState("");
   const [replaceText, setReplaceText] = useState("");
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const [ignoreTimeTags, setIgnoreTimeTags] = useState(true);
+  const [ignoreTimeTags, setIgnoreTimeTags] = useState(false);
   const [selectWholeLine, setSelectWholeLine] = useState(false);
   const textRef = useRef("");
 
@@ -475,17 +475,18 @@ export function TextEditor() {
       </div>
 
       {isSearchOpen && (
-        <div className="p-2 border-b border-[var(--app-border-base)] bg-[var(--app-bg-input)] flex flex-col gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-[300px]">
-              <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]" />
+        <div className="p-2 border-b border-[var(--app-border-base)] bg-[var(--app-bg-input)] shrink-0">
+          <div className="flex flex-wrap items-center gap-2 gap-y-1.5">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[140px] max-w-[240px]">
+              <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]" />
               <input
                 id="search-input"
                 type="text"
                 placeholder="搜尋文字..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded px-8 py-1 text-sm text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
+                className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded pl-7 pr-12 py-1 text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     if (e.shiftKey) handlePrevMatch();
@@ -498,77 +499,43 @@ export function TextEditor() {
                 }}
               />
               {matches.length > 0 && (
-                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] text-[var(--app-text-muted)]">
-                  {currentMatchIndex + 1} / {matches.length}
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-[var(--app-text-muted)] bg-[var(--app-bg-panel)] px-1 rounded-sm">
+                  {currentMatchIndex + 1}/{matches.length}
                 </span>
               )}
             </div>
 
-            <button
-              onClick={handlePrevMatch}
-              disabled={matches.length === 0}
-              className="p-1.5 text-[var(--app-text-muted)] hover:text-white hover:bg-[var(--app-bg-panel-hover)] rounded disabled:opacity-50 disabled:hover:bg-transparent"
-              title="上一處 (Shift+Enter)"
-            >
-              <ChevronUp className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleNextMatch}
-              disabled={matches.length === 0}
-              className="p-1.5 text-[var(--app-text-muted)] hover:text-white hover:bg-[var(--app-bg-panel-hover)] rounded disabled:opacity-50 disabled:hover:bg-transparent"
-              title="下一處 (Enter)"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
+            {/* Prev/Next navigation */}
+            <div className="flex items-center">
+              <button
+                onClick={handlePrevMatch}
+                disabled={matches.length === 0}
+                className="p-1 text-[var(--app-text-muted)] hover:text-white hover:bg-[var(--app-bg-panel-hover)] rounded disabled:opacity-50 disabled:hover:bg-transparent"
+                title="上一處 (Shift+Enter)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleNextMatch}
+                disabled={matches.length === 0}
+                className="p-1 text-[var(--app-text-muted)] hover:text-white hover:bg-[var(--app-bg-panel-hover)] rounded disabled:opacity-50 disabled:hover:bg-transparent"
+                title="下一處 (Enter)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-            <div className="w-px h-4 bg-[var(--app-border-light)] mx-1 opacity-50"></div>
+            <div className="w-px h-4 bg-[var(--app-border-light)] opacity-40"></div>
 
-            <button
-              onClick={() => {
-                setIsSearchOpen(false);
-                textareaRef.current?.focus();
-              }}
-              className="ml-auto p-1 text-[var(--app-text-muted)] hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer mr-2 select-none">
-              <input
-                type="checkbox"
-                checked={ignoreTimeTags}
-                onChange={(e) => {
-                  setIgnoreTimeTags(e.target.checked);
-                  textareaRef.current?.focus();
-                }}
-                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
-              />
-              無視時間標籤 (ELRC)
-            </label>
-
-            <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer mr-2 select-none">
-              <input
-                type="checkbox"
-                checked={selectWholeLine}
-                onChange={(e) => {
-                  setSelectWholeLine(e.target.checked);
-                  textareaRef.current?.focus();
-                }}
-                className="w-3 h-3 rounded appearance-none border border-[var(--app-border-light)] checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
-              />
-              選取整行
-            </label>
-
-            <div className="relative flex-1 max-w-[300px]">
-              <Replace className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]" />
+            {/* Replace Input */}
+            <div className="relative flex-1 min-w-[140px] max-w-[200px]">
+              <Replace className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]" />
               <input
                 type="text"
                 placeholder="取代為..."
                 value={replaceText}
                 onChange={(e) => setReplaceText(e.target.value)}
-                className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded px-8 py-1 text-sm text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
+                className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded pl-7 pr-2 py-1 text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleReplace();
@@ -581,21 +548,66 @@ export function TextEditor() {
               />
             </div>
 
+            {/* Replace / Replace All buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleReplace}
+                disabled={matches.length === 0}
+                className="px-2 py-1 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] hover:border-blue-500/50 hover:text-blue-400 rounded text-[10px] text-[var(--app-text-secondary)] disabled:opacity-50 transition-colors"
+              >
+                取代
+              </button>
+              <button
+                onClick={handleReplaceAll}
+                disabled={matches.length === 0}
+                className="px-2 py-1 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] hover:border-blue-500/50 hover:text-blue-400 rounded text-[10px] text-[var(--app-text-secondary)] disabled:opacity-50 transition-colors flex items-center gap-1"
+                title="全部取代"
+              >
+                <ReplaceAll className="w-3 h-3" />
+                全部取代
+              </button>
+            </div>
+
+            <div className="w-px h-4 bg-[var(--app-border-light)] opacity-40"></div>
+
+            {/* Checkboxes */}
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={ignoreTimeTags}
+                  onChange={(e) => {
+                    setIgnoreTimeTags(e.target.checked);
+                    textareaRef.current?.focus();
+                  }}
+                  className="w-3 h-3 accent-[var(--app-accent)]"
+                />
+                無視時間
+              </label>
+
+              <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)] hover:text-white cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectWholeLine}
+                  onChange={(e) => {
+                    setSelectWholeLine(e.target.checked);
+                    textareaRef.current?.focus();
+                  }}
+                  className="w-3 h-3 accent-[var(--app-accent)]"
+                />
+                選取整行
+              </label>
+            </div>
+
+            {/* Close */}
             <button
-              onClick={handleReplace}
-              disabled={matches.length === 0}
-              className="px-3 py-1 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] hover:border-blue-500/50 hover:text-blue-400 rounded text-xs text-[var(--app-text-secondary)] disabled:opacity-50 transition-colors"
+              onClick={() => {
+                setIsSearchOpen(false);
+                textareaRef.current?.focus();
+              }}
+              className="ml-auto p-1 text-[var(--app-text-muted)] hover:text-white transition-colors"
             >
-              取代
-            </button>
-            <button
-              onClick={handleReplaceAll}
-              disabled={matches.length === 0}
-              className="px-3 py-1 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] hover:border-blue-500/50 hover:text-blue-400 rounded text-xs text-[var(--app-text-secondary)] disabled:opacity-50 transition-colors"
-              title="全部取代"
-            >
-              <ReplaceAll className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-              全部取代
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

@@ -425,19 +425,16 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
       className={`flex flex-col border-t border-b border-[var(--app-border-base)] bg-[var(--app-bg-panel-alt)] shrink-0 ${isTall ? "static shadow-none" : "sticky lg:static shadow-sm lg:shadow-none"} z-[35]`}
       style={{ top: isTall ? undefined : "calc(var(--media-controls-height, 0px))" }}
     >
-      <div className="flex justify-center items-center px-4 py-2 relative">
-        <label
-          className="text-[10px] text-[var(--app-text-muted)] uppercase font-bold tracking-widest text-center cursor-pointer"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
+      <div
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="flex justify-center items-center px-4 py-2 relative cursor-pointer select-none hover:bg-[var(--app-bg-hover)] transition-colors"
+      >
+        <span className="text-[10px] text-[var(--app-text-muted)] uppercase font-bold tracking-widest text-center">
           Karaoke Preview
-        </label>
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute right-4 text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)] transition-colors p-1"
-        >
+        </span>
+        <div className="absolute right-4 text-[var(--app-text-muted)] p-1">
           {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-        </button>
+        </div>
       </div>
 
       {!isCollapsed && (

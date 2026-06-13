@@ -23,7 +23,7 @@ import {
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const SHOW_INTERNAL_TEST_PARAMS = true;
 
@@ -168,7 +168,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     color3: "#800080", // Purple
     chorusColor: "#32AA17", // Green
     orangeColor: "#FF7F00", // Orange
-    grayColor: "#9CA3AF", // Gray
+    grayColor: "#787d86", // Gray
     fontFamily: "Noto Sans CJK TC Medium",
     fontSize: 130, // Default for BottomLeft
     fontSizeOffset: 20, // Pre-offset for Noto Sans CJK TC Medium
@@ -316,6 +316,150 @@ export function KtvAssExport() {
   });
 
   const [tempAssAlias, setTempAssAlias] = useState("__ktv_burn_temp__.ass");
+
+  const defaultOptions = useMemo(() => getDefaultAssOptions(lrcMetadata), [lrcMetadata]);
+
+  // Check if Font Settings are modified (compared with defaultOptions)
+  const isFontModified = useMemo(() => {
+    return (
+      options.fontFamily !== defaultOptions.fontFamily ||
+      options.fontSize !== defaultOptions.fontSize ||
+      options.simulatedOutlineWidth !== defaultOptions.simulatedOutlineWidth ||
+      options.infoTitleFontSize !== defaultOptions.infoTitleFontSize ||
+      options.infoFontSize !== defaultOptions.infoFontSize
+    );
+  }, [options, defaultOptions]);
+
+  // Check if Subtitle Colors are modified
+  const isColorModified = useMemo(() => {
+    return (
+      (options.primaryColor || "").toLowerCase() !== (defaultOptions.primaryColor || "").toLowerCase() ||
+      (options.chorusColor || "").toLowerCase() !== (defaultOptions.chorusColor || "").toLowerCase() ||
+      (options.blueColor || "").toLowerCase() !== (defaultOptions.blueColor || "").toLowerCase() ||
+      (options.color2 || "").toLowerCase() !== (defaultOptions.color2 || "").toLowerCase() ||
+      (options.color3 || "").toLowerCase() !== (defaultOptions.color3 || "").toLowerCase() ||
+      (options.orangeColor || "").toLowerCase() !== (defaultOptions.orangeColor || "").toLowerCase() ||
+      (options.grayColor || "").toLowerCase() !== (defaultOptions.grayColor || "").toLowerCase() ||
+      (options.songInfoTitleColor || "").toLowerCase() !== (defaultOptions.songInfoTitleColor || "").toLowerCase() ||
+      (options.songInfoArtistColor || "").toLowerCase() !== (defaultOptions.songInfoArtistColor || "").toLowerCase()
+    );
+  }, [options, defaultOptions]);
+
+  // Check if Interlude Countdown Circles (dot settings) are modified
+  const isDotModified = useMemo(() => {
+    return (
+      (options.dotOuterColor || "").toLowerCase() !== (defaultOptions.dotOuterColor || "").toLowerCase() ||
+      (options.dotInnerColor || "").toLowerCase() !== (defaultOptions.dotInnerColor || "").toLowerCase() ||
+      options.dotOuterSize !== defaultOptions.dotOuterSize ||
+      options.dotInnerSize !== defaultOptions.dotInnerSize ||
+      options.dotSpacing !== defaultOptions.dotSpacing
+    );
+  }, [options, defaultOptions]);
+
+  // Helper for dotPreset to Options style mapping
+  const getPresetForOptions = useCallback((opts: any): "anime" | "general" | "custom" => {
+    const outer = (opts.dotOuterColor || "#eeeeee").toLowerCase();
+    const inner = (opts.dotInnerColor || "#ffffff").toLowerCase();
+    const outerS = opts.dotOuterSize !== undefined ? opts.dotOuterSize : 0.26;
+    const innerS = opts.dotInnerSize !== undefined ? opts.dotInnerSize : 0.24;
+    const spacing = opts.dotSpacing !== undefined ? opts.dotSpacing : 0.75;
+    if (
+      outer === "#eeeeee" &&
+      inner === "#ffffff" &&
+      outerS === 0.26 &&
+      innerS === 0.24 &&
+      spacing === 0.75
+    ) {
+      return "anime";
+    }
+    if (
+      outer === "#ffffff" &&
+      inner === "#ffffff" &&
+      outerS === 0.26 &&
+      innerS === 0.24 &&
+      spacing === 0.75
+    ) {
+      return "general";
+    }
+    return "custom";
+  }, []);
+
+  // Check if Test Parameters are modified
+  const isTestParamsModified = useMemo(() => {
+    return (
+      options.dualRowSpacing !== defaultOptions.dualRowSpacing ||
+      options.dualRowMarginL !== defaultOptions.dualRowMarginL ||
+      options.dualRowMarginR !== defaultOptions.dualRowMarginR ||
+      options.dualRowMarginV !== defaultOptions.dualRowMarginV ||
+      options.fontSizeOffset !== defaultOptions.fontSizeOffset ||
+      options.interludeBuffer !== defaultOptions.interludeBuffer ||
+      options.nextTriggerIndex !== defaultOptions.nextTriggerIndex ||
+      options.row2FadeoutMode !== defaultOptions.row2FadeoutMode ||
+      options.fadeInOutTime !== defaultOptions.fadeInOutTime ||
+      options.introDelayLimit !== defaultOptions.introDelayLimit ||
+      options.logoMaxWidth !== defaultOptions.logoMaxWidth ||
+      options.logoMaxHeight !== defaultOptions.logoMaxHeight ||
+      options.logoMinInterludeGap !== defaultOptions.logoMinInterludeGap
+    );
+  }, [options, defaultOptions]);
+
+  // Reset function declarations
+  const resetFontSettings = useCallback(() => {
+    setOptions((o) => ({
+      ...o,
+      fontFamily: defaultOptions.fontFamily,
+      fontSize: defaultOptions.fontSize,
+      simulatedOutlineWidth: defaultOptions.simulatedOutlineWidth,
+      infoTitleFontSize: defaultOptions.infoTitleFontSize,
+      infoFontSize: defaultOptions.infoFontSize,
+    }));
+  }, [defaultOptions]);
+
+  const resetColorSettings = useCallback(() => {
+    setOptions((o) => ({
+      ...o,
+      primaryColor: defaultOptions.primaryColor,
+      chorusColor: defaultOptions.chorusColor,
+      blueColor: defaultOptions.blueColor,
+      color2: defaultOptions.color2,
+      color3: defaultOptions.color3,
+      orangeColor: defaultOptions.orangeColor,
+      grayColor: defaultOptions.grayColor,
+      songInfoTitleColor: defaultOptions.songInfoTitleColor,
+      songInfoArtistColor: defaultOptions.songInfoArtistColor,
+    }));
+  }, [defaultOptions]);
+
+  const resetDotSettings = useCallback(() => {
+    setOptions((o) => ({
+      ...o,
+      dotOuterColor: defaultOptions.dotOuterColor,
+      dotInnerColor: defaultOptions.dotInnerColor,
+      dotOuterSize: defaultOptions.dotOuterSize,
+      dotInnerSize: defaultOptions.dotInnerSize,
+      dotSpacing: defaultOptions.dotSpacing,
+    }));
+    setDotPreset(getPresetForOptions(defaultOptions));
+  }, [defaultOptions, getPresetForOptions]);
+
+  const resetTestParamsSettings = useCallback(() => {
+    setOptions((o) => ({
+      ...o,
+      dualRowSpacing: defaultOptions.dualRowSpacing,
+      dualRowMarginL: defaultOptions.dualRowMarginL,
+      dualRowMarginR: defaultOptions.dualRowMarginR,
+      dualRowMarginV: defaultOptions.dualRowMarginV,
+      fontSizeOffset: defaultOptions.fontSizeOffset,
+      interludeBuffer: defaultOptions.interludeBuffer,
+      nextTriggerIndex: defaultOptions.nextTriggerIndex,
+      row2FadeoutMode: defaultOptions.row2FadeoutMode,
+      fadeInOutTime: defaultOptions.fadeInOutTime,
+      introDelayLimit: defaultOptions.introDelayLimit,
+      logoMaxWidth: defaultOptions.logoMaxWidth,
+      logoMaxHeight: defaultOptions.logoMaxHeight,
+      logoMinInterludeGap: defaultOptions.logoMinInterludeGap,
+    }));
+  }, [defaultOptions]);
 
   useEffect(() => {
     if (burnVideoDialogOpen) {
@@ -987,9 +1131,9 @@ export function KtvAssExport() {
   ]);
 
   return (
-    <div className="flex flex-col h-full bg-[var(--app-bg-main)] overflow-hidden">
+    <div className="flex flex-col h-full bg-[var(--app-bg-panel-alt)] overflow-hidden">
       {/* Title Bar inside Tab */}
-      <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-base)] border-b border-[var(--app-border-base)] flex items-center justify-between">
+      <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] flex items-center justify-between">
         <h2 className="text-sm font-bold text-[var(--app-text-primary)]">KTV ASS 輸出</h2>
         <div className="flex items-center gap-2">
           <a
@@ -1019,7 +1163,7 @@ export function KtvAssExport() {
       </div>
 
       {/* Settings / Toolbar Panel */}
-      <div className="flex-1 p-4 bg-[var(--app-bg-base)] flex flex-col gap-4 overflow-y-auto">
+      <div className="flex-1 p-4 bg-[var(--app-bg-panel-alt)] flex flex-col gap-4 overflow-y-auto">
         <div className="text-xs text-[var(--app-text-secondary)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {/* Left Column */}
@@ -1045,7 +1189,7 @@ export function KtvAssExport() {
                         });
                         showToast(`已套用影片原始比例：${v.videoWidth} x ${v.videoHeight}`);
                       }}
-                      className="text-[10px] text-[var(--app-accent)] hover:underline font-medium flex items-center gap-1 bg-[var(--app-bg-base)] border border-[var(--app-border-light)] rounded px-2 py-0.5"
+                      className="text-[10px] text-[var(--app-accent)] hover:underline font-medium flex items-center gap-1 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-light)] rounded px-2 py-0.5"
                     >
                       🎯 套用影片原始大小 ({detectedVideo.width}x{detectedVideo.height})
                     </button>
@@ -1189,14 +1333,34 @@ export function KtvAssExport() {
               <div className="flex flex-col gap-1.5">
                 <div
                   onClick={() => setFontConfigOpen(!fontConfigOpen)}
-                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
+                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                    isFontModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                  }`}
                 >
                   <span>字體設定</span>
-                  {fontConfigOpen ? (
-                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                  )}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      disabled={!isFontModified}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetFontSettings();
+                        showToast("已還原字體設定預設值");
+                      }}
+                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                        isFontModified
+                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      還原預設
+                    </button>
+                    {fontConfigOpen ? (
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    )}
+                  </div>
                 </div>
 
                 {fontConfigOpen && (
@@ -1277,42 +1441,40 @@ export function KtvAssExport() {
                       </div>
                     </div>
 
-                    {SHOW_INTERNAL_TEST_PARAMS && (
-                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap border-t border-[var(--app-border-light)] pt-3 mt-1">
-                        <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                            標題大小:
-                          </span>
-                          <input
-                            type="number"
-                            value={options.infoTitleFontSize || 140}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 140;
-                              setOptions({
-                                ...options,
-                                infoTitleFontSize: val,
-                              });
-                            }}
-                            className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
-                          <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                            內文大小:
-                          </span>
-                          <input
-                            type="number"
-                            value={options.infoFontSize || 110}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 110;
-                              setOptions({ ...options, infoFontSize: val });
-                            }}
-                            className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                          />
-                        </div>
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap border-t border-[var(--app-border-light)] pt-3 mt-1">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          標題大小:
+                        </span>
+                        <input
+                          type="number"
+                          value={options.infoTitleFontSize || 140}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 140;
+                            setOptions({
+                              ...options,
+                              infoTitleFontSize: val,
+                            });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                        />
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          內文大小:
+                        </span>
+                        <input
+                          type="number"
+                          value={options.infoFontSize || 110}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 110;
+                            setOptions({ ...options, infoFontSize: val });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                        />
+                      </div>
+                    </div>
 
                     <p className="text-[10px] text-[var(--app-text-muted)] mt-auto leading-tight">
                       字體外框皆固定從反（白字體配黑框，彩字體配白框）。
@@ -1322,21 +1484,40 @@ export function KtvAssExport() {
               </div>
 
               {/* 字幕顏色設定 */}
-              {SHOW_INTERNAL_TEST_PARAMS && (
-                <div className="flex flex-col gap-1.5">
-                  <div
-                    onClick={() => setColorConfigOpen(!colorConfigOpen)}
-                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
-                  >
-                    <span>字幕顏色設定</span>
+              <div className="flex flex-col gap-1.5">
+                <div
+                  onClick={() => setColorConfigOpen(!colorConfigOpen)}
+                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                    isColorModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                  }`}
+                >
+                  <span>字幕顏色設定</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      disabled={!isColorModified}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetColorSettings();
+                        showToast("已還原字幕顏色設定預設值");
+                      }}
+                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                        isColorModified
+                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      還原預設
+                    </button>
                     {colorConfigOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
                     )}
                   </div>
+                </div>
 
-                  {colorConfigOpen && (
+                {colorConfigOpen && (
                     <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
                       {/* 已唱預設N（預設） */}
                       <div className="flex flex-col gap-1">
@@ -1550,20 +1731,39 @@ export function KtvAssExport() {
                     </div>
                   )}
                 </div>
-              )}
 
               {/* 間奏倒數小圓設定 */}
               <div className="flex flex-col gap-1.5">
                 <div
                   onClick={() => setDotConfigOpen(!dotConfigOpen)}
-                  className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
+                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                    isDotModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                  }`}
                 >
                   <span>間奏倒數小圓設定</span>
-                  {dotConfigOpen ? (
-                    <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                  )}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      disabled={!isDotModified}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetDotSettings();
+                        showToast("已還原間奏倒數小圓設定預設值");
+                      }}
+                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                        isDotModified
+                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      還原預設
+                    </button>
+                    {dotConfigOpen ? (
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    )}
+                  </div>
                 </div>
 
                 {dotConfigOpen && (
@@ -1703,7 +1903,7 @@ export function KtvAssExport() {
                     </div>
 
                     {/* Preset Choice Cards (Grid Layout) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className={`grid grid-cols-1 ${SHOW_INTERNAL_TEST_PARAMS ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-2.5`}>
                       {/* Preset Option: 外框白圓 */}
                       <button
                         type="button"
@@ -1807,78 +2007,80 @@ export function KtvAssExport() {
                       </button>
 
                       {/* Preset Option: 自訂 */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDotPreset("custom");
-                        }}
-                        className={`flex flex-col items-center justify-between p-2 rounded border text-left transition-all cursor-pointer ${
-                          dotPreset === "custom"
-                            ? "bg-orange-500/10 border-orange-500/80 ring-1 ring-orange-500/30"
-                            : "bg-zinc-900/40 border-[var(--app-border-light)] hover:border-[var(--app-border-base)]"
-                        }`}
-                      >
-                        <div className="w-full flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-bold text-[var(--app-text-primary)]">
-                            自訂
-                          </span>
-                          <div
-                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
-                              dotPreset === "custom" ? "border-orange-500" : "border-zinc-600"
-                            }`}
-                          >
-                            {dotPreset === "custom" && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                            )}
+                      {SHOW_INTERNAL_TEST_PARAMS && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDotPreset("custom");
+                          }}
+                          className={`flex flex-col items-center justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                            dotPreset === "custom"
+                              ? "bg-orange-500/10 border-orange-500/80 ring-1 ring-orange-500/30"
+                              : "bg-zinc-900/40 border-[var(--app-border-light)] hover:border-[var(--app-border-base)]"
+                          }`}
+                        >
+                          <div className="w-full flex items-center justify-between mb-1.5">
+                            <span className="text-[11px] font-bold text-[var(--app-text-primary)]">
+                              自訂
+                            </span>
+                            <div
+                              className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                                dotPreset === "custom" ? "border-orange-500" : "border-zinc-600"
+                              }`}
+                            >
+                              {dotPreset === "custom" && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Preset mini visualization */}
-                        <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center mb-1.5 border border-zinc-900 relative overflow-hidden">
-                          <div
-                            className="flex items-center gap-1"
-                            style={{
-                              gap: `${Math.max(2, Math.min(8, (options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 8))}px`,
-                            }}
-                          >
-                            {[1, 2, 3].map((idx) => {
-                              const sizeS =
-                                (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) *
-                                50;
-                              const innerS =
-                                (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) *
-                                50;
-                              return (
-                                <div
-                                  key={idx}
-                                  className="rounded-full flex items-center justify-center shrink-0"
-                                  style={{
-                                    width: `${Math.max(6, Math.min(18, sizeS))}px`,
-                                    height: `${Math.max(6, Math.min(18, sizeS))}px`,
-                                    backgroundColor: options.dotOuterColor || "#eeeeee",
-                                  }}
-                                >
+                          {/* Preset mini visualization */}
+                          <div className="w-full h-8 bg-zinc-950 rounded flex items-center justify-center mb-1.5 border border-zinc-900 relative overflow-hidden">
+                            <div
+                              className="flex items-center gap-1"
+                              style={{
+                                gap: `${Math.max(2, Math.min(8, (options.dotSpacing !== undefined ? options.dotSpacing : 0.75) * 8))}px`,
+                              }}
+                            >
+                              {[1, 2, 3].map((idx) => {
+                                const sizeS =
+                                  (options.dotOuterSize !== undefined ? options.dotOuterSize : 0.26) *
+                                  50;
+                                const innerS =
+                                  (options.dotInnerSize !== undefined ? options.dotInnerSize : 0.24) *
+                                  50;
+                                return (
                                   <div
-                                    className="rounded-full shrink-0"
+                                    key={idx}
+                                    className="rounded-full flex items-center justify-center shrink-0"
                                     style={{
-                                      width: `${Math.max(4, Math.min(16, innerS))}px`,
-                                      height: `${Math.max(4, Math.min(16, innerS))}px`,
-                                      backgroundColor: options.dotInnerColor || "#ffffff",
+                                      width: `${Math.max(6, Math.min(18, sizeS))}px`,
+                                      height: `${Math.max(6, Math.min(18, sizeS))}px`,
+                                      backgroundColor: options.dotOuterColor || "#eeeeee",
                                     }}
-                                  />
-                                </div>
-                              );
-                            })}
+                                  >
+                                    <div
+                                      className="rounded-full shrink-0"
+                                      style={{
+                                        width: `${Math.max(4, Math.min(16, innerS))}px`,
+                                        height: `${Math.max(4, Math.min(16, innerS))}px`,
+                                        backgroundColor: options.dotInnerColor || "#ffffff",
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                        <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">
-                          手動微調
-                        </span>
-                      </button>
+                          <span className="text-[9px] text-[var(--app-text-muted)] text-center w-full block">
+                            手動微調
+                          </span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Collapsible custom parameters, visible only if dotPreset is custom */}
-                    {dotPreset === "custom" && (
+                    {SHOW_INTERNAL_TEST_PARAMS && dotPreset === "custom" && (
                       <div className="space-y-3 bg-black/15 p-3 rounded border border-[var(--app-border-light)] mt-1 animate-in slide-in-from-top-2 duration-200">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="flex flex-col gap-1">
@@ -2010,14 +2212,34 @@ export function KtvAssExport() {
                 <div className="flex flex-col gap-1.5">
                   <div
                     onClick={() => setTestParamsOpen(!testParamsOpen)}
-                    className="flex items-center justify-between font-semibold text-[var(--app-text-primary)] text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors"
+                    className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                      isTestParamsModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                    }`}
                   >
                     <span>測試參數 (內部)</span>
-                    {testParamsOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)]" />
-                    )}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <button
+                        type="button"
+                        disabled={!isTestParamsModified}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resetTestParamsSettings();
+                          showToast("已還原測試參數預設值");
+                        }}
+                        className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                          isTestParamsModified
+                            ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                            : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                        }`}
+                      >
+                        還原預設
+                      </button>
+                      {testParamsOpen ? (
+                        <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                      )}
+                    </div>
                   </div>
 
                   {testParamsOpen && (
@@ -2584,7 +2806,7 @@ export function KtvAssExport() {
                       value={newExcludeStart}
                       onChange={(e) => setNewExcludeStart(e.target.value)}
                       placeholder="01:11.099"
-                      className="w-full bg-[var(--app-bg-base)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
                     />
                   </div>
                   <div className="flex-1 flex flex-col gap-1">
@@ -2597,7 +2819,7 @@ export function KtvAssExport() {
                       value={newExcludeEnd}
                       onChange={(e) => setNewExcludeEnd(e.target.value)}
                       placeholder="01:17.211"
-                      className="w-full bg-[var(--app-bg-base)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
                     />
                   </div>
                   <button
