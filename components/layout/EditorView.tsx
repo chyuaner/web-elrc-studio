@@ -86,7 +86,13 @@ export function EditorView() {
         {(mode === "sync" || mode === "dual-sync") && <SyncEditor />}
         {mode === "raw" && <RawTextDisplay />}
         <div
-          className={mode === "ktv-ass" ? "flex-1 overflow-hidden flex flex-col h-full" : "hidden"}
+          className={
+            mode === "ktv-ass"
+              ? isMobileLayout && !isTall
+                ? "contents"
+                : "flex-1 overflow-hidden flex flex-col h-full"
+              : "hidden"
+          }
         >
           <KtvAssExport />
         </div>

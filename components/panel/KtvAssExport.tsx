@@ -22,6 +22,9 @@ import {
   Plus,
   SlidersHorizontal,
   Trash2,
+  Save,
+  Pencil,
+  X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -248,12 +251,25 @@ export function KtvAssExport() {
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
+  const [editingExcludeIndex, setEditingExcludeIndex] = useState<number | null>(null);
   const [previewBgColor, setPreviewBgColor] = useState("#0b0c10");
   const [showPreviewGrid, setShowPreviewGrid] = useState(true);
   const [testParamsOpen, setTestParamsOpen] = useState(false);
   const [burnVideoDialogOpen, setBurnVideoDialogOpen] = useState(false);
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTall, setIsTall] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      setIsTall(window.innerHeight > 1110);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -562,22 +578,52 @@ export function KtvAssExport() {
     const newItem = `${start}-${end}`;
     const prevList = options.klgno ? options.klgno.split(";").filter(Boolean) : [];
 
-    if (prevList.includes(newItem)) {
-      showToast("此不顯示時段已存在");
-      return;
+    if (editingExcludeIndex === null) {
+      if (prevList.includes(newItem)) {
+        showToast("此不顯示時段已存在");
+        return;
+      }
+      const newList = [...prevList, newItem].join(";");
+      const updated = { ...options, klgno: newList };
+      setOptions(updated);
+      syncToLrcMetadata(updated);
+      showToast("已成功新增特殊自訂 Logo 排除時段");
+    } else {
+      // Edit mode
+      const updatedList = [...prevList];
+      updatedList[editingExcludeIndex] = newItem;
+      const newList = updatedList.join(";");
+      const updated = { ...options, klgno: newList };
+      setOptions(updated);
+      syncToLrcMetadata(updated);
+      setEditingExcludeIndex(null);
+      showToast("已修改特殊自訂 Logo 排除時段");
     }
-
-    const newList = [...prevList, newItem].join(";");
-    const updated = { ...options, klgno: newList };
-    setOptions(updated);
-    syncToLrcMetadata(updated);
 
     setNewExcludeStart("");
     setNewExcludeEnd("");
-    showToast("已成功新增特殊自訂 Logo 排除時段");
+  };
+
+  const handleStartEditExclude = (idx: number, interval: { startStr: string; endStr: string }) => {
+    setEditingExcludeIndex(idx);
+    setNewExcludeStart(interval.startStr);
+    setNewExcludeEnd(interval.endStr);
+  };
+
+  const handleCancelEditExclude = () => {
+    setEditingExcludeIndex(null);
+    setNewExcludeStart("");
+    setNewExcludeEnd("");
   };
 
   const handleRemoveExcludeInterval = (idxToRemove: number) => {
+    if (editingExcludeIndex === idxToRemove) {
+      setEditingExcludeIndex(null);
+      setNewExcludeStart("");
+      setNewExcludeEnd("");
+    } else if (editingExcludeIndex !== null && idxToRemove < editingExcludeIndex) {
+      setEditingExcludeIndex(editingExcludeIndex - 1);
+    }
     const prevList = options.klgno ? options.klgno.split(";").filter(Boolean) : [];
     const filtered = prevList.filter((_, idx) => idx !== idxToRemove);
     const newList = filtered.join(";");
@@ -1131,9 +1177,22 @@ export function KtvAssExport() {
   ]);
 
   return (
-    <div className="flex flex-col h-full bg-[var(--app-bg-panel-alt)] overflow-hidden">
+    <div
+      className={
+        isMobile && !isTall
+          ? "contents"
+          : "flex flex-col h-full bg-[var(--app-bg-panel-alt)] overflow-hidden"
+      }
+    >
       {/* Title Bar inside Tab */}
-      <div className="shrink-0 px-4 py-3 bg-[var(--app-bg-panel-alt)] border-b border-[var(--app-border-base)] flex items-center justify-between">
+      <div
+        className={`shrink-0 px-4 py-3 bg-[var(--app-bg-panel)] border-b border-[var(--app-border-base)] flex items-center justify-between z-40 transition-shadow ${
+          isMobile && !isTall ? "sticky shadow-sm" : ""
+        }`}
+        style={{
+          top: isMobile && !isTall ? "calc(var(--media-controls-height, 0px))" : undefined
+        }}
+      >
         <h2 className="text-sm font-bold text-[var(--app-text-primary)]">KTV ASS 輸出</h2>
         <div className="flex items-center gap-2">
           <a
@@ -1163,13 +1222,556 @@ export function KtvAssExport() {
       </div>
 
       {/* Settings / Toolbar Panel */}
-      <div className="flex-1 p-4 bg-[var(--app-bg-panel-alt)] flex flex-col gap-4 overflow-y-auto">
-        <div className="text-xs text-[var(--app-text-secondary)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Left Column */}
-            <div className="flex flex-col gap-5">
-              {/* 視訊尺寸與 ASS 比例設定 */}
-              <div className="flex flex-col gap-1.5">
+      <div
+        className={`flex-1 p-4 bg-[var(--app-bg-panel-alt)] flex flex-col gap-4 ${
+          !isMobile || isTall ? "overflow-y-auto" : ""
+        }`}
+      >
+                <div className="text-xs text-[var(--app-text-secondary)] flex flex-col gap-8">
+          {/* ==================== 永久設定區 ==================== */}
+          <div className="flex flex-col gap-4">
+            {/* Notice Banner: 永久設定區 */}
+            {/* Notice Banner: 永久設定區 */}
+              <div className=" bg-emerald-500/10 border border-emerald-500/20 rounded p-3 text-emerald-400 flex items-start gap-2.5">
+                <div className="bg-emerald-500/15 p-1.5 rounded text-emerald-300 shrink-0">
+                  <Save className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-emerald-300">永久設定區 (會存入 .lrc 歌詞屬性)</div>
+                  <p className="text-[10px] text-emerald-400/80 leading-relaxed mt-0.5 animate-pulse-subtle">
+                    本欄設定（開場標題、Logo圖檔、排除時段、間奏時間）將隨歌詞檔（.lrc）永久儲存，未來匯入同一首歌詞將會自動套用原設定。
+                  </p>
+                </div>
+              </div>
+
+            {/* Grid layout for columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-1">
+              {/* Left Column of Permanent Settings */}
+              <div className="flex flex-col gap-5">
+                {/* 歌曲開場標題資訊 */}
+              <div className=" col-span-1 flex flex-col gap-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded">
+                <div className="flex flex-wrap gap-2 justify-between items-center">
+                  <label className="font-semibold text-[var(--app-text-primary)] text-xs">
+                    歌曲開場標題資訊
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={handleImportFromTags}
+                      className="px-2 py-1 bg-[var(--app-bg-hover)] border border-[var(--app-border-light)] rounded text-[10px] text-[var(--app-text-primary)] hover:bg-[var(--app-border-base)] transition-colors"
+                    >
+                      由音檔標籤匯入
+                    </button>
+                    <button
+                      onClick={handleImportFromLrc}
+                      className="px-2 py-1 bg-[var(--app-bg-hover)] border border-[var(--app-border-light)] rounded text-[10px] text-[var(--app-text-primary)] hover:bg-[var(--app-border-base)] transition-colors"
+                    >
+                      由LRC屬性匯入
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[60px_1fr] items-start gap-2">
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
+                    標題
+                  </span>
+                  <textarea
+                    rows={Math.max(1, (options.songInfoTitle || "").split("\n").length)}
+                    value={options.songInfoTitle}
+                    onChange={(e) => {
+                      const updated = {
+                        ...options,
+                        songInfoTitle: e.target.value,
+                      };
+                      setOptions(updated);
+                      syncToLrcMetadata(updated);
+                    }}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
+                  />
+
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
+                    主唱
+                  </span>
+                  <textarea
+                    rows={Math.max(1, (options.songInfoArtist || "").split("\n").length)}
+                    value={options.songInfoArtist}
+                    onChange={(e) => {
+                      const updated = {
+                        ...options,
+                        songInfoArtist: e.target.value,
+                      };
+                      setOptions(updated);
+                      syncToLrcMetadata(updated);
+                    }}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
+                  />
+
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
+                    專輯
+                  </span>
+                  <textarea
+                    rows={Math.max(1, (options.songInfoAlbum || "").split("\n").length)}
+                    value={options.songInfoAlbum}
+                    onChange={(e) => {
+                      const updated = {
+                        ...options,
+                        songInfoAlbum: e.target.value,
+                      };
+                      setOptions(updated);
+                      syncToLrcMetadata(updated);
+                    }}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
+                  />
+
+                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1">
+                    自訂內容
+                  </span>
+                  <textarea
+                    value={options.songInfoCustom}
+                    onChange={(e) => {
+                      const updated = {
+                        ...options,
+                        songInfoCustom: e.target.value,
+                      };
+                      setOptions(updated);
+                      syncToLrcMetadata(updated);
+                    }}
+                    placeholder="例如：&#10;作詞：XXX&#10;作曲：OOO"
+                    rows={3}
+                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] mb-1 resize-y"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 border-t border-[var(--app-border-light)] pt-2 mt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] transition-colors select-none">
+                    <input
+                      type="checkbox"
+                      checked={options.customStartInfoTime}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const updated = {
+                          ...options,
+                          customStartInfoTime: checked,
+                        };
+                        setOptions(updated);
+                        syncToLrcMetadata(updated);
+                      }}
+                      className="accent-[var(--app-accent)]"
+                    />
+                    <span>特殊自訂顯示時間戳</span>
+                  </label>
+                </div>
+
+                {options.customStartInfoTime && (
+                  <div className="flex items-center gap-2 pl-[60px] animate-fade-in">
+                    <input
+                      type="text"
+                      value={startInput}
+                      onChange={handleStartInputChange}
+                      onBlur={handleStartInputBlur}
+                      className="w-24 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] text-center font-mono"
+                      title="Start Time"
+                    />
+                    <span className="text-[var(--app-text-muted)]">~</span>
+                    <input
+                      type="text"
+                      value={endInput}
+                      onChange={handleEndInputChange}
+                      onBlur={handleEndInputBlur}
+                      className="w-24 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] text-center font-mono"
+                      title="End Time"
+                    />
+                  </div>
+                )}
+              </div>
+                {/* 間奏閥值 */}
+              <div className=" col-span-1 flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)] font-sans">
+                <div className="flex justify-between items-center gap-2 mb-1">
+                  <label className="font-semibold text-[var(--app-text-primary)] text-xs">
+                    間奏閥值
+                  </label>
+                  <button
+                    type="button"
+                    disabled={dualLineGapSec === 6}
+                    onClick={() => {
+                      setDualLineGapSec(6);
+                      commitLrcMetadata(
+                        { ...lrcMetadata, kth: "6" },
+                        "Restore Interlude Threshold to Default",
+                      );
+                      showToast("已還原間奏閥值預設值 (6s)");
+                    }}
+                    className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                      dualLineGapSec !== 6
+                        ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                        : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                    }`}
+                  >
+                    還原預設
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="15"
+                      step="0.5"
+                      value={dualLineGapSec}
+                      onChange={(e) => setDualLineGapSec(parseFloat(e.target.value))}
+                      onMouseUp={() =>
+                        commitLrcMetadata(
+                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
+                          "Update Interlude Threshold",
+                        )
+                      }
+                      onTouchEnd={() =>
+                        commitLrcMetadata(
+                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
+                          "Update Interlude Threshold",
+                        )
+                      }
+                      onKeyUp={() =>
+                        commitLrcMetadata(
+                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
+                          "Update Interlude Threshold",
+                        )
+                      }
+                      className="flex-1 accent-[var(--app-accent)] bg-zinc-800"
+                    />
+                    <span className="font-mono w-12 text-right text-[var(--app-text-primary)]">
+                      {dualLineGapSec.toFixed(1)}s
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[var(--app-text-muted)] leading-normal">
+                    當兩句歌詞相隔超過此數值，將被視為新段落並重新進入排版。此項數值同步隨歌詞檔案（.lrc）永久儲存。
+                  </p>
+                </div>
+              </div>
+              </div>
+
+              {/* Right Column of Permanent Settings */}
+              <div className="flex flex-col gap-5">
+                {/* 自訂出版商Logo圖檔 */}
+              <div className=" col-span-1 flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
+                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" /> 自訂出版商 Logo 圖檔 (SVG)
+                </label>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                  僅支援 SVG 向量格式，匯出時會轉為 ASS
+                  內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距
+                  dualRowMarginV，等比例縮小至最大寬高範圍）。
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept=".svg,image/svg+xml"
+                    onChange={handleInterludeLogoUpload}
+                    className="text-xs bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded py-1.5 px-2 w-full text-[var(--app-text-primary)] border-dashed border-[var(--app-border-light)] file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[var(--app-bg-hover)] file:text-[var(--app-text-primary)]"
+                  />
+                </div>
+                {options.interludeLogoSvg && (
+                  <div className="flex flex-col gap-2.5 mt-2 animate-fade-in border-t border-[var(--app-border-light)] pt-2.5">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!options.logoMonochrome}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoMonochrome: e.target.checked,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="rounded border-[var(--app-border-input)]"
+                        />
+                        <span>變為單色</span>
+                      </label>
+                      <div
+                        className={`flex items-center gap-2 ${options.logoMonochrome ? "" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <input
+                          type="color"
+                          value={options.logoMonochromeColor ?? "#FFFFFF"}
+                          disabled={!options.logoMonochrome}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoMonochromeColor: e.target.value,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
+                          {(options.logoMonochromeColor ?? "#FFFFFF").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!options.logoOutlineEnabled}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoOutlineEnabled: e.target.checked,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="rounded border-[var(--app-border-input)]"
+                        />
+                        <span>外框描邊</span>
+                      </label>
+                      <div
+                        className={`flex items-center gap-2 ${options.logoOutlineEnabled ? "" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
+                          <span>粗細</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            step={1}
+                            value={options.logoOutlineWidth ?? 3}
+                            disabled={!options.logoOutlineEnabled}
+                            onChange={(e) => {
+                              const updated = {
+                                ...options,
+                                logoOutlineWidth: parseInt(e.target.value, 10) || 1,
+                              };
+                              setOptions(updated);
+                              syncToLrcMetadata(updated);
+                            }}
+                            className="w-12 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1 py-0.5 text-[10px] text-center font-mono disabled:cursor-not-allowed"
+                          />
+                          <span>px</span>
+                        </label>
+                        <input
+                          type="color"
+                          value={options.logoOutlineColor ?? "#FFFFFF"}
+                          disabled={!options.logoOutlineEnabled}
+                          onChange={(e) => {
+                            const updated = {
+                              ...options,
+                              logoOutlineColor: e.target.value,
+                            };
+                            setOptions(updated);
+                            syncToLrcMetadata(updated);
+                          }}
+                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
+                        />
+                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
+                          {(options.logoOutlineColor ?? "#FFFFFF").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                      外框沿 Logo 實際形狀描邊，非方形外圍；可保留原色並加白邊提升辨識度。
+                    </p>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
+                        dangerouslySetInnerHTML={{
+                          __html: interludeLogoPreviewSvg,
+                        }}
+                      />
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[150px] font-mono leading-none">
+                            {interludeLogoFileName || "從 LRC 載入的 SVG 圖檔"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                const svgToSave = options.logoMonochrome
+                                  ? recolorSvgMonochrome(
+                                      options.interludeLogoSvg!,
+                                      options.logoMonochromeColor ?? "#FFFFFF",
+                                    )
+                                  : options.interludeLogoSvg!;
+                                const blob = new Blob([svgToSave], {
+                                  type: "image/svg+xml;charset=utf-8",
+                                });
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement("a");
+                                link.href = url;
+                                link.download = interludeLogoFileName || "publisher_logo.svg";
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(url);
+                                showToast("已另存 Logo 圖片");
+                              } catch (err) {
+                                showToast("儲存失敗，請重試");
+                              }
+                            }}
+                            className="shrink-0 flex items-center gap-1 py-0.5 px-2 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-200 transition-colors border border-blue-500/20 text-[10px] font-medium"
+                          >
+                            <span>另存這張圖片</span>
+                          </button>
+                        </div>
+                        <div className="mt-1">
+                          <button
+                            type="button"
+                            onClick={handleClearInterludeLogo}
+                            className="flex items-center gap-1 py-0.5 px-2 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 text-[10px] font-medium w-fit"
+                            title="清除已選的圖片"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>清除已選的圖片</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+                {/* 特殊指定不顯示 Logo 時段 */}
+              <div
+                id="exclude-logo-intervals"
+                className=" col-span-1 flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)] font-sans"
+              >
+                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示 Logo 時段
+                </label>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                  可自訂特定時間戳範圍不要出現任何 Logo，時間戳核心顯示如歌詞不受影響。
+                </p>
+
+                {/* 新增/編輯區段 */}
+                <div className={`flex gap-2.5 items-end p-2.5 rounded border z-10 ${
+                  editingExcludeIndex !== null
+                    ? "border-[var(--app-accent)] bg-[var(--app-accent)]/5"
+                    : "border-[var(--app-border-light)] bg-[var(--app-bg-panel)]"
+                }`}>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                      開始時間 (mm:ss.cs/ms)
+                    </span>
+                    <input
+                      type="text"
+                      id="exclude-start-input"
+                      value={newExcludeStart}
+                      onChange={(e) => setNewExcludeStart(e.target.value)}
+                      placeholder="01:11.099"
+                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                      結束時間 (mm:ss.cs/ms)
+                    </span>
+                    <input
+                      type="text"
+                      id="exclude-end-input"
+                      value={newExcludeEnd}
+                      onChange={(e) => setNewExcludeEnd(e.target.value)}
+                      placeholder="01:17.211"
+                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {editingExcludeIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditExclude}
+                        className="shrink-0 bg-transparent hover:bg-zinc-800 text-[var(--app-text-primary)] border border-[var(--app-border-light)] font-semibold text-[10px] py-1.5 px-2 rounded transition-colors flex items-center gap-0.5 h-[26px] cursor-pointer"
+                        title="取消編輯"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>取消</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddExcludeInterval}
+                      className="shrink-0 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-bold text-xs py-1.5 px-3 rounded transition-colors flex items-center gap-1 h-[26px] cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{editingExcludeIndex !== null ? "儲存" : "新增"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 清單顯示 */}
+                <div className="flex flex-col gap-1.5 mt-1 max-h-[180px] overflow-y-auto pr-1">
+                  {parsedIntervals.length === 0 ? (
+                    <div className="text-[10px] text-[var(--app-text-muted)] text-center py-2.5 bg-black/10 rounded border border-dashed border-[var(--app-border-light)]">
+                      尚未新增任何不顯示 Logo 的時段
+                    </div>
+                  ) : (
+                    parsedIntervals.map((interval, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center justify-between text-xs font-mono border rounded px-2.5 py-1.5 transition-colors group ${
+                          editingExcludeIndex === index
+                            ? "border-[var(--app-accent)] bg-[var(--app-accent)]/10"
+                            : "bg-[var(--app-bg-panel)] border-[var(--app-border-light)] hover:bg-[var(--app-bg-hover)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-[var(--app-text-primary)]">
+                          <Clock className={`w-3.5 h-3.5 ${editingExcludeIndex === index ? "text-[var(--app-accent)]" : "text-orange-400/70"}`} />
+                          <span className={editingExcludeIndex === index ? "text-[var(--app-accent)] font-semibold" : ""}>{interval.startStr}</span>
+                          <span className="text-[var(--app-text-muted)]">➔</span>
+                          <span className={editingExcludeIndex === index ? "text-[var(--app-accent)] font-semibold" : ""}>{interval.endStr}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditExclude(index, interval)}
+                            className="p-1 rounded hover:bg-[var(--app-accent)]/15 text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors cursor-pointer"
+                            title="編輯此時段"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExcludeInterval(index)}
+                            className="p-1 rounded hover:bg-red-500/10 text-[var(--app-text-muted)] hover:text-red-400 transition-colors cursor-pointer"
+                            title="刪除此時段"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-[var(--app-border-base)]/40 my-1 col-span-1 md:col-span-2" />
+
+          {/* ==================== 單次輸出設定區 ==================== */}
+          <div className="flex flex-col gap-4">
+            {/* Notice Banner: 單次輸出設定區 */}
+            {/* Notice Banner: 單次輸出設定區 */ }
+              <div className=" bg-zinc-500/10 border border-zinc-500/20 rounded p-3 text-[var(--app-text-secondary)] flex items-start gap-2.5">
+                <div className="bg-zinc-500/15 p-1.5 rounded text-[var(--app-text-muted)] shrink-0">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-[var(--app-text-primary)]">單次輸出設定區 (不寫入歌詞檔)</div>
+                  <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed mt-0.5">
+                    本欄設定（視訊尺寸、字體、字幕顏色、倒數小圓）僅供本次或輸出時調整，不會寫入 .lrc 歌詞編輯檔內。
+                  </p>
+                </div>
+              </div>
+
+            {/* Grid layout for columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-1">
+              {/* Left Column of Single Settings */}
+              <div className="flex flex-col gap-5">
+                {/* 視訊尺寸與 ASS 比例設定 */}
+              <div className=" col-span-1 flex flex-col gap-1.5">
                 <div className="flex justify-between items-center gap-2">
                   <label className="font-semibold text-[var(--app-text-primary)] text-xs">
                     視訊尺寸與 ASS 比例設定
@@ -1284,456 +1886,8 @@ export function KtvAssExport() {
                   </p>
                 </div>
               </div>
-
-              {/* 間奏閥值 */}
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-[var(--app-text-primary)] text-xs">
-                  間奏閥值
-                </label>
-                <div className="flex flex-col gap-1.5 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="1"
-                      max="15"
-                      step="0.5"
-                      value={dualLineGapSec}
-                      onChange={(e) => setDualLineGapSec(parseFloat(e.target.value))}
-                      onMouseUp={() =>
-                        commitLrcMetadata(
-                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
-                          "Update Interlude Threshold",
-                        )
-                      }
-                      onTouchEnd={() =>
-                        commitLrcMetadata(
-                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
-                          "Update Interlude Threshold",
-                        )
-                      }
-                      onKeyUp={() =>
-                        commitLrcMetadata(
-                          { ...lrcMetadata, kth: dualLineGapSec.toString() },
-                          "Update Interlude Threshold",
-                        )
-                      }
-                      className="flex-1 accent-[var(--app-accent)]"
-                    />
-                    <span className="font-mono w-12 text-right text-[var(--app-text-primary)]">
-                      {dualLineGapSec.toFixed(1)}s
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[var(--app-text-muted)]">
-                    當兩句歌詞相隔超過此數值，將被視為新段落並重新進入排版。
-                  </p>
-                </div>
-              </div>
-
-              {/* 字體設定 */}
-              <div className="flex flex-col gap-1.5">
-                <div
-                  onClick={() => setFontConfigOpen(!fontConfigOpen)}
-                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
-                    isFontModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
-                  }`}
-                >
-                  <span>字體設定</span>
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      disabled={!isFontModified}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        resetFontSettings();
-                        showToast("已還原字體設定預設值");
-                      }}
-                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
-                        isFontModified
-                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
-                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
-                      }`}
-                    >
-                      還原預設
-                    </button>
-                    {fontConfigOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
-                    )}
-                  </div>
-                </div>
-
-                {fontConfigOpen && (
-                  <div className="flex flex-col gap-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
-                    <div className="flex flex-col gap-2 border-b border-[var(--app-border-light)] pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium shrink-0">
-                          本機字型名稱:
-                        </span>
-                        <FontSelect
-                          value={options.fontFamily}
-                          onChange={(val, font) => {
-                            const updates: any = { fontFamily: val };
-                            if (font && font.sizeOffset !== undefined) {
-                              updates.fontSizeOffset = font.sizeOffset;
-                            }
-                            setOptions({ ...options, ...updates });
-                          }}
-                        />
-                      </div>
-
-                      <div
-                        className="text-[9px] text-[var(--app-text-muted)] w-full block mt-0.5"
-                        style={{ letterSpacing: "-0.3px" }}
-                      >
-                        ASS
-                        字幕的顯示依賴您的本機環境與播放器，請確保已安裝選用的字型。播放器底層引擎通常會嘗試自動
-                        fallback
-                        作業系統字體，但為確保效果原貌，建議您使用本系統提供的通用字體選項。
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <div className="flex items-center gap-1.5 flex-1 min-w-[80px]">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                          字體大小:
-                        </span>
-                        <input
-                          type="number"
-                          value={options.fontSize}
-                          onChange={(e) => {
-                            const newSize = parseInt(e.target.value) || 120;
-                            const diff = newSize - options.fontSize;
-                            setOptions({
-                              ...options,
-                              fontSize: newSize,
-                              infoFontSize: (options.infoFontSize || 110) + diff,
-                              infoTitleFontSize: (options.infoTitleFontSize || 140) + diff,
-                            });
-                          }}
-                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                          title="主字體大小"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-1 min-w-[80px]">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                          描邊粗細:
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="15"
-                          value={
-                            options.simulatedOutlineWidth !== undefined
-                              ? options.simulatedOutlineWidth
-                              : 3
-                          }
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setOptions({
-                              ...options,
-                              simulatedOutlineWidth: val,
-                            });
-                          }}
-                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap border-t border-[var(--app-border-light)] pt-3 mt-1">
-                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                          標題大小:
-                        </span>
-                        <input
-                          type="number"
-                          value={options.infoTitleFontSize || 140}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 140;
-                            setOptions({
-                              ...options,
-                              infoTitleFontSize: val,
-                            });
-                          }}
-                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
-                          內文大小:
-                        </span>
-                        <input
-                          type="number"
-                          value={options.infoFontSize || 110}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 110;
-                            setOptions({ ...options, infoFontSize: val });
-                          }}
-                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-[var(--app-text-muted)] mt-auto leading-tight">
-                      字體外框皆固定從反（白字體配黑框，彩字體配白框）。
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* 字幕顏色設定 */}
-              <div className="flex flex-col gap-1.5">
-                <div
-                  onClick={() => setColorConfigOpen(!colorConfigOpen)}
-                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
-                    isColorModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
-                  }`}
-                >
-                  <span>字幕顏色設定</span>
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      disabled={!isColorModified}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        resetColorSettings();
-                        showToast("已還原字幕顏色設定預設值");
-                      }}
-                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
-                        isColorModified
-                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
-                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
-                      }`}
-                    >
-                      還原預設
-                    </button>
-                    {colorConfigOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
-                    )}
-                  </div>
-                </div>
-
-                {colorConfigOpen && (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
-                      {/* 已唱預設N（預設） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱預設N (預設)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.primaryColor}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                primaryColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {options.primaryColor.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱綠色G（合唱） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱綠色G (合唱)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.chorusColor}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                chorusColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {options.chorusColor.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱藍色B（男 or 第一人） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱藍色B (男 or 第一人)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.blueColor || "#2A04C8"}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                blueColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {(options.blueColor || "#2A04C8").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱紅色R（女 or 第二人） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱紅色R (女 or 第二人)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.color2}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                color2: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {options.color2.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱紫色P（第三人） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱紫色P (第三人)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.color3}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                color3: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {options.color3.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱橘色O（第四人） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          已唱橘色O (第四人)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.orangeColor || "#FF7F00"}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                orangeColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {(options.orangeColor || "#FF7F00").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 已唱灰色T（旁白） */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium font-semibold">
-                          已唱灰色T (旁白)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.grayColor || "#9CA3AF"}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                grayColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {(options.grayColor || "#9CA3AF").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 開始資訊顏色 */}
-                      <div className="flex flex-col gap-1 border-t border-[var(--app-border-light)] pt-2 col-span-2 mt-1">
-                        <span className="text-[10px] text-[var(--app-accent)] font-semibold">
-                          開始資訊顏色
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                          標題顏色 (Title)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.songInfoTitleColor || "#BC2600"}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                songInfoTitleColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[var(--app-text-muted)] font-semibold font-medium">
-                          主唱/專輯文字顏色 (Info)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.songInfoArtistColor || "#2A04C8"}
-                            onChange={(e) =>
-                              setOptions({
-                                ...options,
-                                songInfoArtistColor: e.target.value,
-                              })
-                            }
-                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-                          />
-                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
-                            {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              {/* 間奏倒數小圓設定 */}
-              <div className="flex flex-col gap-1.5">
+                {/* 間奏倒數小圓設定 */}
+              <div className=" col-span-1 flex flex-col gap-1.5">
                 <div
                   onClick={() => setDotConfigOpen(!dotConfigOpen)}
                   className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
@@ -2206,10 +2360,414 @@ export function KtvAssExport() {
                   </div>
                 )}
               </div>
+              </div>
 
-              {/* 密集測試區 */}
+              {/* Right Column of Single Settings */}
+              <div className="flex flex-col gap-5">
+                {/* 字體設定 */}
+              <div className=" col-span-1 flex flex-col gap-1.5">
+                <div
+                  onClick={() => setFontConfigOpen(!fontConfigOpen)}
+                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                    isFontModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                  }`}
+                >
+                  <span>字體設定</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      disabled={!isFontModified}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetFontSettings();
+                        showToast("已還原字體設定預設值");
+                      }}
+                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                        isFontModified
+                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      還原預設
+                    </button>
+                    {fontConfigOpen ? (
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    )}
+                  </div>
+                </div>
+
+                {fontConfigOpen && (
+                  <div className="flex flex-col gap-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
+                    <div className="flex flex-col gap-2 border-b border-[var(--app-border-light)] pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium shrink-0">
+                          本機字型名稱:
+                        </span>
+                        <FontSelect
+                          value={options.fontFamily}
+                          onChange={(val, font) => {
+                            const updates: any = { fontFamily: val };
+                            if (font && font.sizeOffset !== undefined) {
+                              updates.fontSizeOffset = font.sizeOffset;
+                            }
+                            setOptions({ ...options, ...updates });
+                          }}
+                        />
+                      </div>
+
+                      <div
+                        className="text-[9px] text-[var(--app-text-muted)] w-full block mt-0.5"
+                        style={{ letterSpacing: "-0.3px" }}
+                      >
+                        ASS
+                        字幕的顯示依賴您的本機環境與播放器，請確保已安裝選用的字型。播放器底層引擎通常會嘗試自動
+                        fallback
+                        作業系統字體，但為確保效果原貌，建議您使用本系統提供的通用字體選項。
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[80px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          字體大小:
+                        </span>
+                        <input
+                          type="number"
+                          value={options.fontSize}
+                          onChange={(e) => {
+                            const newSize = parseInt(e.target.value) || 120;
+                            const diff = newSize - options.fontSize;
+                            setOptions({
+                              ...options,
+                              fontSize: newSize,
+                              infoFontSize: (options.infoFontSize || 110) + diff,
+                              infoTitleFontSize: (options.infoTitleFontSize || 140) + diff,
+                            });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                          title="主字體大小"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[80px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          描邊粗細:
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="15"
+                          value={
+                            options.simulatedOutlineWidth !== undefined
+                              ? options.simulatedOutlineWidth
+                              : 3
+                          }
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setOptions({
+                              ...options,
+                              simulatedOutlineWidth: val,
+                            });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap border-t border-[var(--app-border-light)] pt-3 mt-1">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          標題大小:
+                        </span>
+                        <input
+                          type="number"
+                          value={options.infoTitleFontSize || 140}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 140;
+                            setOptions({
+                              ...options,
+                              infoTitleFontSize: val,
+                            });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[100px]">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium whitespace-nowrap">
+                          內文大小:
+                        </span>
+                        <input
+                          type="number"
+                          value={options.infoFontSize || 110}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 110;
+                            setOptions({ ...options, infoFontSize: val });
+                          }}
+                          className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1.5 py-1 focus:outline-none focus:border-[var(--app-accent)] text-center font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-[var(--app-text-muted)] mt-auto leading-tight">
+                      字體外框皆固定從反（白字體配黑框，彩字體配白框）。
+                    </p>
+                  </div>
+                )}
+              </div>
+                {/* 字幕顏色設定 */}
+              <div className=" col-span-1 flex flex-col gap-1.5">
+                <div
+                  onClick={() => setColorConfigOpen(!colorConfigOpen)}
+                  className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                    isColorModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                  }`}
+                >
+                  <span>字幕顏色設定</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      disabled={!isColorModified}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetColorSettings();
+                        showToast("已還原字幕顏色設定預設值");
+                      }}
+                      className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                        isColorModified
+                          ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                          : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      還原預設
+                    </button>
+                    {colorConfigOpen ? (
+                      <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                    )}
+                  </div>
+                </div>
+
+                {colorConfigOpen && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded animate-in fade-in duration-200">
+                      {/* 已唱預設N（預設） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱預設N (預設)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.primaryColor}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                primaryColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.primaryColor.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱綠色G（合唱） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱綠色G (合唱)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.chorusColor}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                chorusColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.chorusColor.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱藍色B（男 or 第一人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱藍色B (男 or 第一人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.blueColor || "#2A04C8"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                blueColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.blueColor || "#2A04C8").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱紅色R（女 or 第二人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱紅色R (女 or 第二人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.color2}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                color2: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.color2.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱紫色P（第三人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱紫色P (第三人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.color3}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                color3: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {options.color3.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱橘色O（第四人） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          已唱橘色O (第四人)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.orangeColor || "#FF7F00"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                orangeColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.orangeColor || "#FF7F00").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 已唱灰色T（旁白） */}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium font-semibold">
+                          已唱灰色T (旁白)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.grayColor || "#9CA3AF"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                grayColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.grayColor || "#9CA3AF").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 開始資訊顏色 */}
+                      <div className="flex flex-col gap-1 border-t border-[var(--app-border-light)] pt-2 col-span-2 mt-1">
+                        <span className="text-[10px] text-[var(--app-accent)] font-semibold">
+                          開始資訊顏色
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
+                          標題顏色 (Title)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.songInfoTitleColor || "#BC2600"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                songInfoTitleColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.songInfoTitleColor || "#BC2600").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[var(--app-text-muted)] font-semibold font-medium">
+                          主唱/專輯文字顏色 (Info)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.songInfoArtistColor || "#2A04C8"}
+                            onChange={(e) =>
+                              setOptions({
+                                ...options,
+                                songInfoArtistColor: e.target.value,
+                              })
+                            }
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                            {(options.songInfoArtistColor || "#2A04C8").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* 密集測試區 */}
               {SHOW_INTERNAL_TEST_PARAMS && (
-                <div className="flex flex-col gap-1.5">
+                <div className=" col-span-1 flex flex-col gap-1.5">
                   <div
                     onClick={() => setTestParamsOpen(!testParamsOpen)}
                     className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
@@ -2459,409 +3017,6 @@ export function KtvAssExport() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Right Column */}
-            <div className="flex flex-col gap-5">
-              {/* 歌曲開始資訊 */}
-              <div className="flex flex-col gap-3 bg-[var(--app-bg-input)] p-3 border border-[var(--app-border-light)] rounded">
-                <div className="flex flex-wrap gap-2 justify-between items-center">
-                  <label className="font-semibold text-[var(--app-text-primary)] text-xs">
-                    歌曲開始資訊
-                  </label>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      onClick={handleImportFromTags}
-                      className="px-2 py-1 bg-[var(--app-bg-hover)] border border-[var(--app-border-light)] rounded text-[10px] text-[var(--app-text-primary)] hover:bg-[var(--app-border-base)] transition-colors"
-                    >
-                      由音檔標籤匯入
-                    </button>
-                    <button
-                      onClick={handleImportFromLrc}
-                      className="px-2 py-1 bg-[var(--app-bg-hover)] border border-[var(--app-border-light)] rounded text-[10px] text-[var(--app-text-primary)] hover:bg-[var(--app-border-base)] transition-colors"
-                    >
-                      由LRC屬性匯入
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-[60px_1fr] items-start gap-2">
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
-                    標題
-                  </span>
-                  <textarea
-                    rows={Math.max(1, (options.songInfoTitle || "").split("\n").length)}
-                    value={options.songInfoTitle}
-                    onChange={(e) => {
-                      const updated = {
-                        ...options,
-                        songInfoTitle: e.target.value,
-                      };
-                      setOptions(updated);
-                      syncToLrcMetadata(updated);
-                    }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
-                  />
-
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
-                    主唱
-                  </span>
-                  <textarea
-                    rows={Math.max(1, (options.songInfoArtist || "").split("\n").length)}
-                    value={options.songInfoArtist}
-                    onChange={(e) => {
-                      const updated = {
-                        ...options,
-                        songInfoArtist: e.target.value,
-                      };
-                      setOptions(updated);
-                      syncToLrcMetadata(updated);
-                    }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
-                  />
-
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1.5">
-                    專輯
-                  </span>
-                  <textarea
-                    rows={Math.max(1, (options.songInfoAlbum || "").split("\n").length)}
-                    value={options.songInfoAlbum}
-                    onChange={(e) => {
-                      const updated = {
-                        ...options,
-                        songInfoAlbum: e.target.value,
-                      };
-                      setOptions(updated);
-                      syncToLrcMetadata(updated);
-                    }}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] resize-none leading-normal overflow-y-hidden"
-                  />
-
-                  <span className="text-[var(--app-text-muted)] text-[10px] text-right self-start mt-1">
-                    自訂內容
-                  </span>
-                  <textarea
-                    value={options.songInfoCustom}
-                    onChange={(e) => {
-                      const updated = {
-                        ...options,
-                        songInfoCustom: e.target.value,
-                      };
-                      setOptions(updated);
-                      syncToLrcMetadata(updated);
-                    }}
-                    placeholder="例如：&#10;作詞：XXX&#10;作曲：OOO"
-                    rows={3}
-                    className="bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 focus:outline-none focus:border-[var(--app-accent)] text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] mb-1 resize-y"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 border-t border-[var(--app-border-light)] pt-2 mt-1">
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] transition-colors select-none">
-                    <input
-                      type="checkbox"
-                      checked={options.customStartInfoTime}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        const updated = {
-                          ...options,
-                          customStartInfoTime: checked,
-                        };
-                        setOptions(updated);
-                        syncToLrcMetadata(updated);
-                      }}
-                      className="accent-[var(--app-accent)]"
-                    />
-                    <span>特殊自訂顯示時間戳</span>
-                  </label>
-                </div>
-
-                {options.customStartInfoTime && (
-                  <div className="flex items-center gap-2 pl-[60px] animate-fade-in">
-                    <input
-                      type="text"
-                      value={startInput}
-                      onChange={handleStartInputChange}
-                      onBlur={handleStartInputBlur}
-                      className="w-24 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] text-center font-mono"
-                      title="Start Time"
-                    />
-                    <span className="text-[var(--app-text-muted)]">~</span>
-                    <input
-                      type="text"
-                      value={endInput}
-                      onChange={handleEndInputChange}
-                      onBlur={handleEndInputBlur}
-                      className="w-24 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] text-center font-mono"
-                      title="End Time"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* 自訂出版商Logo圖檔 */}
-              <div className="flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]">
-                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4" /> 自訂出版商 Logo 圖檔 (SVG)
-                </label>
-                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                  僅支援 SVG 向量格式，匯出時會轉為 ASS
-                  內嵌向量圖。目前測試階段固定顯示於左上角（左距 dualRowMarginL、上距
-                  dualRowMarginV，等比例縮小至最大寬高範圍）。
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept=".svg,image/svg+xml"
-                    onChange={handleInterludeLogoUpload}
-                    className="text-xs bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded py-1.5 px-2 w-full text-[var(--app-text-primary)] border-dashed border-[var(--app-border-light)] file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[var(--app-bg-hover)] file:text-[var(--app-text-primary)]"
-                  />
-                </div>
-                {options.interludeLogoSvg && (
-                  <div className="flex flex-col gap-2.5 mt-2 animate-fade-in border-t border-[var(--app-border-light)] pt-2.5">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={!!options.logoMonochrome}
-                          onChange={(e) => {
-                            const updated = {
-                              ...options,
-                              logoMonochrome: e.target.checked,
-                            };
-                            setOptions(updated);
-                            syncToLrcMetadata(updated);
-                          }}
-                          className="rounded border-[var(--app-border-input)]"
-                        />
-                        <span>變為單色</span>
-                      </label>
-                      <div
-                        className={`flex items-center gap-2 ${options.logoMonochrome ? "" : "opacity-40 pointer-events-none"}`}
-                      >
-                        <input
-                          type="color"
-                          value={options.logoMonochromeColor ?? "#FFFFFF"}
-                          disabled={!options.logoMonochrome}
-                          onChange={(e) => {
-                            const updated = {
-                              ...options,
-                              logoMonochromeColor: e.target.value,
-                            };
-                            setOptions(updated);
-                            syncToLrcMetadata(updated);
-                          }}
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
-                          {(options.logoMonochromeColor ?? "#FFFFFF").toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <label className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-primary)] cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={!!options.logoOutlineEnabled}
-                          onChange={(e) => {
-                            const updated = {
-                              ...options,
-                              logoOutlineEnabled: e.target.checked,
-                            };
-                            setOptions(updated);
-                            syncToLrcMetadata(updated);
-                          }}
-                          className="rounded border-[var(--app-border-input)]"
-                        />
-                        <span>外框描邊</span>
-                      </label>
-                      <div
-                        className={`flex items-center gap-2 ${options.logoOutlineEnabled ? "" : "opacity-40 pointer-events-none"}`}
-                      >
-                        <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
-                          <span>粗細</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            step={1}
-                            value={options.logoOutlineWidth ?? 3}
-                            disabled={!options.logoOutlineEnabled}
-                            onChange={(e) => {
-                              const updated = {
-                                ...options,
-                                logoOutlineWidth: parseInt(e.target.value, 10) || 1,
-                              };
-                              setOptions(updated);
-                              syncToLrcMetadata(updated);
-                            }}
-                            className="w-12 bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-1 py-0.5 text-[10px] text-center font-mono disabled:cursor-not-allowed"
-                          />
-                          <span>px</span>
-                        </label>
-                        <input
-                          type="color"
-                          value={options.logoOutlineColor ?? "#FFFFFF"}
-                          disabled={!options.logoOutlineEnabled}
-                          onChange={(e) => {
-                            const updated = {
-                              ...options,
-                              logoOutlineColor: e.target.value,
-                            };
-                            setOptions(updated);
-                            syncToLrcMetadata(updated);
-                          }}
-                          className="h-6 w-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0 disabled:cursor-not-allowed"
-                        />
-                        <span className="font-mono text-[10px] text-[var(--app-text-muted)]">
-                          {(options.logoOutlineColor ?? "#FFFFFF").toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                      外框沿 Logo 實際形狀描邊，非方形外圍；可保留原色並加白邊提升辨識度。
-                    </p>
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-12 h-12 shrink-0 border border-[var(--app-border-light)] rounded bg-white/10 flex items-center justify-center overflow-hidden"
-                        dangerouslySetInnerHTML={{
-                          __html: interludeLogoPreviewSvg,
-                        }}
-                      />
-                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[150px] font-mono leading-none">
-                            {interludeLogoFileName || "從 LRC 載入的 SVG 圖檔"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              try {
-                                const svgToSave = options.logoMonochrome
-                                  ? recolorSvgMonochrome(
-                                      options.interludeLogoSvg!,
-                                      options.logoMonochromeColor ?? "#FFFFFF",
-                                    )
-                                  : options.interludeLogoSvg!;
-                                const blob = new Blob([svgToSave], {
-                                  type: "image/svg+xml;charset=utf-8",
-                                });
-                                const url = URL.createObjectURL(blob);
-                                const link = document.createElement("a");
-                                link.href = url;
-                                link.download = interludeLogoFileName || "publisher_logo.svg";
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                URL.revokeObjectURL(url);
-                                showToast("已另存 Logo 圖片");
-                              } catch (err) {
-                                showToast("儲存失敗，請重試");
-                              }
-                            }}
-                            className="shrink-0 flex items-center gap-1 py-0.5 px-2 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-200 transition-colors border border-blue-500/20 text-[10px] font-medium"
-                          >
-                            <span>另存這張圖片</span>
-                          </button>
-                        </div>
-                        <div className="mt-1">
-                          <button
-                            type="button"
-                            onClick={handleClearInterludeLogo}
-                            className="flex items-center gap-1 py-0.5 px-2 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 text-[10px] font-medium w-fit"
-                            title="清除已選的圖片"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>清除已選的圖片</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 特殊自訂不要顯示 Logo 時段 */}
-              <div
-                id="exclude-logo-intervals"
-                className="flex flex-col gap-2 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)]"
-              >
-                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-orange-400" /> 特殊指定不顯示 Logo 時段
-                </label>
-                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                  可自訂特定時間戳範圍不要出現任何 Logo，時間戳核心顯示如歌詞不受影響。
-                </p>
-
-                {/* 新增區段 */}
-                <div className="flex gap-2.5 items-end bg-[var(--app-bg-panel)] p-2.5 rounded border border-[var(--app-border-light)] z-10">
-                  <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                      開始時間 (mm:ss.cs/ms)
-                    </span>
-                    <input
-                      type="text"
-                      id="exclude-start-input"
-                      value={newExcludeStart}
-                      onChange={(e) => setNewExcludeStart(e.target.value)}
-                      placeholder="01:11.099"
-                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                      結束時間 (mm:ss.cs/ms)
-                    </span>
-                    <input
-                      type="text"
-                      id="exclude-end-input"
-                      value={newExcludeEnd}
-                      onChange={(e) => setNewExcludeEnd(e.target.value)}
-                      placeholder="01:17.211"
-                      className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-input)] rounded px-2.5 py-1 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] font-mono text-center"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddExcludeInterval}
-                    className="shrink-0 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black font-semibold text-xs py-1.5 px-3 rounded transition-colors flex items-center gap-1 h-[26px]"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>新增</span>
-                  </button>
-                </div>
-
-                {/* 清單顯示 */}
-                <div className="flex flex-col gap-1.5 mt-1 max-h-[180px] overflow-y-auto pr-1">
-                  {parsedIntervals.length === 0 ? (
-                    <div className="text-[10px] text-[var(--app-text-muted)] text-center py-2.5 bg-black/10 rounded border border-dashed border-[var(--app-border-light)]">
-                      尚未新增任何不顯示 Logo 的時段
-                    </div>
-                  ) : (
-                    parsedIntervals.map((interval, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between text-xs font-mono bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] rounded px-2.5 py-1.5 hover:bg-[var(--app-bg-hover)] transition-colors group"
-                      >
-                        <div className="flex items-center gap-2 text-[var(--app-text-primary)]">
-                          <Clock className="w-3.5 h-3.5 text-orange-400/70" />
-                          <span>{interval.startStr}</span>
-                          <span className="text-[var(--app-text-muted)]">➔</span>
-                          <span>{interval.endStr}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExcludeInterval(index)}
-                          className="p-1 rounded hover:bg-red-500/10 text-[var(--app-text-muted)] hover:text-red-400 transition-colors"
-                          title="刪除此時段"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
             </div>
           </div>
