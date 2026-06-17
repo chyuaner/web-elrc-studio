@@ -2,7 +2,7 @@
   "name": "web-elrc-studio",
   "version": "0.1.0",
   "private": true,
-  "license": "CC-BY-NC-SA-4.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev",
     "build": "next build && node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true }); fs.renameSync('out', 'dist');\"",

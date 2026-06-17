@@ -31,8 +31,8 @@ export function AboutDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
           </a>
         </p>
 
-        <p className="flex items-center gap-2 text-green-600 dark:text-green-400 font-medium pb-2 border-b border-[var(--app-border-base)]">
-          <ShieldCheck size={18} /> 本專案採用 CC BY-NC-SA 4.0 授權
+        <p className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium pb-2 border-b border-[var(--app-border-base)]">
+          <ShieldCheck size={18} /> 本專案採用 GNU AGPL v3 授權
         </p>
 
         <div className="bg-[var(--app-bg-hover)] p-5 rounded-md space-y-3 border border-[var(--app-border-light)] relative overflow-hidden">
@@ -61,7 +61,7 @@ export function AboutDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () 
               <strong>聲明：</strong> 本專案大部分程式碼是由 AI (Gemini / AI Studio / Cursor)
               輔助生成，但我仍然投入了大量的心力在「需求規劃、UX
               設計、互動邏輯與功能調校」上。本著「取之於開源，用之於開源」的精神，本專案採用{" "}
-              <strong>CC BY-NC-SA 4.0</strong> 授權。
+              <strong>GNU AGPL v3</strong> 授權。
             </p>
 
             <p className="leading-relaxed bg-red-500/10 border-l-4 border-red-500 p-3 rounded-r text-[var(--app-text-primary)]">
