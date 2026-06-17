@@ -1231,18 +1231,19 @@ export function KtvAssExport() {
           {/* ==================== 永久設定區 ==================== */}
           <div className="flex flex-col gap-4">
             {/* Notice Banner: 永久設定區 */}
-            {/* Notice Banner: 永久設定區 */}
-              <div className=" bg-emerald-500/10 border border-emerald-500/20 rounded p-3 text-emerald-400 flex items-start gap-2.5">
-                <div className="bg-emerald-500/15 p-1.5 rounded text-emerald-300 shrink-0">
-                  <Save className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-emerald-300">永久設定區 (會存入 .lrc 歌詞屬性)</div>
-                  <p className="text-[10px] text-emerald-400/80 leading-relaxed mt-0.5 animate-pulse-subtle">
-                    本欄設定（開場標題、Logo圖檔、排除時段、間奏時間）將隨歌詞檔（.lrc）永久儲存，未來匯入同一首歌詞將會自動套用原設定。
-                  </p>
-                </div>
+            <div className="flex items-start gap-2.5 px-0.5 py-1">
+              <div className="p-1 rounded text-[var(--app-text-muted)] shrink-0">
+                <Save className="w-4 h-4" />
               </div>
+              <div className="flex-1">
+                <div className="font-bold text-sm text-[var(--app-text-primary)]">
+                  永久設定區 <span className="text-xs font-normal text-[var(--app-text-muted)] ml-2">(會存入 .lrc 歌詞屬性)</span>
+                </div>
+                <p className="text-[11px] text-[var(--app-text-secondary)] leading-relaxed mt-1">
+                  本欄設定（開場標題、Logo圖檔、排除時段、間奏時間）將隨歌詞檔（.lrc）永久儲存，未來匯入同一首歌詞將會自動套用原設定。
+                </p>
+              </div>
+            </div>
 
             {/* Grid layout for columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-1">
@@ -1753,18 +1754,19 @@ export function KtvAssExport() {
           {/* ==================== 單次輸出設定區 ==================== */}
           <div className="flex flex-col gap-4">
             {/* Notice Banner: 單次輸出設定區 */}
-            {/* Notice Banner: 單次輸出設定區 */ }
-              <div className=" bg-zinc-500/10 border border-zinc-500/20 rounded p-3 text-[var(--app-text-secondary)] flex items-start gap-2.5">
-                <div className="bg-zinc-500/15 p-1.5 rounded text-[var(--app-text-muted)] shrink-0">
-                  <SlidersHorizontal className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-[var(--app-text-primary)]">單次輸出設定區 (不寫入歌詞檔)</div>
-                  <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed mt-0.5">
-                    本欄設定（視訊尺寸、字體、字幕顏色、倒數小圓）僅供本次或輸出時調整，不會寫入 .lrc 歌詞編輯檔內。
-                  </p>
-                </div>
+            <div className="flex items-start gap-2.5 px-0.5 py-1">
+              <div className="p-1 rounded text-[var(--app-text-muted)] shrink-0">
+                <SlidersHorizontal className="w-4 h-4" />
               </div>
+              <div className="flex-1">
+                <div className="font-bold text-sm text-[var(--app-text-primary)]">
+                  單次輸出設定區 <span className="text-xs font-normal text-[var(--app-text-muted)] ml-2">(不寫入歌詞檔)</span>
+                </div>
+                <p className="text-[11px] text-[var(--app-text-secondary)] leading-relaxed mt-1">
+                  本欄設定（視訊尺寸、字體、字幕顏色、倒數小圓）僅供本次或輸出時調整，不會寫入 .lrc 歌詞編輯檔內。
+                </p>
+              </div>
+            </div>
 
             {/* Grid layout for columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-1">
