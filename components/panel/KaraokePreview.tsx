@@ -251,6 +251,11 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     };
   }, []);
 
+  const isHexColor = (style?: string): boolean => {
+    if (!style) return false;
+    return /^#[0-9A-Fa-f]{6}$/.test(style);
+  };
+
   const getStyleClasses = (style?: string) => {
     switch (style?.toUpperCase()) {
       case "B":
@@ -305,72 +310,102 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     }
   };
 
-  const getWordColor = (lineIdx: number, wordIdx: number) => {
+  const getWordStyleAndClass = (lineIdx: number, wordIdx: number): { className: string; style?: React.CSSProperties } => {
     const line = lines[lineIdx];
-    if (!line) return "";
+    if (!line) return { className: "" };
     const word = line.words[wordIdx];
     const effectiveStyle = word?.style || line.style;
     const theme = getStyleClasses(effectiveStyle);
+    const isHex = isHexColor(effectiveStyle);
+
+    let status: "past" | "current" | "future" = "future";
 
     // Check if we are currently displaying an overlapping duet pair
     const inActivePair = !!activePair;
 
     if (inActivePair) {
       if (line.start === null) {
-        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
-      }
+        status = "future";
+      } else {
+        const endTime = getLineEndTime(lineIdx);
 
-      const endTime = getLineEndTime(lineIdx);
+        if (currentTime < line.start) {
+          status = "future";
+        } else if (currentTime >= endTime) {
+          status = "past";
+        } else {
+          const isLineSynced = line.words.every((w: any) => w.start === null);
+          if (syncMode === "line" || isLineSynced) {
+            status = "current";
+          } else {
+            let foundWIndex = 0;
+            for (let w = line.words.length - 1; w >= 0; w--) {
+              const wStart = line.words[w].start;
+              if (wStart !== null && wStart <= currentTime) {
+                foundWIndex = w;
+                break;
+              }
+            }
 
-      if (currentTime < line.start) {
-        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
-      }
-
-      if (currentTime >= endTime) {
-        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-      }
-
-      const isLineSynced = line.words.every((w: any) => w.start === null);
-      if (syncMode === "line" || isLineSynced) {
-        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
-      }
-
-      let foundWIndex = 0;
-      for (let w = line.words.length - 1; w >= 0; w--) {
-        const wStart = line.words[w].start;
-        if (wStart !== null && wStart <= currentTime) {
-          foundWIndex = w;
-          break;
+            if (wordIdx < foundWIndex) {
+              status = "past";
+            } else if (wordIdx === foundWIndex) {
+              status = "current";
+            } else {
+              status = "future";
+            }
+          }
         }
       }
-
-      if (wordIdx < foundWIndex) {
-        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-      } else if (wordIdx === foundWIndex) {
-        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+    } else {
+      // Fallback to original index-based highlighting when no duet overlap is active (perfect for standard stamping/editing)
+      if (lineIdx < activeLineIndex) {
+        status = "past";
+      } else if (lineIdx === activeLineIndex) {
+        const isLineSynced = lines[lineIdx].words.every((w: any) => w.start === null);
+        if (syncMode === "line" || isLineSynced) {
+          status = "current";
+        } else if (wordIdx < activeWordIndex) {
+          status = "past";
+        } else if (wordIdx === activeWordIndex) {
+          status = "current";
+        } else {
+          status = "future";
+        }
       } else {
-        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+        status = "future";
       }
     }
 
-    // Fallback to original index-based highlighting when no duet overlap is active (perfect for standard stamping/editing)
-    if (lineIdx < activeLineIndex) {
-      return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-    } else if (lineIdx === activeLineIndex) {
-      const isLineSynced = lines[lineIdx].words.every((w: any) => w.start === null);
-      if (syncMode === "line" || isLineSynced) {
-        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
-      }
-      if (wordIdx < activeWordIndex) {
-        return `${theme.past} border-b-4 border-transparent pb-1 transition-all`;
-      } else if (wordIdx === activeWordIndex) {
-        return `${theme.current} border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+    let baseClass = "";
+    const inlineStyle: React.CSSProperties = {};
+
+    if (status === "past") {
+      baseClass = `border-b-4 border-transparent pb-1 transition-all`;
+      if (isHex) {
+        inlineStyle.color = effectiveStyle;
+        inlineStyle.filter = `drop-shadow(0 0 8px ${effectiveStyle}CC)`;
       } else {
-        return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+        baseClass += ` ${theme.past}`;
+      }
+    } else if (status === "current") {
+      baseClass = `border-b-4 pb-1 transition-all relative transform scale-105 origin-bottom z-10`;
+      if (isHex) {
+        inlineStyle.color = "var(--app-text-primary)";
+        inlineStyle.borderColor = effectiveStyle;
+      } else {
+        baseClass += ` ${theme.current}`;
       }
     } else {
-      return `${theme.future} border-b-4 border-transparent pb-1 transition-colors`;
+      baseClass = `border-b-4 border-transparent pb-1 transition-colors`;
+      if (isHex) {
+        inlineStyle.color = `${effectiveStyle}66`; // ~40% opacity
+      } else {
+        baseClass += ` ${theme.future}`;
+      }
     }
+
+    return { className: baseClass, style: inlineStyle };
   };
 
   let dotsCount = 0;
@@ -459,11 +494,14 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                       <p
                         className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopCentered ? "justify-center text-center" : "justify-start text-left"}`}
                       >
-                        {lines[topIndex].words.map((w: any, i: number) => (
-                          <span key={i} className={getWordColor(topIndex, i)}>
-                            {w.text || (i === lines[topIndex].words.length - 1 ? "⏎" : "")}
-                          </span>
-                        ))}
+                        {lines[topIndex].words.map((w: any, i: number) => {
+                          const { className, style } = getWordStyleAndClass(topIndex, i);
+                          return (
+                            <span key={i} className={className} style={style}>
+                              {w.text || (i === lines[topIndex].words.length - 1 ? "⏎" : "")}
+                            </span>
+                          );
+                        })}
                       </p>
                     </div>
                   </>
@@ -507,11 +545,14 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                       <p
                         className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomCentered ? "justify-center text-center" : "justify-end text-right"}`}
                       >
-                        {lines[bottomIndex].words.map((w: any, i: number) => (
-                          <span key={i} className={getWordColor(bottomIndex, i)}>
-                            {w.text || (i === lines[bottomIndex].words.length - 1 ? "⏎" : "")}
-                          </span>
-                        ))}
+                        {lines[bottomIndex].words.map((w: any, i: number) => {
+                          const { className, style } = getWordStyleAndClass(bottomIndex, i);
+                          return (
+                            <span key={i} className={className} style={style}>
+                              {w.text || (i === lines[bottomIndex].words.length - 1 ? "⏎" : "")}
+                            </span>
+                          );
+                        })}
                       </p>
                     </div>
                   </>

@@ -256,6 +256,7 @@ export function SyncEditor() {
     shiftTimeFromIndex,
     shiftTime,
     touchUIMode,
+    showToast,
   } = useEditor();
 
   const dialogs = useDialogs();
@@ -1220,6 +1221,26 @@ export function SyncEditor() {
                     setCtxMenu(null);
                   }}
                 />
+                {lines[ctxMenu.globalIndex]?.style?.startsWith("#") && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      icon={
+                        <span className="w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] text-red-500 border border-red-500 bg-red-500/10">
+                          ✕
+                        </span>
+                      }
+                      label={`清除自訂 Hex (${lines[ctxMenu.globalIndex]?.style})`}
+                      onClick={() => {
+                        const currentVal = lines[ctxMenu.globalIndex]?.style || "";
+                        if (currentVal.startsWith("#")) {
+                          handleSetLineStyle(ctxMenu.globalIndex, currentVal); // toggles off
+                        }
+                        setCtxMenu(null);
+                      }}
+                    />
+                  </>
+                )}
               </ContextMenuSub>
               <ContextMenuItem
                 icon={
@@ -1584,6 +1605,26 @@ export function SyncEditor() {
                     setCtxMenu(null);
                   }}
                 />
+                {lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style?.startsWith("#") && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      icon={
+                        <span className="w-3.5 h-3.5 rounded flex items-center justify-center font-bold text-[10px] text-red-500 border border-red-500 bg-red-500/10">
+                          ✕
+                        </span>
+                      }
+                      label={`清除自訂 Hex (${lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style})`}
+                      onClick={() => {
+                        const currentVal = lines[ctxMenu.globalIndex]?.words[ctxMenu.wordIndex!]?.style || "";
+                        if (currentVal.startsWith("#")) {
+                          handleSetWordStyle(ctxMenu.globalIndex, ctxMenu.wordIndex!, currentVal); // toggles off
+                        }
+                        setCtxMenu(null);
+                      }}
+                    />
+                  </>
+                )}
               </ContextMenuSub>
               <ContextMenuSeparator />
               <ContextMenuItem

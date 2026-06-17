@@ -158,6 +158,9 @@ function getLineEndTime(line: LyricLine): number {
 }
 
 function getStyleColor(styleId: string | undefined, options: AssOptions): string {
+  if (styleId && /^#[0-9A-Fa-f]{6}$/.test(styleId)) {
+    return hexToAssColor(styleId);
+  }
   switch (styleId?.toUpperCase()) {
     case "R":
       return hexToAssColor(options.color2);

@@ -3,6 +3,11 @@ import { formatTime } from "@/lib/lyric-utils";
 import React from "react";
 import { useEditor } from "@/components/base/EditorProvider";
 
+const isHexColor = (style?: string): boolean => {
+  if (!style) return false;
+  return /^#[0-9A-Fa-f]{6}$/.test(style);
+};
+
 const getStyleColorClass = (style?: string, isWarning: boolean = false) => {
   switch (style?.toUpperCase()) {
     case "B":
@@ -115,7 +120,8 @@ export function LyricCellContent({
         title="Click to seek / Right click for options"
       >
         <span
-          className={`${isStamped ? getStyleColorClass(line.style) : "opacity-30"} ${line._isStyleBoundary ? "font-bold underline decoration-2 underline-offset-4" : ""}`}
+          className={`${isStamped && !isHexColor(line.style) ? getStyleColorClass(line.style) : isStamped ? "" : "opacity-30"} ${line._isStyleBoundary ? "font-bold underline decoration-2 underline-offset-4" : ""}`}
+          style={isStamped && isHexColor(line.style) ? { color: line.style } : undefined}
         >
           {isStamped ? formatTime(line.start) : "--:--.--"}
         </span>
@@ -123,7 +129,12 @@ export function LyricCellContent({
 
       <div className={`flex-1 leading-relaxed ${isActive ? "font-medium" : ""}`}>
         {syncMode === "line" ? (
-          <span className={line.style ? getStyleColorClass(line.style) : ""}>{line.raw}</span>
+          <span
+            className={line.style && !isHexColor(line.style) ? getStyleColorClass(line.style) : ""}
+            style={line.style && isHexColor(line.style) ? { color: line.style } : undefined}
+          >
+            {line.raw}
+          </span>
         ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1">
             {(() => {
@@ -141,9 +152,19 @@ export function LyricCellContent({
                   const effectiveWordStyle = word.style || line.style;
                   const isBoundary = word._isStyleBoundary;
 
-                  let customBg = isBoundary ? getStyleBgClass(word.style) : "";
+                  const wordIsHex = isHexColor(effectiveWordStyle);
+                  let customBg = isBoundary ? (isHexColor(word.style) ? "" : getStyleBgClass(word.style)) : "";
                   if (isBoundary && !word.style) {
                     customBg = "bg-[var(--app-accent)]/10 border border-[var(--app-accent)]/80";
+                  }
+
+                  const inlineStyle: React.CSSProperties = {};
+                  if (wordIsHex && !isWordActive) {
+                    inlineStyle.color = effectiveWordStyle;
+                    if (isBoundary && word.style) {
+                      inlineStyle.backgroundColor = `${word.style}33`; // ~20% opacity
+                      inlineStyle.border = `1px solid ${word.style}CC`; // ~80% opacity
+                    }
                   }
 
                   return (
@@ -156,9 +177,10 @@ export function LyricCellContent({
                         className={`
                         px-1 py-0.5 rounded transition-all select-none whitespace-pre-wrap
                         ${isWordActive ? "bg-[var(--app-accent)] text-black font-bold ring-2 ring-[var(--app-accent)]/50 cursor-pointer" : "cursor-pointer"}
-                        ${isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/30` : `${getStyleColorClass(effectiveWordStyle)} ${customBg || "bg-[var(--app-border-base)]"}`) : ""}
-                        ${!isWordStamped && !isWordActive ? (isRed ? `${getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/20` : `text-[var(--app-text-muted)] ${customBg || "bg-[var(--app-bg-panel)]"}`) : ""}
+                        ${isWordStamped && !isWordActive ? (isRed ? `${wordIsHex ? "" : getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/30` : `${wordIsHex ? "" : getStyleColorClass(effectiveWordStyle)} ${customBg || "bg-[var(--app-border-base)]"}`) : ""}
+                        ${!isWordStamped && !isWordActive ? (isRed ? `${wordIsHex ? "" : getStyleColorClass(effectiveWordStyle, true)} font-bold bg-red-500/10 border border-red-500/20` : `${wordIsHex ? "" : "text-[var(--app-text-muted)]"} ${customBg || "bg-[var(--app-bg-panel)]"}`) : ""}
                       `}
+                        style={inlineStyle}
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveLineIndex(globalIndex);
