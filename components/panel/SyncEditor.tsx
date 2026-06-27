@@ -846,6 +846,63 @@ export function SyncEditor() {
     }, "這段字轉簡體");
   };
 
+  const handleExtendEndingTime = useCallback(
+    (globalIndex: number, extendSeconds: number) => {
+      commitLines((prev) => {
+        const newLines = [...prev];
+        const line = { ...newLines[globalIndex] };
+        const words = [...line.words];
+
+        if (words.length === 0) {
+          return prev;
+        }
+
+        // Find the last word that has a valid timestamp to use as the base time
+        let lastTimedWordIndex = -1;
+        for (let i = words.length - 1; i >= 0; i--) {
+          if (words[i].start !== null) {
+            lastTimedWordIndex = i;
+            break;
+          }
+        }
+
+        let baseTime = 0;
+        if (lastTimedWordIndex !== -1) {
+          baseTime = words[lastTimedWordIndex].start ?? 0;
+        } else if (line.start !== null) {
+          baseTime = line.start;
+        } else {
+          return prev;
+        }
+
+        const newTime = parseFloat((baseTime + extendSeconds).toFixed(3));
+        const updatedWords = [...words];
+        updatedWords.push({
+          text: "",
+          start: newTime,
+          end: null,
+        });
+        line.words = updatedWords;
+
+        line.raw = line.words
+          .map((w) => {
+            let prefix = w.style ? `<kstyle:${w.style}>` : "";
+            if (w.start !== null) {
+              return `${prefix}<${formatTime(w.start, true)}>${w.text}`;
+            }
+            return `${prefix}${w.text}`;
+          })
+          .join("");
+
+        newLines[globalIndex] = line;
+        return newLines;
+      }, `延長結尾時間 +${extendSeconds}秒`);
+
+      // showToast(`已成功延長結尾時間 +${extendSeconds}秒`);
+    },
+    [commitLines, showToast],
+  );
+
   return (
     <div className="contents lg:flex lg:flex-col lg:h-full lg:bg-[var(--app-bg-base)]">
       <div className="p-3 bg-[var(--app-bg-panel-alt)] flex flex-wrap items-center justify-between shrink-0 gap-2 lg:static z-20">
@@ -1296,6 +1353,43 @@ export function SyncEditor() {
                   setCtxMenu(null);
                 }}
               />
+              <ContextMenuSub
+                icon={
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px] text-amber-500">
+                    +T
+                  </span>
+                }
+                label="插入延長結尾時間"
+              >
+                <ContextMenuItem
+                  label="0.3秒"
+                  onClick={() => {
+                    handleExtendEndingTime(ctxMenu.globalIndex, 0.3);
+                    setCtxMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  label="0.5秒"
+                  onClick={() => {
+                    handleExtendEndingTime(ctxMenu.globalIndex, 0.5);
+                    setCtxMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  label="1秒"
+                  onClick={() => {
+                    handleExtendEndingTime(ctxMenu.globalIndex, 1.0);
+                    setCtxMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  label="1.5秒"
+                  onClick={() => {
+                    handleExtendEndingTime(ctxMenu.globalIndex, 1.5);
+                    setCtxMenu(null);
+                  }}
+                />
+              </ContextMenuSub>
               <ContextMenuSeparator />
               <ContextMenuItem
                 icon={
