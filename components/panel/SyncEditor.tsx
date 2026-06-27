@@ -867,8 +867,19 @@ export function SyncEditor() {
         }
 
         let baseTime = 0;
+        const updatedWords = [...words];
+
         if (lastTimedWordIndex !== -1) {
-          baseTime = words[lastTimedWordIndex].start ?? 0;
+          const lastWord = updatedWords[lastTimedWordIndex];
+          baseTime = lastWord.start ?? 0;
+          
+          // If the last timed word has empty text or is already space, set it to " " (single space)
+          if (lastWord.text === "" || lastWord.text === " ") {
+            updatedWords[lastTimedWordIndex] = {
+              ...lastWord,
+              text: " ",
+            };
+          }
         } else if (line.start !== null) {
           baseTime = line.start;
         } else {
@@ -876,7 +887,6 @@ export function SyncEditor() {
         }
 
         const newTime = parseFloat((baseTime + extendSeconds).toFixed(3));
-        const updatedWords = [...words];
         updatedWords.push({
           text: "",
           start: newTime,
