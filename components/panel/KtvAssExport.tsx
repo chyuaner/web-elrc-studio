@@ -25,6 +25,7 @@ import {
   Save,
   Pencil,
   X,
+  Info,
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -38,6 +39,83 @@ type FfmpegFilenameCompatOs = "unix" | "windows";
 function detectFfmpegFilenameCompatOs(): FfmpegFilenameCompatOs {
   if (typeof navigator === "undefined") return "unix";
   return /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent) ? "windows" : "unix";
+}
+
+async function checkLocalFontInstalled(fontName: string): Promise<boolean> {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+
+  // Try Local Font Access API if supported (Chrome, Edge etc.)
+  if ("queryLocalFonts" in window) {
+    try {
+      const availableFonts = await (window as any).queryLocalFonts();
+      const isInstalled = availableFonts.some((f: any) =>
+        f.family.toLowerCase() === fontName.toLowerCase() ||
+        f.fullName.toLowerCase() === fontName.toLowerCase() ||
+        f.postscriptName.toLowerCase() === fontName.toLowerCase()
+      );
+      if (isInstalled) return true;
+    } catch (e) {
+      // Ignore error and fall back to canvas test
+    }
+  }
+
+  // Create a temporary unique font-family name
+  const tempFamily = `TempCheck_${Math.random().toString(36).substring(2, 9)}`;
+
+  // Create a <style> element with src: local('fontName')
+  const style = document.createElement("style");
+  style.textContent = `
+    @font-face {
+      font-family: '${tempFamily}';
+      src: local('${fontName}');
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Give the browser 50ms to register/load the local font reference
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    if (document.head.contains(style)) {
+      document.head.removeChild(style);
+    }
+    return false;
+  }
+
+  const testText = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+  // Base widths of fallbacks
+  ctx.font = "72px monospace";
+  const monoWidth = ctx.measureText(testText).width;
+
+  ctx.font = "72px sans-serif";
+  const sansWidth = ctx.measureText(testText).width;
+
+  ctx.font = "72px serif";
+  const serifWidth = ctx.measureText(testText).width;
+
+  // Widths using our temporary font family
+  ctx.font = `72px '${tempFamily}', monospace`;
+  const testMonoWidth = ctx.measureText(testText).width;
+
+  ctx.font = `72px '${tempFamily}', sans-serif`;
+  const testSansWidth = ctx.measureText(testText).width;
+
+  ctx.font = `72px '${tempFamily}', serif`;
+  const testSerifWidth = ctx.measureText(testText).width;
+
+  if (document.head.contains(style)) {
+    document.head.removeChild(style);
+  }
+
+  // If local font is installed, its width will be different from fallback widths in at least one case
+  return (
+    testMonoWidth !== monoWidth ||
+    testSansWidth !== sansWidth ||
+    testSerifWidth !== serifWidth
+  );
 }
 
 async function hasNvidiaGpu(): Promise<boolean> {
@@ -255,6 +333,25 @@ export function KtvAssExport() {
   const [previewBgColor, setPreviewBgColor] = useState("#0b0c10");
   const [showPreviewGrid, setShowPreviewGrid] = useState(true);
   const [testParamsOpen, setTestParamsOpen] = useState(false);
+  const [fontsList, setFontsList] = useState<any[]>([]);
+  const [fontCheckDialog, setFontCheckDialog] = useState<{
+    isOpen: boolean;
+    missingFontName: string;
+    matchedFont: any | null;
+    fallbackFont: any | null;
+  }>({
+    isOpen: false,
+    missingFontName: "",
+    matchedFont: null,
+    fallbackFont: null,
+  });
+
+  useEffect(() => {
+    fetch("/api/fonts")
+      .then((r) => r.json())
+      .then((data) => setFontsList(data))
+      .catch((e) => console.error("Could not load fonts in KtvAssExport", e));
+  }, []);
   const [burnVideoDialogOpen, setBurnVideoDialogOpen] = useState(false);
   const [rawPreviewOpen, setRawPreviewOpen] = useState(false);
   const [ffmpegMode, setFfmpegMode] = useState<"cpu" | "nvidia">("cpu");
@@ -789,7 +886,7 @@ export function KtvAssExport() {
     showToast("已清除 Logo 圖檔");
   };
 
-  const handleDownload = async () => {
+  const executeDownloadWithContent = async (contentToDownload: string) => {
     const electronAPI = (window as any).electronAPI;
 
     // Create base filename from audio or metadata
@@ -829,14 +926,14 @@ export function KtvAssExport() {
       });
 
       if (!result.canceled && result.filePath) {
-        await electronAPI.fsWriteFileText(result.filePath, assContent);
+        await electronAPI.fsWriteFileText(result.filePath, contentToDownload);
         showToast(`${i18n.savedTo || "已儲存至 "}${result.filePath}`);
         return;
       }
       if (result.canceled) return;
     }
 
-    const blob = new Blob([assContent], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([contentToDownload], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -851,6 +948,48 @@ export function KtvAssExport() {
       }
       URL.revokeObjectURL(url);
     });
+  };
+
+  const handleDownload = async () => {
+    await executeDownloadWithContent(assContent);
+  };
+
+  const handleDownloadClick = async () => {
+    const selectedFontName = options.fontFamily;
+    
+    // Check if the current font is installed locally
+    const isInstalled = await checkLocalFontInstalled(selectedFontName);
+    
+    if (isInstalled) {
+      // Installed, proceed to download directly
+      handleDownload();
+    } else {
+      // Not installed! Open warning Dialog
+      const matched = fontsList.find(
+        (f) => f.systemName.toLowerCase() === selectedFontName.toLowerCase()
+      ) || null;
+      
+      // Perform parallel installation checks for all fonts to find fallback options instantly
+      const checkResults = await Promise.all(
+        fontsList.map(async (font) => {
+          if (font.systemName.toLowerCase() === selectedFontName.toLowerCase()) {
+            return { font, available: false };
+          }
+          const available = await checkLocalFontInstalled(font.systemName);
+          return { font, available };
+        })
+      );
+      
+      const firstAvailableResult = checkResults.find((r) => r.available);
+      const foundFallback = firstAvailableResult ? firstAvailableResult.font : null;
+      
+      setFontCheckDialog({
+        isOpen: true,
+        missingFontName: selectedFontName,
+        matchedFont: matched,
+        fallbackFont: foundFallback,
+      });
+    }
   };
 
   const handleImportFromTags = () => {
@@ -1206,7 +1345,7 @@ export function KtvAssExport() {
           </a>
 
           <button
-            onClick={handleDownload}
+            onClick={handleDownloadClick}
             className="text-[11px] flex items-center gap-1.5 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-black px-3 py-1.5 rounded transition-colors font-bold z-10 animate-in fade-in duration-200"
           >
             <Download className="w-3.5 h-3.5" /> 下載 .ass 檔
@@ -3418,6 +3557,130 @@ export function KtvAssExport() {
               </li>
             </ol>
           </div>
+        </div>
+      </BaseDialog>
+
+      {/* 本機字體未安裝提醒 Dialog */}
+      <BaseDialog
+        isOpen={fontCheckDialog.isOpen}
+        onClose={() => setFontCheckDialog((prev) => ({ ...prev, isOpen: false }))}
+        title={
+          <span className="flex items-center gap-2 text-amber-500 font-bold">
+            <Info className="w-5 h-5 text-amber-500" /> 系統提示：本機尚未安裝該字型
+          </span>
+        }
+        maxWidthClass="max-w-xl"
+        footer={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full text-xs">
+            <button
+              onClick={() => {
+                setFontConfigOpen(true);
+                if (fontCheckDialog.fallbackFont) {
+                  const fb = fontCheckDialog.fallbackFont;
+                  const updates: any = { fontFamily: fb.systemName };
+                  if (fb.sizeOffset !== undefined) {
+                    updates.fontSizeOffset = fb.sizeOffset;
+                  }
+                  setOptions((prev) => {
+                    const nextOpts = { ...prev, ...updates };
+                    const newContent = generateAss(lines, lrcMetadata, {
+                      ...nextOpts,
+                      interludeThreshold: dualLineGapSec,
+                      songDuration: duration,
+                    });
+                    executeDownloadWithContent(newContent);
+                    return nextOpts;
+                  });
+                } else {
+                  const updates: any = { fontFamily: "PMingLiU" };
+                  setOptions((prev) => {
+                    const nextOpts = { ...prev, ...updates };
+                    const newContent = generateAss(lines, lrcMetadata, {
+                      ...nextOpts,
+                      interludeThreshold: dualLineGapSec,
+                      songDuration: duration,
+                    });
+                    executeDownloadWithContent(newContent);
+                    return nextOpts;
+                  });
+                }
+                setFontCheckDialog((prev) => ({ ...prev, isOpen: false }));
+              }}
+              className="px-4 py-2 bg-[var(--app-accent)] hover:opacity-90 text-black font-bold rounded transition-colors text-center flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+            >
+              {fontCheckDialog.fallbackFont ? (
+                `改用本機有安裝的「${fontCheckDialog.fallbackFont.displayName}」字型`
+              ) : (
+                "改用本機有安裝的預設字型"
+              )}
+            </button>
+            <button
+              onClick={() => {
+                handleDownload();
+                setFontCheckDialog((prev) => ({ ...prev, isOpen: false }));
+              }}
+              className="px-4 py-2 border border-[var(--app-border-base)] hover:bg-[var(--app-bg-hover)] text-[var(--app-text-primary)] font-semibold rounded transition-colors text-center cursor-pointer"
+            >
+              使用原選擇字型
+            </button>
+            <button
+              onClick={() => setFontCheckDialog((prev) => ({ ...prev, isOpen: false }))}
+              className="px-4 py-2 bg-[var(--app-bg-hover)] hover:bg-[var(--app-border-base)] text-[var(--app-text-primary)] font-semibold rounded transition-colors text-center cursor-pointer"
+            >
+              取消
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs sm:text-sm leading-relaxed text-[var(--app-text-secondary)]">
+          <p>
+            偵測到這台電腦上<strong>尚未安裝</strong>您目前為字幕選擇的本機字體：
+            <span className="block mt-2 px-3 py-2 bg-[var(--app-bg-panel-alt)] rounded font-mono font-bold text-amber-500 border border-[var(--app-border-light)] text-center text-xs">
+              {fontCheckDialog.missingFontName}
+            </span>
+          </p>
+          <p>
+            若您的電腦作業系統中沒有安裝此字體，在播放軟體（例如 VLC, PotPlayer, Aegisub 等）中播放 <code>.ass</code> 檔案時，將無法正確渲染出該字體的獨特樣式，會由播放器自動 fallback 替代。
+          </p>
+
+          {fontCheckDialog.matchedFont && (fontCheckDialog.matchedFont.filename || fontCheckDialog.matchedFont.officialUrl) ? (
+            <div className="p-3 bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-light)] rounded-lg space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-xs text-[var(--app-text-primary)]">
+                  {fontCheckDialog.matchedFont.displayName}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {fontCheckDialog.matchedFont.filename && (
+                    <a
+                      href={`/fonts/${fontCheckDialog.matchedFont.filename}`}
+                      download
+                      className="flex items-center gap-1 text-[10px] font-bold bg-[var(--app-accent)] hover:opacity-90 text-black px-2 py-1 rounded transition-colors shadow-sm"
+                      title="下載此字型的 TrueType (.ttf) 安裝檔案"
+                    >
+                      <Download className="w-3 h-3" /> 下載字型
+                    </a>
+                  )}
+                  {fontCheckDialog.matchedFont.officialUrl && (
+                    <a
+                      href={fontCheckDialog.matchedFont.officialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[10px] font-bold bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] text-[var(--app-text-primary)] hover:bg-[var(--app-bg-hover)] px-2 py-1 rounded transition-colors"
+                    >
+                      官方網站
+                    </a>
+                  )}
+                </div>
+              </div>
+              <p className="text-[10px] text-[var(--app-text-muted)] leading-normal">
+                💡 點擊「下載字型」即可取得安裝檔（.ttf），下載後在該檔案按右鍵選擇「安裝」或「為所有使用者安裝」，即可完成安裝。
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--app-text-muted)] bg-[var(--app-bg-panel-alt)] p-3 rounded border border-[var(--app-border-light)]">
+              💡 建議您可以下載安裝對應字型，或點擊下方的「改用本機有安裝的字型」自動替換為合適的本機字體下載。
+            </p>
+          )}
         </div>
       </BaseDialog>
     </div>
