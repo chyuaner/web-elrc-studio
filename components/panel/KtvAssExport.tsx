@@ -173,10 +173,10 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     orangeColor: "#FF7F00", // Orange
     grayColor: "#787d86", // Gray
     fontFamily: "Noto Sans CJK TC Medium",
-    fontSize: 130, // Default for BottomLeft
-    fontSizeOffset: 20, // Pre-offset for Noto Sans CJK TC Medium
-    infoFontSize: 100, // Default for CenterInfo (song info, fontSize - 40)
-    infoTitleFontSize: 125, // Default for red Title (fontSize - 10)
+    fontSize: 83, // Default for BottomLeft
+    fontSizeOffset: 67, // Pre-offset for Noto Sans CJK TC Medium
+    infoFontSize: 53, // Default for CenterInfo (song info, fontSize - 40)
+    infoTitleFontSize: 78, // Default for red Title (fontSize - 10)
     songInfoTitle: lrcMetadata.kti !== undefined ? lrcMetadata.kti : "",
     songInfoArtist: lrcMetadata.kar !== undefined ? lrcMetadata.kar : "",
     songInfoAlbum: lrcMetadata.kal !== undefined ? lrcMetadata.kal : "",

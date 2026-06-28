@@ -6,7 +6,7 @@
     "filename": "NotoSansCJKjp-Medium.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+TC",
-    "sizeOffset": 20
+    "sizeOffset": 67
   },
   {
     "id": "noto-sans-medium",
@@ -15,7 +15,7 @@
     "filename": "NotoSans-Medium.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+TC",
-    "sizeOffset": 8
+    "sizeOffset": 55
   },
   {
     "id": "taipei-sans-tc-bold",
@@ -25,7 +25,7 @@
     "filename": "TaipeiSansTCBeta-Bold.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://sites.google.com/view/jtfoundry/zh-tw",
-    "sizeOffset": -15
+    "sizeOffset": 32
   },
   {
     "id": "taipei-sans-tc",
@@ -34,7 +34,7 @@
     "filename": "TaipeiSansTCBeta-Regular.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://sites.google.com/view/jtfoundry/zh-tw",
-    "sizeOffset": -15
+    "sizeOffset": 32
   },
   {
     "id": "noto-sans-cjk-tc",
@@ -43,7 +43,7 @@
     "filename": "NotoSansCJKjp-Regular.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+TC",
-    "sizeOffset": 20
+    "sizeOffset": 67
   },
   {
     "id": "wqy-microhei",
@@ -52,7 +52,7 @@
     "filename": "WenQuanYiMicroHei.ttf",
     "license": "GPL v3 (with font exception) / Apache 2.0",
     "officialUrl": "http://wenq.org/wqy2/index.cgi?MicroHei",
-    "sizeOffset": -5
+    "sizeOffset": 42
   },
   {
     "id": "noto-sans",
@@ -61,7 +61,7 @@
     "filename": "NotoSans-Regular.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+TC",
-    "sizeOffset": 10
+    "sizeOffset": 57
   },
   {
     "id": "wqy-zenhei",
@@ -70,7 +70,7 @@
     "filename": "WenQuanYiZenHei.ttf",
     "license": "GPL v2 (with font exception)",
     "officialUrl": "http://wenq.org/wqy2/index.cgi?ZenHei",
-    "sizeOffset": 8
+    "sizeOffset": 55
   },
   {
     "id": "jf-open-huninn-2-1",
@@ -79,7 +79,7 @@
     "filename": "jf-openhuninn-2.1.ttf",
     "license": "SIL Open Font License 1.1",
     "officialUrl": "https://justfont.com/huninn/",
-    "sizeOffset": -5
+    "sizeOffset": 42
   },
   {
     "id": "lihei-pro",
@@ -88,7 +88,7 @@
     "filename": "",
     "license": "macOS 內置字體",
     "officialUrl": "https://developer.apple.com/fonts/",
-    "sizeOffset": -30
+    "sizeOffset": 17
   },
   {
     "id": "ms-yahei",
@@ -97,7 +97,7 @@
     "filename": "",
     "license": "Windows 內置字體",
     "officialUrl": "https://docs.microsoft.com/en-us/typography/font-list/microsoft-yahei",
-    "sizeOffset": 5
+    "sizeOffset": 54
   },
   {
     "id": "ms-jhenghei",
@@ -106,6 +106,6 @@
     "filename": "",
     "license": "Windows 內置字體",
     "officialUrl": "https://docs.microsoft.com/en-us/typography/font-list/microsoft-jhenghei",
-    "sizeOffset": 5
+    "sizeOffset": 54
   }
 ]
