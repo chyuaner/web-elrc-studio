@@ -446,8 +446,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
 
   if (overlapsWithLyrics && artistAlbum.length > 0) {
-    // 計算歌曲詳細資訊的實際總高度 (考慮 CJK 字型在 ASS 渲染時的 1.35x 行高與間距補正)
-    const detailHeight = Math.round(artistAlbum.length * detailFontSize * 1.35);
+    // 計算歌曲詳細資訊的實際總高度 (考慮 CJK 字型在 ASS 渲染時的 1.20x 行高與間距補正)
+    const detailHeight = Math.round(artistAlbum.length * detailFontSize * 1.20);
     // 增加安全間距至 60 * scale 以留出足夠空間，避免與 an5 置中的標題字重疊
     titleY = Math.round(detailBottomY - detailHeight - Math.round(60 * scale) - titleSize / 2);
   }
