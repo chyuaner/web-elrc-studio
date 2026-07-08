@@ -505,6 +505,11 @@ function getElementStyles(
   cssClasses: Map<string, Record<string, string>>,
 ): { fill?: string; stroke?: string; strokeWidth?: number } {
   const result: { fill?: string; stroke?: string; strokeWidth?: number } = {};
+  if (el.getAttribute("fill")) result.fill = el.getAttribute("fill")!;
+  if (el.getAttribute("stroke")) result.stroke = el.getAttribute("stroke")!;
+  if (el.getAttribute("stroke-width"))
+    result.strokeWidth = parseFloat(el.getAttribute("stroke-width")!);
+
   const cls = el.getAttribute("class");
   if (cls) {
     cls.split(/\s+/).forEach((c) => {
@@ -523,10 +528,6 @@ function getElementStyles(
     if (inline.stroke) result.stroke = inline.stroke;
     if (inline["stroke-width"]) result.strokeWidth = parseFloat(inline["stroke-width"]);
   }
-  if (el.getAttribute("fill")) result.fill = el.getAttribute("fill")!;
-  if (el.getAttribute("stroke")) result.stroke = el.getAttribute("stroke")!;
-  if (el.getAttribute("stroke-width"))
-    result.strokeWidth = parseFloat(el.getAttribute("stroke-width")!);
 
   return result;
 }
