@@ -1,7 +1,67 @@
 import { useEditor } from "@/components/base/EditorProvider";
 import { BaseDialog } from "@/components/dialog/BaseDialog";
+import { LyricWord } from "@/lib/lyric-utils";
 import { Merge, Settings2, Split } from "lucide-react";
 import { useEffect, useState } from "react";
+
+function tryConsumePattern(
+  words: LyricWord[],
+  startIndex: number,
+  pattern: string,
+  styleKey: string,
+  isLineLevel: boolean
+): { success: boolean; nextWords: LyricWord[] } {
+  let concatText = "";
+  let wordsCountToConsider = 0;
+  for (let i = startIndex; i < words.length; i++) {
+    concatText += words[i].text;
+    wordsCountToConsider++;
+    if (concatText.length >= pattern.length) {
+      break;
+    }
+  }
+
+  if (!concatText.startsWith(pattern)) {
+    return { success: false, nextWords: words };
+  }
+
+  const nextWords = words.map((w) => ({ ...w }));
+  let remainingToConsume = pattern.length;
+  let styleApplied = false;
+
+  for (let i = startIndex; i < nextWords.length; i++) {
+    if (remainingToConsume <= 0) break;
+    const wText = nextWords[i].text;
+    if (wText.length <= remainingToConsume) {
+      remainingToConsume -= wText.length;
+      nextWords[i].text = "";
+    } else {
+      nextWords[i].text = wText.substring(remainingToConsume);
+      remainingToConsume = 0;
+      if (!isLineLevel && !styleApplied) {
+        nextWords[i].style = styleKey;
+        styleApplied = true;
+      }
+    }
+  }
+
+  if (!isLineLevel && !styleApplied) {
+    for (let i = startIndex; i < nextWords.length; i++) {
+      if (nextWords[i].text !== "") {
+        nextWords[i].style = styleKey;
+        styleApplied = true;
+        break;
+      }
+    }
+  }
+
+  const filteredWords = nextWords.filter((w) => w.text !== "");
+  if (filteredWords.length === 0 && nextWords.length > 0) {
+    return { success: true, nextWords: [nextWords[0]] };
+  }
+
+  return { success: true, nextWords: filteredWords };
+}
 
 export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { lrcMetadata, setLrcMetadata, commitLines, lines, showToast } = useEditor();
@@ -78,23 +138,21 @@ export function MultiSingerDialog({ isOpen, onClose }: { isOpen: boolean; onClos
         for (const def of defs) {
           const pattern = def.val;
 
-          // Check line raw or text (if words empty but line has raw text, we skip since we want word-level editing)
           if (words.length > 0) {
-            const firstWordText = words[0].text;
-            if (firstWordText.startsWith(pattern)) {
-              words[0] = { ...words[0], text: firstWordText.substring(pattern.length) };
+            // Check line-level
+            const lineRes = tryConsumePattern(words, 0, pattern, def.key, true);
+            if (lineRes.success) {
+              words = lineRes.nextWords;
               line.style = def.key;
               changedLine = true;
             } else {
               // Word-level within the line
               for (let w = 1; w < words.length; w++) {
-                if (words[w].text.startsWith(pattern)) {
-                  words[w] = {
-                    ...words[w],
-                    text: words[w].text.substring(pattern.length),
-                    style: def.key,
-                  };
+                const wordRes = tryConsumePattern(words, w, pattern, def.key, false);
+                if (wordRes.success) {
+                  words = wordRes.nextWords;
                   changedLine = true;
+                  w--; // re-check at same index in case words shifted
                 }
               }
             }
