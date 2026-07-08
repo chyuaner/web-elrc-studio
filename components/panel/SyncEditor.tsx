@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/common/Tooltip";
 import { BaseDialog } from "@/components/dialog/BaseDialog";
 import { KaraokePreview } from "@/components/panel/KaraokePreview";
 import { MultiSingerDialog } from "@/components/panel/MultiSingerDialog";
-import { formatTime } from "@/lib/lyric-utils";
+import { formatTime, trimASCII } from "@/lib/lyric-utils";
 import {
   ArrowRight,
   ArrowUpFromLine,
@@ -286,7 +286,7 @@ export function SyncEditor() {
           if (prevEnd !== null && currentStart !== null) {
             gapSec = currentStart - prevEnd;
           }
-          const isPrevEmpty = prevLine.words?.every((w: any) => !w.text.trim());
+          const isPrevEmpty = prevLine.words?.every((w: any) => !trimASCII(w.text || ""));
           if (gapSec >= dualLineGapSec || isPrevEmpty || lines[i].ktvsp != null) {
             result[i] = true;
           }

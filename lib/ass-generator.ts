@@ -1,5 +1,5 @@
 import { createEffectiveLines } from "./compute-styles";
-import { LrcMetadata, LyricLine, parseSeconds } from "./lyric-utils";
+import { LrcMetadata, LyricLine, parseSeconds, trimASCII } from "./lyric-utils";
 import { AssVectorItem, parseSvgToAssVector, scaleAssVectorPath } from "./svg-to-ass-vector";
 
 export interface AssOptions {
@@ -267,7 +267,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   // 過濾掉無效的歌詞行
   const validLines = lines.filter(
-    (l) => l.start !== null && l.words.some((w) => w.text.trim().length > 0),
+    (l) => l.start !== null && l.words.some((w) => trimASCII(w.text || "").length > 0),
   );
 
   // 依據「間奏閥值」(interludeThreshold) 以及是否有「強制單行 (isSingleLine)」將歌詞切分成段落
@@ -783,7 +783,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         karaokeStrTraditional += `{\\1c${lineAssColor}}`;
       }
 
-      const validWords = line.words.filter((w) => w.text.trim().length > 0 || w.text === " ");
+      const validWords = line.words.filter((w) => trimASCII(w.text || "").length > 0);
 
       for (let wIdx = 0; wIdx < validWords.length; wIdx++) {
         const w = validWords[wIdx];
@@ -806,7 +806,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const hasTrailingTag =
               line.words &&
               line.words.length > 0 &&
-              line.words[line.words.length - 1].text.trim() === "";
+              trimASCII(line.words[line.words.length - 1].text || "") === "";
             const preciseEnd =
               line.end !== null
                 ? line.end
@@ -850,7 +850,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           lastCoreColor = wAssColor;
         }
 
-        if (!w.text.trim()) {
+        if (!trimASCII(w.text || "")) {
           karaokeStrOutline += `{\\k${durCs}}${w.text}`;
           karaokeStrCore += `${colorTagCore}{\\k${durCs}}${w.text}`;
           karaokeStrTraditional += `${colorTagTraditional}{\\k${durCs}}${w.text}`;

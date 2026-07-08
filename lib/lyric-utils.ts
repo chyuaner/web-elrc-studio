@@ -21,6 +21,11 @@ export function generateId() {
   return Math.random().toString(36).substr(2, 9);
 }
 
+export function trimASCII(str: string): string {
+  if (!str) return "";
+  return str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
+}
+
 export function formatTime(seconds: number | null, useThreeDigitsMs = false): string {
   if (seconds === null) return useThreeDigitsMs ? "00:00.000" : "00:00.00";
   const totalMs = Math.round(seconds * 1000);
@@ -424,7 +429,7 @@ export function exportSrt(lines: LyricLine[], durationSec: number = 0): string {
   let index = 1;
 
   const validLines = lines.filter(
-    (l) => l.start !== null && l.words.some((w) => w.text.trim().length > 0),
+    (l) => l.start !== null && l.words.some((w) => trimASCII(w.text || "").length > 0),
   );
 
   for (let i = 0; i < validLines.length; i++) {
@@ -439,7 +444,7 @@ export function exportSrt(lines: LyricLine[], durationSec: number = 0): string {
       endTimeSec = line.end;
     } else {
       const lastWord = line.words[line.words.length - 1];
-      if (lastWord && lastWord.text.trim() === "" && lastWord.start !== null) {
+      if (lastWord && trimASCII(lastWord.text || "") === "" && lastWord.start !== null) {
         endTimeSec = lastWord.start;
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { LrcMetadata, LyricLine, splitWordsAegisub, formatTime, parseSeconds } from "@/lib/lyric-utils";
+import { LrcMetadata, LyricLine, splitWordsAegisub, formatTime, parseSeconds, trimASCII } from "@/lib/lyric-utils";
 import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from "react";
 
 interface Hotkeys {
@@ -449,7 +449,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const isLineEmpty =
-        !line.raw || line.raw.trim() === "" || line.words.every((w) => !w.text.trim());
+        !line.raw || trimASCII(line.raw) === "" || line.words.every((w) => !trimASCII(w.text || ""));
 
       if (i === 0) {
         tracks.push(0);
