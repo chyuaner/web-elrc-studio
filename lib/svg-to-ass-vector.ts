@@ -128,15 +128,41 @@ function parseStyleBlock(svgText: string): Map<string, Record<string, string>> {
   const styleMatch = svgText.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
   if (!styleMatch) return map;
 
-  const ruleRegex = /\.([\w-]+)\s*\{([^}]+)\}/g;
+  // 清除 CSS 註解以避免干擾解析
+  const css = styleMatch[1].replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // 匹配所有 rule: selector { properties }
+  const ruleRegex = /([^{]+)\{([^}]+)\}/g;
   let m: RegExpExecArray | null;
-  while ((m = ruleRegex.exec(styleMatch[1])) !== null) {
+  while ((m = ruleRegex.exec(css)) !== null) {
+    const selectors = m[1].split(",");
     const props: Record<string, string> = {};
     m[2].split(";").forEach((decl) => {
-      const [key, val] = decl.split(":").map((s) => s.trim());
-      if (key && val) props[key] = val;
+      const parts = decl.split(":");
+      if (parts.length >= 2) {
+        const key = parts[0].trim().toLowerCase();
+        const val = parts.slice(1).join(":").trim();
+        if (key && val) props[key] = val;
+      }
     });
-    map.set(m[1], props);
+
+    for (let sel of selectors) {
+      sel = sel.trim();
+      // 支援類別名稱選擇器 (如 .cls-1)
+      const classMatch = sel.match(/^\.([\w-]+)$/);
+      if (classMatch) {
+        map.set(classMatch[1], props);
+      }
+      // 支援 ID 選擇器 (如 #logo)
+      const idMatch = sel.match(/^#([\w-]+)$/);
+      if (idMatch) {
+        map.set(idMatch[1], props);
+      }
+      // 支援標籤選擇器 (如 path)
+      if (/^[a-z]+$/i.test(sel)) {
+        map.set(sel.toLowerCase(), props);
+      }
+    }
   }
   return map;
 }
@@ -505,11 +531,34 @@ function getElementStyles(
   cssClasses: Map<string, Record<string, string>>,
 ): { fill?: string; stroke?: string; strokeWidth?: number } {
   const result: { fill?: string; stroke?: string; strokeWidth?: number } = {};
+
+  // 1. 優先套用標籤名稱選擇器樣式
+  const tagName = el.tagName.toLowerCase();
+  const tagProps = cssClasses.get(tagName);
+  if (tagProps) {
+    if (tagProps.fill) result.fill = tagProps.fill;
+    if (tagProps.stroke) result.stroke = tagProps.stroke;
+    if (tagProps["stroke-width"]) result.strokeWidth = parseFloat(tagProps["stroke-width"]);
+  }
+
+  // 2. 套用屬性樣式
   if (el.getAttribute("fill")) result.fill = el.getAttribute("fill")!;
   if (el.getAttribute("stroke")) result.stroke = el.getAttribute("stroke")!;
   if (el.getAttribute("stroke-width"))
     result.strokeWidth = parseFloat(el.getAttribute("stroke-width")!);
 
+  // 3. 套用 ID 選擇器樣式
+  const id = el.getAttribute("id");
+  if (id) {
+    const props = cssClasses.get(id);
+    if (props) {
+      if (props.fill) result.fill = props.fill;
+      if (props.stroke) result.stroke = props.stroke;
+      if (props["stroke-width"]) result.strokeWidth = parseFloat(props["stroke-width"]);
+    }
+  }
+
+  // 4. 套用 Class 類別選擇器樣式
   const cls = el.getAttribute("class");
   if (cls) {
     cls.split(/\s+/).forEach((c) => {
@@ -521,6 +570,8 @@ function getElementStyles(
       }
     });
   }
+
+  // 5. 行內 style 具有最高優先權
   const styleAttr = el.getAttribute("style");
   if (styleAttr) {
     const inline = parseInlineStyle(styleAttr);
@@ -623,7 +674,9 @@ function pushShapeItems(
   const assPath = svgPathToAss(d, transform);
   if (!assPath) return;
 
-  const fillAss = paintToAssColor(paint.fill, gradientDefs);
+  // 依 SVG 標準：若未指定 fill，預設填滿為黑色 "#000000"
+  const resolvedFill = paint.fill === undefined ? "#000000" : paint.fill;
+  const fillAss = paintToAssColor(resolvedFill, gradientDefs);
   const strokeAss = paintToAssColor(paint.stroke, gradientDefs);
   const strokeWidth = paint.strokeWidth ?? 1;
 
@@ -700,7 +753,8 @@ function collectElements(
 }
 
 function hasVisibleSvgFill(paint: InheritedPaint, gradientDefs: Map<string, string>): boolean {
-  return !!paintToAssColor(paint.fill, gradientDefs);
+  const resolvedFill = paint.fill === undefined ? "#000000" : paint.fill;
+  return !!paintToAssColor(resolvedFill, gradientDefs);
 }
 
 function hasVisibleSvgStroke(paint: InheritedPaint, gradientDefs: Map<string, string>): boolean {
