@@ -200,6 +200,7 @@ export function MediaPlayer() {
   const [isMuted, setIsMuted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isWaveReady, setIsWaveReady] = useState(false);
+  const [waveError, setWaveError] = useState<string | null>(null);
   const [syncCurrTime, setSyncCurrTime] = useState(0);
 
   const isVideo = file?.type.startsWith("video/");
@@ -290,59 +291,120 @@ export function MediaPlayer() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    let active = true;
     setIsWaveReady(false);
-    if (fileUrl && playerRef.current) {
-      // 使用常駐 probe 解析 CSS 色彩（避免 append/remove 干擾 React reconciler）
+    setWaveError(null);
+
+    const initWaveSurfer = async () => {
+      if (!fileUrl || !playerRef.current) return;
+
+      let peaksData: number[] | undefined = undefined;
+
+      // 如果有真實的本地 File 物件，嘗試直接在記憶體中解碼並計算 peaks，繞過 fetch (CORS) 限制
+      if (file) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          if (!active) return;
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          try {
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            if (!active) return;
+            const channelData = audioBuffer.getChannelData(0);
+            const peakCount = 1000;
+            const step = Math.floor(channelData.length / peakCount) || 1;
+            const tempPeaks: number[] = [];
+            for (let i = 0; i < peakCount; i++) {
+              const start = i * step;
+              const end = Math.min(start + step, channelData.length);
+              let max = 0;
+              for (let j = start; j < end; j++) {
+                const val = Math.abs(channelData[j]);
+                if (val > max) max = val;
+              }
+              tempPeaks.push(max);
+            }
+            peaksData = tempPeaks;
+          } catch (decodeErr: any) {
+            console.warn("Manual Web Audio decode failed, falling back to WaveSurfer fetch:", decodeErr);
+          } finally {
+            if (audioCtx.state !== "closed") {
+              await audioCtx.close();
+            }
+          }
+        } catch (fileReadErr: any) {
+          console.warn("Failed to read file as ArrayBuffer:", fileReadErr);
+        }
+      }
+
+      if (!active) return;
+
       const initialWaveColor = getCssColor("var(--app-visualizer-color)") || "#444C56";
       const initialProgressColor = getCssBgColor("var(--app-accent)") || "#F27D26";
 
-      waveSurferRef.current = WaveSurfer.create({
-        container: containerRef.current!,
-        waveColor: initialWaveColor,
-        progressColor: initialProgressColor,
-        cursorColor: initialProgressColor,
-        cursorWidth: 3,
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 2,
-        height: 48,
-        media: playerRef.current as HTMLAudioElement,
-      });
+      try {
+        waveSurferRef.current = WaveSurfer.create({
+          container: containerRef.current!,
+          waveColor: initialWaveColor,
+          progressColor: initialProgressColor,
+          cursorColor: initialProgressColor,
+          cursorWidth: 3,
+          barWidth: 2,
+          barGap: 1,
+          barRadius: 2,
+          height: 48,
+          media: playerRef.current as HTMLAudioElement,
+          peaks: peaksData ? [peaksData] : undefined,
+        });
 
-      waveSurferRef.current.on("ready", () => {
-        setIsWaveReady(true);
-      });
+        waveSurferRef.current.on("ready", () => {
+          if (active) setIsWaveReady(true);
+        });
 
-      const handlePointerMove = (e: PointerEvent) => {
-        // 直接從 playerRef 讀取 duration，避免黃 closure 導致此 effect deps 包含 duration
-        const dur = playerRef.current?.duration;
-        if (containerRef.current && dur && dur > 0 && isFinite(dur)) {
-          const rect = containerRef.current.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const ratio = Math.max(0, Math.min(1, x / rect.width));
-          setHoverTime(ratio * dur);
-          setHoverX(e.clientX);
+        waveSurferRef.current.on("error", (err) => {
+          console.error("WaveSurfer error:", err);
+          if (active) setWaveError(err.message || String(err));
+        });
+
+        if (peaksData) {
+          // 如果已經有預先計算的 peaks，WaveSurfer 會立刻繪製，此時可以直接標記為 ready
+          setIsWaveReady(true);
         }
-      };
+      } catch (err: any) {
+        console.error("Failed to create WaveSurfer:", err);
+        if (active) setWaveError(err.message || String(err));
+      }
+    };
 
-      const handlePointerLeave = () => setHoverTime(null);
+    initWaveSurfer();
 
-      const container = containerRef.current;
-      container?.addEventListener("pointermove", handlePointerMove);
-      container?.addEventListener("pointerleave", handlePointerLeave);
+    const handlePointerMove = (e: PointerEvent) => {
+      // 直接從 playerRef 讀取 duration，避免黃 closure 導致此 effect deps 包含 duration
+      const dur = playerRef.current?.duration;
+      if (containerRef.current && dur && dur > 0 && isFinite(dur)) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, x / rect.width));
+        setHoverTime(ratio * dur);
+        setHoverX(e.clientX);
+      }
+    };
 
-      return () => {
-        container?.removeEventListener("pointermove", handlePointerMove);
-        container?.removeEventListener("pointerleave", handlePointerLeave);
-        if (waveSurferRef.current) {
-          waveSurferRef.current.destroy();
-          waveSurferRef.current = null;
-        }
-      };
-    }
-    // 移除 duration dep：duration 改變不應重建 WaveSurfer（會觸發 destroy + create 並直接操作 DOM）
-  }, [fileUrl, playerRef]);
+    const handlePointerLeave = () => setHoverTime(null);
+
+    const container = containerRef.current;
+    container?.addEventListener("pointermove", handlePointerMove);
+    container?.addEventListener("pointerleave", handlePointerLeave);
+
+    return () => {
+      active = false;
+      container?.removeEventListener("pointermove", handlePointerMove);
+      container?.removeEventListener("pointerleave", handlePointerLeave);
+      if (waveSurferRef.current) {
+        waveSurferRef.current.destroy();
+        waveSurferRef.current = null;
+      }
+    };
+  }, [fileUrl, file, playerRef]);
 
   // When a new file is loaded, read the duration pre-parsed by Rust (via window.__mediaDurations__).
   // This bypasses the Chromium/GStreamer issue where FLAC files report Infinity for duration.
@@ -521,7 +583,7 @@ export function MediaPlayer() {
     src: fileUrl,
     controls: false,
     loop: isLooping,
-    crossOrigin: "anonymous" as const,
+    crossOrigin: (fileUrl && (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) && !fileUrl.includes("127.0.0.1") && !fileUrl.includes("localhost")) ? ("anonymous" as const) : undefined,
     className: "w-full rounded bg-black object-contain " + (isVideo ? "h-48" : "hidden"),
     onDurationChange: (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const d = e.currentTarget.duration;
@@ -573,7 +635,13 @@ export function MediaPlayer() {
         <div className="flex flex-col p-2 lg:p-4 pb-0 lg:pb-0 shrink-0">
           {/* Waveform */}
           <div
-            className={`w-full rounded overflow-hidden bg-[var(--app-bg-input)] relative group/wave cursor-col-resize touch-none ${isWaveReady ? "" : "hidden"} shrink-0 mb-2`}
+            className="w-full rounded bg-[var(--app-bg-input)] relative group/wave cursor-col-resize touch-none shrink-0 mb-2 transition-all"
+            style={{
+              height: isWaveReady ? "48px" : "0px",
+              overflow: "hidden",
+              opacity: isWaveReady ? 1 : 0,
+              pointerEvents: isWaveReady ? "auto" : "none",
+            }}
             ref={containerRef}
           >
             {hoverTime !== null && (
@@ -588,47 +656,54 @@ export function MediaPlayer() {
 
           {/* Fallback Progress Bar */}
           {!isWaveReady && (
-            <div
-              className="w-full h-12 flex items-center px-2 cursor-col-resize bg-[var(--app-bg-input)] rounded relative group/fb shrink-0 mb-2 touch-none"
-              onPointerDown={(e) => {
-                if (duration <= 0) return;
-                e.currentTarget.setPointerCapture(e.pointerId);
-                const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                if (playerRef.current) playerRef.current.currentTime = ratio * duration;
-              }}
-              onPointerMove={(e) => {
-                if (duration <= 0) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                setHoverTime(ratio * duration);
-                if (e.buttons === 1 && playerRef.current) {
-                  playerRef.current.currentTime = ratio * duration;
-                }
-              }}
-              onPointerLeave={() => setHoverTime(null)}
-              onPointerUp={(e) => {
-                e.currentTarget.releasePointerCapture(e.pointerId);
-              }}
-              onPointerCancel={(e) => {
-                e.currentTarget.releasePointerCapture(e.pointerId);
-                setHoverTime(null);
-              }}
-            >
-              <div className="w-full h-1.5 bg-[var(--app-border-base)] rounded-full overflow-hidden relative">
-                <div
-                  className="absolute top-0 bottom-0 left-0 bg-[var(--app-accent)]"
-                  style={{
-                    width: `${(syncCurrTime / (duration || 1)) * 100}%`,
-                  }}
-                ></div>
+            <div className="flex flex-col w-full mb-2">
+              <div
+                className="w-full h-12 flex items-center px-2 cursor-col-resize bg-[var(--app-bg-input)] rounded relative group/fb shrink-0 touch-none"
+                onPointerDown={(e) => {
+                  if (duration <= 0) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  if (playerRef.current) playerRef.current.currentTime = ratio * duration;
+                }}
+                onPointerMove={(e) => {
+                  if (duration <= 0) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  setHoverTime(ratio * duration);
+                  if (e.buttons === 1 && playerRef.current) {
+                    playerRef.current.currentTime = ratio * duration;
+                  }
+                }}
+                onPointerLeave={() => setHoverTime(null)}
+                onPointerUp={(e) => {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                }}
+                onPointerCancel={(e) => {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                  setHoverTime(null);
+                }}
+              >
+                <div className="w-full h-1.5 bg-[var(--app-border-base)] rounded-full overflow-hidden relative">
+                  <div
+                    className="absolute top-0 bottom-0 left-0 bg-[var(--app-accent)]"
+                    style={{
+                      width: `${(syncCurrTime / (duration || 1)) * 100}%`,
+                    }}
+                  ></div>
+                </div>
+                {hoverTime !== null && (
+                  <div
+                    className="absolute z-[60] top-0 pointer-events-none transform -translate-x-1/2 px-1.5 py-0.5 bg-[var(--app-text-primary)] text-[var(--app-bg-base)] text-[10px] font-mono font-bold rounded shadow-lg whitespace-nowrap"
+                    style={{ left: `${(hoverTime / (duration || 1)) * 100}%` }}
+                  >
+                    {formatTime(hoverTime)}
+                  </div>
+                )}
               </div>
-              {hoverTime !== null && (
-                <div
-                  className="absolute z-[60] top-0 pointer-events-none transform -translate-x-1/2 px-1.5 py-0.5 bg-[var(--app-text-primary)] text-[var(--app-bg-base)] text-[10px] font-mono font-bold rounded shadow-lg whitespace-nowrap"
-                  style={{ left: `${(hoverTime / (duration || 1)) * 100}%` }}
-                >
-                  {formatTime(hoverTime)}
+              {waveError && (
+                <div className="text-[10px] text-red-500 font-mono mt-1 px-1 text-left truncate" title={waveError}>
+                  波形載入失敗: {waveError}
                 </div>
               )}
             </div>
