@@ -1,4 +1,4 @@
-import { LyricLine } from "./lyric-utils";
+import { LyricLine, computeWordEndTimesForLines } from "./lyric-utils";
 
 export function computeEffectiveStyles(lines: LyricLine[]) {
   const lineStyles: (string | undefined)[] = [];
@@ -51,8 +51,9 @@ export function computeEffectiveStyles(lines: LyricLine[]) {
 }
 
 export function createEffectiveLines(lines: LyricLine[]): LyricLine[] {
-  const effectiveStyles = computeEffectiveStyles(lines);
-  return lines.map((line, i) => {
+  const linesWithWordEnds = computeWordEndTimesForLines(lines);
+  const effectiveStyles = computeEffectiveStyles(linesWithWordEnds);
+  return linesWithWordEnds.map((line, i) => {
     const newLine = { ...line } as any;
     newLine.style = effectiveStyles.lineStyles[i];
     newLine._isStyleBoundary = effectiveStyles.lineIsBoundary[i];

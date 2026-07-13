@@ -292,7 +292,9 @@ export function MediaPlayer() {
 
   useEffect(() => {
     let active = true;
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
     setIsWaveReady(false);
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
     setWaveError(null);
 
     const initWaveSurfer = async () => {

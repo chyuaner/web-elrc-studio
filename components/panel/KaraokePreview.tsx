@@ -338,21 +338,32 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
           if (syncMode === "line" || isLineSynced) {
             status = "current";
           } else {
-            let foundWIndex = 0;
-            for (let w = line.words.length - 1; w >= 0; w--) {
-              const wStart = line.words[w].start;
-              if (wStart !== null && wStart <= currentTime) {
-                foundWIndex = w;
-                break;
+            const word = line.words[wordIdx];
+            if (word && word.start !== null && word.end !== null) {
+              if (currentTime < word.start) {
+                status = "future";
+              } else if (currentTime >= word.start && currentTime < word.end) {
+                status = "current";
+              } else {
+                status = "past";
               }
-            }
-
-            if (wordIdx < foundWIndex) {
-              status = "past";
-            } else if (wordIdx === foundWIndex) {
-              status = "current";
             } else {
-              status = "future";
+              let foundWIndex = 0;
+              for (let w = line.words.length - 1; w >= 0; w--) {
+                const wStart = line.words[w].start;
+                if (wStart !== null && wStart <= currentTime) {
+                  foundWIndex = w;
+                  break;
+                }
+              }
+
+              if (wordIdx < foundWIndex) {
+                status = "past";
+              } else if (wordIdx === foundWIndex) {
+                status = "current";
+              } else {
+                status = "future";
+              }
             }
           }
         }

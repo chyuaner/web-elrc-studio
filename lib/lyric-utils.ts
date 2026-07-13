@@ -303,7 +303,59 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
     }
   }
 
-  return { lines: result, metadata };
+  return { lines: computeWordEndTimesForLines(result), metadata };
+}
+
+export function computeWordEndTimesForLines(lines: LyricLine[]): LyricLine[] {
+  return lines.map((line, i) => {
+    const nextLine = lines[i + 1];
+    let lineEnd = line.end;
+    if (lineEnd === null && nextLine && nextLine.start !== null) {
+      lineEnd = nextLine.start;
+    }
+    const nextLineStart = nextLine ? nextLine.start : null;
+
+    const newWords = line.words.map((w) => ({ ...w }));
+
+    if (newWords.length > 0) {
+      for (let j = 0; j < newWords.length; j++) {
+        const w = newWords[j];
+        if (w.start === null) continue;
+
+        let nextStart: number | null = null;
+        let foundNextNonEmpty = false;
+        let lastEmptyStart: number | null = null;
+
+        for (let k = j + 1; k < newWords.length; k++) {
+          const nw = newWords[k];
+          if (nw.start !== null) {
+            // nw.text is considered non-empty if it contains any character (even spaces)
+            // But if it is purely empty (""), it is ignored when determining boundaries.
+            if (nw.text !== "") {
+              nextStart = nw.start;
+              foundNextNonEmpty = true;
+              break;
+            } else {
+              lastEmptyStart = nw.start;
+            }
+          }
+        }
+
+        if (foundNextNonEmpty) {
+          w.end = nextStart;
+        } else if (lastEmptyStart !== null) {
+          w.end = lastEmptyStart;
+        } else {
+          w.end = lineEnd ?? nextLineStart ?? null;
+        }
+      }
+    }
+
+    return {
+      ...line,
+      words: newWords,
+    };
+  });
 }
 
 export function exportLrc(

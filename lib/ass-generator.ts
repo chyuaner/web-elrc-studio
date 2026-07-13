@@ -840,6 +840,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           durCs = defaultLimitVal;
         }
 
+        let sweepCs = durCs;
+        if (w.start !== null && w.end !== null && w.end >= w.start) {
+          const computedSweep = Math.round((w.end - w.start) * 100);
+          if (computedSweep > 0 && computedSweep <= durCs) {
+            sweepCs = computedSweep;
+          }
+        }
+
+        if (sweepCs === durCs && !ALWAYS_STRETCH_KARAOKE && durCs > defaultLimitVal) {
+          sweepCs = defaultLimitVal;
+        }
+
+        const delayCs = durCs - sweepCs;
+
         const wAssColor = getStyleColor(w.style || line.style, options);
         let colorTagCore = "";
         let colorTagTraditional = "";
@@ -855,15 +869,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           karaokeStrCore += `${colorTagCore}{\\k${durCs}}${w.text}`;
           karaokeStrTraditional += `${colorTagTraditional}{\\k${durCs}}${w.text}`;
         } else {
-          if (!ALWAYS_STRETCH_KARAOKE && durCs > defaultLimitVal) {
-            const fillCs = defaultLimitVal;
-            const delayCs = durCs - defaultLimitVal;
-            // Under ASS specs, \k delay tags do not require physical characters to delay subsequent sweeps.
-            // Removing the trailing space character ensures that Chinese and multi-syllable languages
-            // do not suffer from incorrect layout spacing and temporal/cursor misalignment.
-            karaokeStrOutline += `{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
-            karaokeStrCore += `${colorTagCore}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
-            karaokeStrTraditional += `${colorTagTraditional}{\\kf${fillCs}}${w.text}{\\k${delayCs}}`;
+          if (delayCs > 0) {
+            karaokeStrOutline += `{\\kf${sweepCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrCore += `${colorTagCore}{\\kf${sweepCs}}${w.text}{\\k${delayCs}}`;
+            karaokeStrTraditional += `${colorTagTraditional}{\\kf${sweepCs}}${w.text}{\\k${delayCs}}`;
           } else {
             karaokeStrOutline += `{\\kf${durCs}}${w.text}`;
             karaokeStrCore += `${colorTagCore}{\\kf${durCs}}${w.text}`;
