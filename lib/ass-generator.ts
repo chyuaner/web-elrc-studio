@@ -783,7 +783,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         karaokeStrTraditional += `{\\1c${lineAssColor}}`;
       }
 
-      const validWords = line.words.filter((w) => trimASCII(w.text || "").length > 0);
+      const validWords = line.words.filter((w, wIdx) => {
+        if (!w.text) return false;
+        if (w.text.trim() === "") {
+          const isTrailing = line.words.slice(wIdx).every(subW => !subW.text || subW.text.trim() === "");
+          return !isTrailing;
+        }
+        return true;
+      });
 
       for (let wIdx = 0; wIdx < validWords.length; wIdx++) {
         const w = validWords[wIdx];

@@ -419,6 +419,20 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
     return { className: baseClass, style: inlineStyle };
   };
 
+  const getFilteredWords = (words: any[]) => {
+    if (!words) return [];
+    return words
+      .map((w, originalIdx) => ({ w, originalIdx }))
+      .filter(({ w, originalIdx }) => {
+        if (!w.text) return false;
+        if (w.text.trim() === "") {
+          const isTrailing = words.slice(originalIdx).every(subW => !subW.text || subW.text.trim() === "");
+          return !isTrailing;
+        }
+        return true;
+      });
+  };
+
   let dotsCount = 0;
 
   if (
@@ -505,14 +519,20 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                       <p
                         className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isTopCentered ? "justify-center text-center" : "justify-start text-left"}`}
                       >
-                        {lines[topIndex].words.map((w: any, i: number) => {
-                          const { className, style } = getWordStyleAndClass(topIndex, i);
-                          return (
-                            <span key={i} className={className} style={style}>
-                              {w.text || (i === lines[topIndex].words.length - 1 ? "⏎" : "")}
-                            </span>
-                          );
-                        })}
+                        {(() => {
+                          const filtered = getFilteredWords(lines[topIndex].words);
+                          if (filtered.length === 0) {
+                            return <span className="opacity-40">⏎</span>;
+                          }
+                          return filtered.map(({ w, originalIdx }) => {
+                            const { className, style } = getWordStyleAndClass(topIndex, originalIdx);
+                            return (
+                              <span key={originalIdx} className={className} style={style}>
+                                {w.text}
+                              </span>
+                            );
+                          });
+                        })()}
                       </p>
                     </div>
                   </>
@@ -556,14 +576,20 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
                       <p
                         className={`text-xl md:text-2xl font-bold tracking-wide flex gap-1 flex-nowrap whitespace-nowrap ${isBottomCentered ? "justify-center text-center" : "justify-end text-right"}`}
                       >
-                        {lines[bottomIndex].words.map((w: any, i: number) => {
-                          const { className, style } = getWordStyleAndClass(bottomIndex, i);
-                          return (
-                            <span key={i} className={className} style={style}>
-                              {w.text || (i === lines[bottomIndex].words.length - 1 ? "⏎" : "")}
-                            </span>
-                          );
-                        })}
+                        {(() => {
+                          const filtered = getFilteredWords(lines[bottomIndex].words);
+                          if (filtered.length === 0) {
+                            return <span className="opacity-40">⏎</span>;
+                          }
+                          return filtered.map(({ w, originalIdx }) => {
+                            const { className, style } = getWordStyleAndClass(bottomIndex, originalIdx);
+                            return (
+                              <span key={originalIdx} className={className} style={style}>
+                                {w.text}
+                              </span>
+                            );
+                          });
+                        })()}
                       </p>
                     </div>
                   </>
