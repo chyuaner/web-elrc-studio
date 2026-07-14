@@ -268,6 +268,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     dualRowMarginR: 150,
     dualRowMarginV: 50,
     nextTriggerIndex: 1,
+    word0ForceTriggerDelay: 0.3,
     row2FadeoutMode: "immediate" as const,
     interludeBuffer: 0.3,
     introDelayLimit: 60.0,
@@ -507,6 +508,7 @@ export function KtvAssExport() {
       options.fontSizeOffset !== defaultOptions.fontSizeOffset ||
       options.interludeBuffer !== defaultOptions.interludeBuffer ||
       options.nextTriggerIndex !== defaultOptions.nextTriggerIndex ||
+      options.word0ForceTriggerDelay !== defaultOptions.word0ForceTriggerDelay ||
       options.row2FadeoutMode !== defaultOptions.row2FadeoutMode ||
       options.fadeInOutTime !== defaultOptions.fadeInOutTime ||
       options.introDelayLimit !== defaultOptions.introDelayLimit ||
@@ -565,6 +567,7 @@ export function KtvAssExport() {
       fontSizeOffset: defaultOptions.fontSizeOffset,
       interludeBuffer: defaultOptions.interludeBuffer,
       nextTriggerIndex: defaultOptions.nextTriggerIndex,
+      word0ForceTriggerDelay: defaultOptions.word0ForceTriggerDelay,
       row2FadeoutMode: defaultOptions.row2FadeoutMode,
       fadeInOutTime: defaultOptions.fadeInOutTime,
       introDelayLimit: defaultOptions.introDelayLimit,
@@ -3054,6 +3057,21 @@ export function KtvAssExport() {
                             setOptions({
                               ...options,
                               nextTriggerIndex: parseInt(e.target.value),
+                            })
+                          }
+                          className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[var(--app-text-muted)]">首字強制觸發 (s)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={options.word0ForceTriggerDelay !== undefined ? options.word0ForceTriggerDelay : ""}
+                          onChange={(e) =>
+                            setOptions({
+                              ...options,
+                              word0ForceTriggerDelay: e.target.value === "" ? 0 : parseFloat(e.target.value),
                             })
                           }
                           className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5"

@@ -29,6 +29,7 @@ export interface AssOptions {
   dualRowMarginR: number; // in pixels
   dualRowMarginV: number; // in pixels
   nextTriggerIndex: number;
+  word0ForceTriggerDelay?: number;
   row2FadeoutMode: "immediate" | "delayed";
   interludeBuffer: number;
   introDelayLimit: number;
@@ -673,7 +674,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           const prevLine = p[i - 1];
           const trigIdx = Math.min(options.nextTriggerIndex, prevLine.words.length - 1);
           const trigWord = prevLine.words[trigIdx];
-          start = trigWord && trigWord.start !== null ? trigWord.start : getLineEndTime(prevLine);
+          let baseStart = trigWord && trigWord.start !== null ? trigWord.start : getLineEndTime(prevLine);
+
+          if (options.word0ForceTriggerDelay !== undefined && options.word0ForceTriggerDelay > 0) {
+            const firstWord = prevLine.words[0];
+            if (firstWord && firstWord.start !== null) {
+              const forceTime = firstWord.start + options.word0ForceTriggerDelay;
+              const wasCapped = options.nextTriggerIndex > prevLine.words.length - 1;
+              if (wasCapped || baseStart > forceTime) {
+                baseStart = Math.min(forceTime, getLineEndTime(prevLine));
+              }
+            }
+          }
+          start = baseStart;
         } else {
           const prevSameRowLine = p[i - 2];
           start = getLineEndTime(prevSameRowLine);
