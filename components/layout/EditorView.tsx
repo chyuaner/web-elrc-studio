@@ -82,7 +82,9 @@ export function EditorView() {
       <div
         className={isMobileLayout && !isTall ? "contents" : "flex-1 overflow-hidden flex flex-col"}
       >
-        {mode === "text" && <TextEditor />}
+        <div className={mode === "text" ? (isMobileLayout && !isTall ? "contents" : "flex-1 overflow-hidden flex flex-col h-full") : "hidden"}>
+          <TextEditor />
+        </div>
         {(mode === "sync" || mode === "dual-sync") && <SyncEditor />}
         {mode === "raw" && <RawTextDisplay />}
         <div

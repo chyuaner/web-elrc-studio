@@ -19,6 +19,7 @@ export function TextEditor() {
     lrcMetadata,
     setLrcMetadata,
     activeLineIndex,
+    mode,
   } = useEditor();
   const [text, setText] = useState("");
   const isDirty = useRef(false);
@@ -34,6 +35,55 @@ export function TextEditor() {
   const [ignoreTimeTags, setIgnoreTimeTags] = useState(false);
   const [selectWholeLine, setSelectWholeLine] = useState(false);
   const textRef = useRef("");
+
+  const lastLinesRef = useRef(lines);
+  const lastMetadataRef = useRef(lrcMetadata);
+  const needsResetRef = useRef(false);
+
+  useEffect(() => {
+    if (mode !== "text") {
+      if (lines !== lastLinesRef.current || lrcMetadata !== lastMetadataRef.current) {
+        needsResetRef.current = true;
+      }
+    }
+    lastLinesRef.current = lines;
+    lastMetadataRef.current = lrcMetadata;
+  }, [lines, lrcMetadata, mode]);
+
+  useEffect(() => {
+    if (mode === "text" && needsResetRef.current) {
+      setIsSearchOpen(false);
+      setSearchText("");
+      setReplaceText("");
+      setCurrentMatchIndex(0);
+      if (textareaRef.current) {
+        textareaRef.current.scrollTop = 0;
+        textareaRef.current.setSelectionRange(0, 0);
+      }
+      needsResetRef.current = false;
+    }
+  }, [mode]);
+
+  const openSearchWithSelection = () => {
+    let selectedText = "";
+    if (textareaRef.current) {
+      const t = textareaRef.current;
+      if (t.selectionStart !== t.selectionEnd) {
+        selectedText = t.value.substring(t.selectionStart, t.selectionEnd);
+      }
+    }
+    if (selectedText) {
+      setSearchText(selectedText);
+    }
+    setIsSearchOpen(true);
+    setTimeout(() => {
+      const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }, 50);
+  };
 
   const matches = useMemo(() => {
     if (!searchText) return [];
@@ -383,7 +433,13 @@ export function TextEditor() {
             WITH TIMESTAMPS (ELRC)
           </span>
           <button
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            onClick={() => {
+              if (!isSearchOpen) {
+                openSearchWithSelection();
+              } else {
+                setIsSearchOpen(false);
+              }
+            }}
             className={`px-3 py-1 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border transition-colors ${
               isSearchOpen
                 ? "border-[var(--app-accent)]/50 text-[var(--app-accent)] bg-[var(--app-accent)]/10"
@@ -489,10 +545,14 @@ export function TextEditor() {
                 className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded pl-7 pr-12 py-1 text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (e.shiftKey) handlePrevMatch();
                     else handleNextMatch();
                   }
                   if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsSearchOpen(false);
                     textareaRef.current?.focus();
                   }
@@ -538,9 +598,13 @@ export function TextEditor() {
                 className="w-full bg-[var(--app-bg-panel-alt)] border border-[var(--app-border-base)] rounded pl-7 pr-2 py-1 text-xs text-[var(--app-text-primary)] placeholder:text-[var(--app-text-muted)] focus:outline-none focus:border-[var(--app-border-light)]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handleReplace();
                   }
                   if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsSearchOpen(false);
                     textareaRef.current?.focus();
                   }
@@ -623,10 +687,7 @@ export function TextEditor() {
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === "f") {
             e.preventDefault();
-            setIsSearchOpen(true);
-            setTimeout(() => {
-              document.getElementById("search-input")?.focus();
-            }, 0);
+            openSearchWithSelection();
           }
         }}
         startLineNumber={1}
