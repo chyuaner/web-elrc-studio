@@ -448,7 +448,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   if (overlapsWithLyrics && artistAlbum.length > 0) {
     // 固定紅字標題位置，不因下方實際歌曲資訊內容行數的關係往上擠，統一使用 4 行的高度來估算
-    const assumedLines = 4;
+    const assumedLines = artistAlbum.length>3? 3:artistAlbum.length;
     const detailHeight = Math.round(assumedLines * detailFontSize * 1.20);
     // 增加安全間距至 60 * scale 以留出足夠空間，避免與 an5 置中的標題字重疊
     titleY = Math.round(detailBottomY - detailHeight - Math.round(60 * scale) - titleSize / 2);
