@@ -293,6 +293,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
       lrcMetadata.klgow !== undefined ? parseFloat(lrcMetadata.klgow) || 3 : 3,
     logoOutlineColor: lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
+    copyrightAiText: lrcMetadata.kcr !== undefined ? lrcMetadata.kcr : "",
   };
 }
 
@@ -770,7 +771,7 @@ export function KtvAssExport() {
     ],
   );
 
-  // 當 Lrc 內部的自訂 KTV 中繼資料被更新時，將歌名、歌手、專輯與自訂欄位同步至 options，確保資料即時更新且不遺失自定義渲染樣式（不自動回退至通用屬性）
+  // 當 Lrc 內部的自訂 KTV 中繼資料被更新時，將歌名、歌手、專輯、自訂欄位與版權文字同步至 options，確保資料即時更新且不遺失自定義渲染樣式（不自動回退至通用屬性）
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOptions((prev) => {
@@ -778,12 +779,14 @@ export function KtvAssExport() {
       const metadataArtist = lrcMetadata.kar !== undefined ? lrcMetadata.kar : "";
       const metadataAlbum = lrcMetadata.kal !== undefined ? lrcMetadata.kal : "";
       const metadataCustom = lrcMetadata.ko !== undefined ? lrcMetadata.ko : "";
+      const metadataCopyright = lrcMetadata.kcr !== undefined ? lrcMetadata.kcr : "";
 
       if (
         prev.songInfoTitle !== metadataTitle ||
         prev.songInfoArtist !== metadataArtist ||
         prev.songInfoAlbum !== metadataAlbum ||
-        prev.songInfoCustom !== metadataCustom
+        prev.songInfoCustom !== metadataCustom ||
+        prev.copyrightAiText !== metadataCopyright
       ) {
         return {
           ...prev,
@@ -791,11 +794,12 @@ export function KtvAssExport() {
           songInfoArtist: metadataArtist,
           songInfoAlbum: metadataAlbum,
           songInfoCustom: metadataCustom,
+          copyrightAiText: metadataCopyright,
         };
       }
       return prev;
     });
-  }, [lrcMetadata.kti, lrcMetadata.kar, lrcMetadata.kal, lrcMetadata.ko]);
+  }, [lrcMetadata.kti, lrcMetadata.kar, lrcMetadata.kal, lrcMetadata.ko, lrcMetadata.kcr]);
 
   const [detectedVideo, setDetectedVideo] = useState<{
     width: number;
@@ -1017,7 +1021,7 @@ export function KtvAssExport() {
 
     // 把所有的LRC屬性「自訂標籤」（排除本系統專用的標籤）也一起填入「自訂內容」
     const predefinedKeys = ["ti", "ar", "al", "au", "by", "offset", "re", "ve", "length", "tool"];
-    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc"];
+    const sysKeysList = ["kti", "kar", "kal", "ko", "tt", "tte", "kth", "klg", "klgno", "klgbm", "klgbmc", "kcr"];
 
     const customParts: string[] = [];
     for (const [key, value] of Object.entries(lrcMetadata)) {
@@ -1093,6 +1097,14 @@ export function KtvAssExport() {
         updatedMeta.klgno = newOptions.klgno;
       } else {
         delete updatedMeta.klgno;
+      }
+    }
+    // 同步版權/AI提示文字 (kcr)
+    if (newOptions.copyrightAiText !== undefined) {
+      if (newOptions.copyrightAiText) {
+        updatedMeta.kcr = newOptions.copyrightAiText;
+      } else {
+        delete updatedMeta.kcr;
       }
     }
     // 同步 Logo 單色與縮寫屬性
@@ -1251,6 +1263,7 @@ export function KtvAssExport() {
         logoOutlineEnabled: false,
         logoOutlineWidth: 3,
         logoOutlineColor: "#FFFFFF",
+        copyrightAiText: "",
       }));
     } else {
       const extTT = lrcMetadata.TT || lrcMetadata.tt;
@@ -1275,6 +1288,7 @@ export function KtvAssExport() {
         lrcMetadata.klgow !== undefined ? parseFloat(lrcMetadata.klgow) || 3 : 3;
       const loadedLogoOutlineColor =
         lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF";
+      const loadedCopyright = lrcMetadata.kcr !== undefined ? lrcMetadata.kcr : "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOptions((o) => ({
@@ -1293,6 +1307,7 @@ export function KtvAssExport() {
         logoOutlineEnabled: loadedLogoOutlineEnabled,
         logoOutlineWidth: loadedLogoOutlineWidth,
         logoOutlineColor: loadedLogoOutlineColor,
+        copyrightAiText: loadedCopyright,
       }));
     }
   }, [
@@ -1312,6 +1327,7 @@ export function KtvAssExport() {
     lrcMetadata.klgo,
     lrcMetadata.klgow,
     lrcMetadata.klgoc,
+    lrcMetadata.kcr,
     lrcMetadata.TT,
     lrcMetadata.TTE,
     lrcMetadata.tt,
@@ -1526,6 +1542,34 @@ export function KtvAssExport() {
                   </div>
                 )}
               </div>
+
+              {/* 版權/AI提示文字 */}
+              <div
+                id="copyright-ai-notice"
+                className="col-span-1 flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)] font-sans"
+              >
+                <label className="font-semibold text-xs text-[var(--app-text-primary)] flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-400" /> 版權/AI提示文字
+                </label>
+                <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                  以白色、黑邊框、大小為 8 的文字顯示在最下方。當歌曲開場標題出現時必定顯示，歌詞出現前消失（特殊指定不顯示時段除外）。
+                </p>
+                <input
+                  type="text"
+                  value={options.copyrightAiText || ""}
+                  onChange={(e) => {
+                    const updated = {
+                      ...options,
+                      copyrightAiText: e.target.value,
+                    };
+                    setOptions(updated);
+                    syncToLrcMetadata(updated);
+                  }}
+                  placeholder="請輸入單行版權或 AI 提示文字（例如：本影片非商業用途）"
+                  className="w-full bg-[var(--app-bg-panel)] border border-[var(--app-border-input)] rounded px-2.5 py-1.5 text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] animate-fade-in"
+                />
+              </div>
+
                 {/* 間奏閥值 */}
               <div className=" col-span-1 flex flex-col gap-1.5 border border-[var(--app-border-light)] p-3 rounded bg-[var(--app-bg-input)] font-sans">
                 <div className="flex justify-between items-center gap-2 mb-1">
@@ -1888,6 +1932,7 @@ export function KtvAssExport() {
                   )}
                 </div>
               </div>
+
               </div>
             </div>
           </div>

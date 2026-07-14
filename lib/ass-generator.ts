@@ -54,6 +54,7 @@ export interface AssOptions {
   logoMaxHeight?: number; // maximum logo height in pixels
   logoMinInterludeGap?: number; // minimum gap in seconds between paragraphs to display logo
   klgno?: string; // semicolons separated durations of not displaying logo
+  copyrightAiText?: string;
 }
 
 // 內部控制參數
@@ -220,6 +221,9 @@ export function generateAss(
   );
 
   const margin48Scaled = Math.round(48 * scale);
+  const copyrightFontSize = Math.round(
+    (8 + (options.fontSizeOffset || 0)) * scale,
+  );
   const outlineWidth = Math.max(
     1,
     Math.round(
@@ -249,6 +253,7 @@ Style: BottomCenter,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,
 Style: BottomCenterRow1,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,2,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV + dualRowSpacing},0
 Style: BottomRight,${finalFontChain},${fontSize},${primaryAssColor},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,3,${dualRowMarginL},${dualRowMarginR},${dualRowMarginV},0
 Style: CenterInfo,${finalFontChain},${infoFontSize},${primaryAssColor},&H00FFFFFF,&H99000000,&H99000000,0,0,0,0,100,100,0,0,1,${border4Scaled},0,5,${margin48Scaled},${margin48Scaled},${margin48Scaled},0
+Style: CopyrightStyle,${finalFontChain},${copyrightFontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${(1 * scale).toFixed(1)},0,2,10,10,10,1
 `;
 
   let ass = `[Script Info]
@@ -380,20 +385,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
   });
 
+  // Calculate potential upward shift for Song Info if Copyright text is displayed
+  let detailBottomShift = 0;
+  if (options.copyrightAiText && options.copyrightAiText.trim()) {
+    detailBottomShift = Math.round(30 * scale); // Shift upwards to make room for copyright text
+  }
+
   // 2. 藍色歌曲資訊的排版：自底部往上排 (BottomCenter)
   // 若發生時間重疊，將 detailBottomY 拉到雙行歌詞之上
-  let detailBottomY = playResY - Math.round(55 * scale);
+  let detailBottomY = playResY - Math.round(55 * scale) - detailBottomShift;
   if (overlapsWithLyrics) {
     // 雙行歌詞第一排(BottomLeft)的上緣：playResY - dualRowMarginV - dualRowSpacing - fontSize
     // 我們要把歌曲詳細資訊底邊放在這個上緣之上至少 60 像素
     const lyricsTopY = playResY - dualRowMarginV - dualRowSpacing - fontSize;
-    detailBottomY = Math.round(lyricsTopY - 60 * scale);
+    detailBottomY = Math.round(lyricsTopY - 60 * scale) - detailBottomShift;
   }
 
   // 3. 紅色標題字的排版：
   // 若未重疊，則放畫面中央偏上 (centerY - 1.5 行)
   // 若發生重疊，將其置於歌曲詳細資訊最上方行的上面，確保文字學上完全不重疊，且維持 40px 的安全間距 (標題是 an5 置中-置中，需減去半個字高與 40px 間距)
-  let titleY = centerY - Math.round(1.5 * titleSize);
+  let titleY = centerY - Math.round(1.5 * titleSize) - detailBottomShift;
 
   // 建立歌曲資訊行陣列
   const artistAlbum = [];
@@ -1065,6 +1076,94 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
   }
 
+  // 自訂版權/AI提示文字演出
+  if (options.copyrightAiText && options.copyrightAiText.trim()) {
+    const copyrightText = options.copyrightAiText.trim();
+    const copyrightAppearances: { start: number; end: number; fadeOutDuration: number; isIntro?: boolean }[] = [];
+
+    // 1. 歌曲開場標題出現時必定顯示
+    // 發生overlapsWithLyrics時，因為歌詞早就已經出現，所以會演出到跟著歌曲開場標題（infoEnd）一起消失
+    // 如果沒有 overlapsWithLyrics，則一直顯示直到下一段歌詞出現前才消失（套用 INTRO_DELAY_BUFFER_TIME 緩衝時間）
+    let firstEnd = infoEnd;
+    if (!overlapsWithLyrics) {
+      // 尋找在 infoStart 之後第一個會顯示的歌詞段落
+      const nextPInfo = pInfos.find(p => p.blockDisplayStart > infoStart);
+      if (nextPInfo) {
+        firstEnd = nextPInfo.blockDisplayStart - INTRO_DELAY_BUFFER_TIME;
+      }
+    }
+    if (firstEnd < infoEnd) {
+      firstEnd = infoEnd;
+    }
+    copyrightAppearances.push({
+      start: infoStart,
+      end: firstEnd,
+      fadeOutDuration: fadeMs,
+      isIntro: true,
+    });
+
+    // 2. 之後比照出版商Logo的演出方式 (間奏與 Outro)
+    for (let idx = 0; idx < paragraphs.length; idx++) {
+      const logoStart = finalTruncatedBlockEnds[idx] + INTRO_DELAY_BUFFER_TIME;
+
+      if (idx < paragraphs.length - 1) {
+        // 間奏
+        const pNextStart = pInfos[idx + 1].p[0].start!;
+        const pPrevEnd = getLineEndTime(paragraphs[idx][paragraphs[idx].length - 1]);
+
+        const minGap = options.logoMinInterludeGap ?? LOGO_MIN_INTERLUDE_GAP;
+        if (pNextStart - pPrevEnd >= minGap) {
+          const logoEnd = pInfos[idx + 1].blockDisplayStart - INTRO_DELAY_BUFFER_TIME;
+          if (logoEnd > logoStart) {
+            const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+            if (!overlapsWithSongInfo) {
+              copyrightAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs, isIntro: false });
+            }
+          }
+        }
+      } else {
+        // Outro
+        if (options.songDuration && options.songDuration > logoStart) {
+          const logoEnd = options.songDuration;
+          const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+          if (!overlapsWithSongInfo) {
+            copyrightAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: 1000, isIntro: false });
+          }
+        } else if (!options.songDuration) {
+          const logoEnd = logoStart + 10.0;
+          const overlapsWithSongInfo = Math.max(logoStart, infoStart) < Math.min(logoEnd, infoEnd);
+          if (!overlapsWithSongInfo) {
+            copyrightAppearances.push({ start: logoStart, end: logoEnd, fadeOutDuration: fadeMs, isIntro: false });
+          }
+        }
+      }
+    }
+
+    // 3. 所有顯示時段若在「特殊指定不顯示Logo時段」內也要消失
+    let finalCopyrightAppearances = [...copyrightAppearances];
+    if (metadata && metadata.klgno) {
+      const exclusions = parseKlgnoMetadata(metadata.klgno);
+      finalCopyrightAppearances = applyExclusions(finalCopyrightAppearances, exclusions, fadeMs);
+    }
+
+    // 4. 輸出 Dialog 唱詞
+    for (const appearance of finalCopyrightAppearances) {
+      if (appearance.start >= appearance.end) continue;
+
+      const startStr = formatAssTime(appearance.start);
+      const endStr = formatAssTime(appearance.end);
+      const fadeText = `\\fad(${fadeMs},${appearance.fadeOutDuration})`;
+      
+      let copyrightY = playResY - Math.round(15 * scale);
+      if (appearance.isIntro && overlapsWithLyrics) {
+        const lyricsTopY = playResY - dualRowMarginV - dualRowSpacing - fontSize;
+        copyrightY = lyricsTopY - Math.round(15 * scale);
+      }
+
+      ass += `Dialogue: 1,${startStr},${endStr},CopyrightStyle,,0,0,0,,{\\an2\\pos(${centerX},${copyrightY})${fadeText}}${copyrightText}\n`;
+    }
+  }
+
   return ass;
 }
 
@@ -1091,15 +1190,15 @@ function parseKlgnoMetadata(klgnoStr?: string): LogoExcludeInterval[] {
   return intervals;
 }
 
-function applyExclusions(
-  intervals: { start: number; end: number; fadeOutDuration: number }[],
+function applyExclusions<T extends { start: number; end: number; fadeOutDuration: number }>(
+  intervals: T[],
   exclusions: LogoExcludeInterval[],
   defaultFadeMs: number,
-): { start: number; end: number; fadeOutDuration: number }[] {
+): T[] {
   let result = [...intervals];
 
   for (const excl of exclusions) {
-    const nextResult: { start: number; end: number; fadeOutDuration: number }[] = [];
+    const nextResult: T[] = [];
     for (const item of result) {
       // 若完全無交集，保留
       if (excl.end <= item.start || excl.start >= item.end) {
@@ -1109,6 +1208,7 @@ function applyExclusions(
         // 1. 左半邊剩餘
         if (excl.start > item.start) {
           nextResult.push({
+            ...item,
             start: item.start,
             end: excl.start,
             fadeOutDuration: defaultFadeMs,
@@ -1117,6 +1217,7 @@ function applyExclusions(
         // 2. 右半邊剩餘
         if (excl.end < item.end) {
           nextResult.push({
+            ...item,
             start: excl.end,
             end: item.end,
             fadeOutDuration: item.fadeOutDuration,
