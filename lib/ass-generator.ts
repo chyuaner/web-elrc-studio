@@ -55,11 +55,12 @@ export interface AssOptions {
   logoMinInterludeGap?: number; // minimum gap in seconds between paragraphs to display logo
   klgno?: string; // semicolons separated durations of not displaying logo
   copyrightAiText?: string;
-  translationLrcEnabled?: boolean;
   translationLrcText?: string;
   translationFontSize?: number;
   translationBorderWidth?: number;
   translationSpacing?: number;
+  translationColor?: string;
+  translationOutlineColor?: string;
 }
 
 // 內部控制參數
@@ -226,7 +227,7 @@ export function generateAss(
   options: AssOptions,
 ): string {
   const lines: LyricLine[] = createEffectiveLines(rawLines) as LyricLine[];
-  const translationLines = options.translationLrcEnabled && options.translationLrcText
+  const translationLines = options.translationLrcText
     ? parseTranslationLrc(options.translationLrcText)
     : [];
   const playResX = options.playResX || 1920;
@@ -261,6 +262,8 @@ export function generateAss(
   const translationBorderWidth = Math.max(1, Math.round(baseTransBorderWidth * scale));
   const baseTransSpacing = options.translationSpacing !== undefined ? options.translationSpacing : 15;
   const transMarginV = Math.round(dualRowMarginV + dualRowSpacing + fontSize + baseTransSpacing * scale);
+  const translationColor = options.translationColor ? hexToAssColor(options.translationColor) : "&H00FFFFFF";
+  const translationOutlineColor = options.translationOutlineColor ? hexToAssColor(options.translationOutlineColor) : "&H00000000";
 
   const infoTitleFontSize = Math.round(
     ((options.infoTitleFontSize || options.fontSize - 10) + (options.fontSizeOffset || 0)) * scale,
@@ -1053,13 +1056,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
 
     // 輸出此段落專屬的譯文字幕，解決無結束時間戳與淡出同步問題，且不因智慧對齊產生重疊
-    if (options.translationLrcEnabled && translationLines.length > 0) {
+    if (translationLines.length > 0) {
       const pTranslations = translationLines.filter((tl) => {
         return getOwnerParagraphIndex(tl.start) === idx;
       });
 
       pTranslations.forEach((tl, k) => {
         let displayStart = tl.start;
+        if (k === 0) {
+          displayStart -= 0.5;
+        }
         if (displayStart < blockDisplayStart) {
           displayStart = blockDisplayStart;
         }
@@ -1081,7 +1087,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const tx = playResX - dualRowMarginR;
         const ty = playResY - transMarginV;
 
-        ass += `Dialogue: 8,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an3\\pos(${tx},${ty})\\fad(${transFadeIn},${transFadeOut})\\fs${translationFontSize}\\c&HFFFFFF&\\3c&H000000&\\bord${translationBorderWidth}\\shad0}${tl.text}\n`;
+        ass += `Dialogue: 8,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an3\\pos(${tx},${ty})\\fad(${transFadeIn},${transFadeOut})\\fs${translationFontSize}\\c${translationColor}&\\3c${translationOutlineColor}&\\bord${translationBorderWidth}\\shad0}${tl.text}\n`;
       });
     }
   });

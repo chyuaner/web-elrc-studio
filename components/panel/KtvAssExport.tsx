@@ -295,11 +295,12 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     logoOutlineColor: lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
     copyrightAiText: lrcMetadata.kcr !== undefined ? lrcMetadata.kcr : "",
-    translationLrcEnabled: lrcMetadata.translationLrcEnabled === "true",
     translationLrcText: lrcMetadata.translationLrcText !== undefined ? lrcMetadata.translationLrcText : "",
-    translationFontSize: lrcMetadata.translationFontSize !== undefined && !isNaN(parseFloat(lrcMetadata.translationFontSize)) ? parseFloat(lrcMetadata.translationFontSize) : 8,
-    translationBorderWidth: lrcMetadata.translationBorderWidth !== undefined && !isNaN(parseFloat(lrcMetadata.translationBorderWidth)) ? parseFloat(lrcMetadata.translationBorderWidth) : 1.2,
-    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : 15,
+    translationFontSize: lrcMetadata.translationFontSize !== undefined && !isNaN(parseFloat(lrcMetadata.translationFontSize)) ? parseFloat(lrcMetadata.translationFontSize) : 10,
+    translationBorderWidth: lrcMetadata.translationBorderWidth !== undefined && !isNaN(parseFloat(lrcMetadata.translationBorderWidth)) ? parseFloat(lrcMetadata.translationBorderWidth) : 2,
+    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : -15,
+    translationColor: lrcMetadata.translationColor !== undefined ? lrcMetadata.translationColor : "#FFFFFF",
+    translationOutlineColor: lrcMetadata.translationOutlineColor !== undefined ? lrcMetadata.translationOutlineColor : "#757575",
   };
 }
 
@@ -409,6 +410,8 @@ export function KtvAssExport() {
     return def.translationLrcText ? "已自歌詞檔載入譯文" : null;
   });
   const translationInputRef = useRef<HTMLInputElement>(null);
+  const [translationEditorOpen, setTranslationEditorOpen] = useState(false);
+  const [tempTranslationText, setTempTranslationText] = useState("");
 
   const [options, setOptions] = useState<Omit<AssOptions, "interludeThreshold">>(() =>
     getDefaultAssOptions(lrcMetadata),
@@ -496,7 +499,9 @@ export function KtvAssExport() {
     return (
       options.translationFontSize !== defaultOptions.translationFontSize ||
       options.translationBorderWidth !== defaultOptions.translationBorderWidth ||
-      options.translationSpacing !== defaultOptions.translationSpacing
+      options.translationSpacing !== defaultOptions.translationSpacing ||
+      options.translationColor !== defaultOptions.translationColor ||
+      options.translationOutlineColor !== defaultOptions.translationOutlineColor
     );
   }, [options, defaultOptions]);
 
@@ -613,6 +618,8 @@ export function KtvAssExport() {
       translationFontSize: defaultOptions.translationFontSize,
       translationBorderWidth: defaultOptions.translationBorderWidth,
       translationSpacing: defaultOptions.translationSpacing,
+      translationColor: defaultOptions.translationColor,
+      translationOutlineColor: defaultOptions.translationOutlineColor,
     }));
   }, [defaultOptions]);
 
@@ -931,6 +938,72 @@ export function KtvAssExport() {
     showToast("已清除 Logo 圖檔");
   };
 
+  const exportTranslationLrc = async () => {
+    if (!options.translationLrcText) {
+      showToast("目前沒有譯文內容可供匯出");
+      return;
+    }
+
+    const electronAPI = (window as any).electronAPI;
+    const baseName = audioFileName
+      ? audioFileName.replace(/\.[^/.]+$/, "")
+      : lrcMetadata.ti || "KTV";
+    const defaultName = `${baseName}.tr.lrc`;
+
+    if (electronAPI?.showSaveDialog) {
+      let defaultPath = defaultName;
+
+      const getFilePath = (f: any) => {
+        if (!f) return null;
+        if (electronAPI?.getPathForFile) {
+          return electronAPI.getPathForFile(f) || f.path;
+        }
+        return f.path;
+      };
+
+      const mediaPath = getFilePath(file);
+      if (mediaPath) {
+        try {
+          const parsed = await electronAPI.pathParse(mediaPath);
+          defaultPath = await electronAPI.pathJoin(parsed.dir, defaultName);
+        } catch (e) {
+          console.error("Path parse/join failed", e);
+        }
+      }
+
+      const result = await electronAPI.showSaveDialog({
+        title: "匯出譯文 .lrc 檔案",
+        defaultPath: defaultPath,
+        filters: [
+          { name: "LRC Lyric File", extensions: ["lrc"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
+      });
+
+      if (!result.canceled && result.filePath) {
+        await electronAPI.fsWriteFileText(result.filePath, options.translationLrcText);
+        showToast(`已儲存至 ${result.filePath}`);
+        return;
+      }
+      if (result.canceled) return;
+    }
+
+    const blob = new Blob([options.translationLrcText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = defaultName;
+    document.body.appendChild(link);
+    link.click();
+
+    requestAnimationFrame(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(url);
+    });
+  };
+
   const executeDownloadWithContent = async (contentToDownload: string) => {
     const electronAPI = (window as any).electronAPI;
 
@@ -1145,29 +1218,20 @@ export function KtvAssExport() {
         delete updatedMeta.kcr;
       }
     }
-    // 同步譯文字幕 (translationLrcEnabled, translationLrcText)
-    if (newOptions.translationLrcEnabled !== undefined) {
-      if (newOptions.translationLrcEnabled) {
-        updatedMeta.translationLrcEnabled = "true";
-      } else {
-        delete updatedMeta.translationLrcEnabled;
-      }
-    }
+    // 同步譯文字幕 (僅保留 translationLrcText，其餘樣式參數與啟用設定不寫入歌詞檔)
+    delete updatedMeta.translationLrcEnabled;
+    delete updatedMeta.translationFontSize;
+    delete updatedMeta.translationBorderWidth;
+    delete updatedMeta.translationSpacing;
+    delete updatedMeta.translationColor;
+    delete updatedMeta.translationOutlineColor;
+
     if (newOptions.translationLrcText !== undefined) {
       if (newOptions.translationLrcText) {
         updatedMeta.translationLrcText = newOptions.translationLrcText;
       } else {
         delete updatedMeta.translationLrcText;
       }
-    }
-    if (newOptions.translationFontSize !== undefined) {
-      updatedMeta.translationFontSize = String(newOptions.translationFontSize);
-    }
-    if (newOptions.translationBorderWidth !== undefined) {
-      updatedMeta.translationBorderWidth = String(newOptions.translationBorderWidth);
-    }
-    if (newOptions.translationSpacing !== undefined) {
-      updatedMeta.translationSpacing = String(newOptions.translationSpacing);
     }
     // 同步 Logo 單色與縮寫屬性
     if (newOptions.logoMonochrome !== undefined) {
@@ -2013,30 +2077,11 @@ export function KtvAssExport() {
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={!!options.translationLrcEnabled}
-                  onChange={(e) => {
-                    const updated = {
-                      ...options,
-                      translationLrcEnabled: e.target.checked,
-                    };
-                    setOptions(updated);
-                    syncToLrcMetadata(updated);
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-[var(--app-bg-hover)] border border-[var(--app-border-input)] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--app-accent)] peer-checked:border-[var(--app-accent)]" />
-                <span className="ml-2 text-xs font-semibold text-[var(--app-text-secondary)]">
-                  {options.translationLrcEnabled ? "已啟用" : "已關閉"}
-                </span>
-              </label>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
               <div className="col-span-1 md:col-span-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <input
                     type="file"
                     accept=".lrc"
@@ -2050,7 +2095,6 @@ export function KtvAssExport() {
                         if (txt) {
                           const updated = {
                             ...options,
-                            translationLrcEnabled: true,
                             translationLrcText: txt,
                           };
                           setOptions(updated);
@@ -2072,13 +2116,35 @@ export function KtvAssExport() {
                     <span>選取譯文 .lrc 檔案</span>
                   </button>
 
-                  {translationLrcFileName && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempTranslationText(options.translationLrcText || "");
+                      setTranslationEditorOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 hover:text-purple-200 border border-purple-500/20 transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>譯文內容</span>
+                  </button>
+
+                  {options.translationLrcText && (
+                    <button
+                      type="button"
+                      onClick={exportTranslationLrc}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-200 border border-green-500/20 transition-all cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>匯出譯文</span>
+                    </button>
+                  )}
+
+                  {options.translationLrcText && (
                     <button
                       type="button"
                       onClick={() => {
                         const updated = {
                           ...options,
-                          translationLrcEnabled: false,
                           translationLrcText: "",
                         };
                         setOptions(updated);
@@ -2100,11 +2166,11 @@ export function KtvAssExport() {
               </div>
 
               <div className="col-span-1 flex justify-end">
-                {translationLrcFileName ? (
+                {options.translationLrcText ? (
                   <div className="flex items-center gap-2 text-xs text-green-400 font-mono bg-green-500/5 px-2.5 py-1 rounded border border-green-500/15 max-w-full truncate">
                     <Check className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate" title={translationLrcFileName}>
-                      {translationLrcFileName}
+                    <span className="truncate" title={translationLrcFileName || "手動編輯譯文"}>
+                      {translationLrcFileName || "手動編輯譯文"}
                     </span>
                   </div>
                 ) : (
@@ -2782,7 +2848,6 @@ export function KtvAssExport() {
                               const finalVal = isNaN(val) ? 8 : val;
                               const updated = { ...options, translationFontSize: finalVal };
                               setOptions(updated);
-                              syncToLrcMetadata(updated);
                             }}
                             className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
                           />
@@ -2800,7 +2865,6 @@ export function KtvAssExport() {
                               const finalVal = isNaN(val) ? 1.2 : val;
                               const updated = { ...options, translationBorderWidth: finalVal };
                               setOptions(updated);
-                              syncToLrcMetadata(updated);
                             }}
                             className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
                           />
@@ -2818,10 +2882,51 @@ export function KtvAssExport() {
                               const finalVal = isNaN(val) ? 0 : val;
                               const updated = { ...options, translationSpacing: finalVal };
                               setOptions(updated);
-                              syncToLrcMetadata(updated);
                             }}
                             className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
                           />
+                        </div>
+
+                        {/* 文字顏色 */}
+                        <div className="flex flex-col">
+                          <label className="text-[var(--app-text-muted)]">文字顏色 (translationColor)</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={options.translationColor || "#FFFFFF"}
+                              onChange={(e) => {
+                                setOptions({
+                                  ...options,
+                                  translationColor: e.target.value,
+                                });
+                              }}
+                              className="h-5 w-5 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                            />
+                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                              {(options.translationColor || "#FFFFFF").toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 描邊顏色 */}
+                        <div className="flex flex-col">
+                          <label className="text-[var(--app-text-muted)]">描邊顏色 (translationOutlineColor)</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={options.translationOutlineColor || "#000000"}
+                              onChange={(e) => {
+                                setOptions({
+                                  ...options,
+                                  translationOutlineColor: e.target.value,
+                                });
+                              }}
+                              className="h-5 w-5 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                            />
+                            <span className="font-mono text-[10px] text-[var(--app-text-primary)]">
+                              {(options.translationOutlineColor || "#000000").toUpperCase()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -4019,6 +4124,63 @@ export function KtvAssExport() {
               💡 建議您可以下載安裝對應字型，或點擊下方的「改用本機有安裝的字型」自動替換為合適的本機字體下載。
             </p>
           )}
+        </div>
+      </BaseDialog>
+
+      {/* 編輯譯文 Dialog */}
+      <BaseDialog
+        isOpen={translationEditorOpen}
+        onClose={() => setTranslationEditorOpen(false)}
+        title={
+          <span className="flex items-center gap-2 text-[var(--app-text-primary)] font-bold">
+            <Languages className="w-5 h-5 text-[var(--app-accent)]" /> 編輯譯文內容
+          </span>
+        }
+        maxWidthClass="max-w-2xl"
+        footer={
+          <div className="flex justify-end gap-2 w-full text-xs">
+            <button
+              onClick={() => {
+                const updated = {
+                  ...options,
+                  translationLrcText: tempTranslationText,
+                };
+                setOptions(updated);
+                if (tempTranslationText.trim()) {
+                  if (!translationLrcFileName) {
+                    setTranslationLrcFileName("手動編輯譯文");
+                  }
+                } else {
+                  setTranslationLrcFileName(null);
+                }
+                syncToLrcMetadata(updated);
+                setTranslationEditorOpen(false);
+                showToast("已儲存譯文變更");
+              }}
+              className="px-4 py-2 bg-[var(--app-accent)] hover:opacity-90 text-black font-bold rounded transition-colors text-center cursor-pointer"
+            >
+              儲存
+            </button>
+            <button
+              onClick={() => setTranslationEditorOpen(false)}
+              className="px-4 py-2 bg-[var(--app-bg-hover)] hover:bg-[var(--app-border-base)] text-[var(--app-text-primary)] font-semibold rounded transition-colors text-center cursor-pointer"
+            >
+              取消
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-[var(--app-text-muted)]">
+            您可以在此處直接修改譯文內容。格式應為標準 LRC 歌詞格式 (例如 <code>[00:12.34]譯文內容</code>)。
+          </p>
+          <textarea
+            value={tempTranslationText}
+            onChange={(e) => setTempTranslationText(e.target.value)}
+            rows={15}
+            className="w-full bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded-lg p-3 font-mono text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] resize-y"
+            placeholder="[00:00.00]請輸入譯文..."
+          />
         </div>
       </BaseDialog>
     </div>
