@@ -26,6 +26,7 @@ import {
   Pencil,
   X,
   Info,
+  Languages,
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -294,6 +295,11 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     logoOutlineColor: lrcMetadata.klgoc !== undefined ? lrcMetadata.klgoc : "#FFFFFF",
     klgno: lrcMetadata.klgno !== undefined ? lrcMetadata.klgno : "",
     copyrightAiText: lrcMetadata.kcr !== undefined ? lrcMetadata.kcr : "",
+    translationLrcEnabled: lrcMetadata.translationLrcEnabled === "true",
+    translationLrcText: lrcMetadata.translationLrcText !== undefined ? lrcMetadata.translationLrcText : "",
+    translationFontSize: lrcMetadata.translationFontSize !== undefined && !isNaN(parseFloat(lrcMetadata.translationFontSize)) ? parseFloat(lrcMetadata.translationFontSize) : 8,
+    translationBorderWidth: lrcMetadata.translationBorderWidth !== undefined && !isNaN(parseFloat(lrcMetadata.translationBorderWidth)) ? parseFloat(lrcMetadata.translationBorderWidth) : 1.2,
+    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : 15,
   };
 }
 
@@ -331,6 +337,7 @@ export function KtvAssExport() {
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
+  const [translationConfigOpen, setTranslationConfigOpen] = useState(false);
   const [editingExcludeIndex, setEditingExcludeIndex] = useState<number | null>(null);
   const [previewBgColor, setPreviewBgColor] = useState("#0b0c10");
   const [showPreviewGrid, setShowPreviewGrid] = useState(true);
@@ -397,10 +404,23 @@ export function KtvAssExport() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [translationLrcFileName, setTranslationLrcFileName] = useState<string | null>(() => {
+    const def = getDefaultAssOptions(lrcMetadata);
+    return def.translationLrcText ? "已自歌詞檔載入譯文" : null;
+  });
+  const translationInputRef = useRef<HTMLInputElement>(null);
 
   const [options, setOptions] = useState<Omit<AssOptions, "interludeThreshold">>(() =>
     getDefaultAssOptions(lrcMetadata),
   );
+
+  useEffect(() => {
+    const def = getDefaultAssOptions(lrcMetadata);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOptions(def);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTranslationLrcFileName(def.translationLrcText ? "已自歌詞檔載入譯文" : null);
+  }, [lrcMetadata]);
 
   const [dotPreset, setDotPreset] = useState<"anime" | "general" | "custom">(() => {
     const rawOpts = getDefaultAssOptions(lrcMetadata);
@@ -468,6 +488,15 @@ export function KtvAssExport() {
       options.dotOuterSize !== defaultOptions.dotOuterSize ||
       options.dotInnerSize !== defaultOptions.dotInnerSize ||
       options.dotSpacing !== defaultOptions.dotSpacing
+    );
+  }, [options, defaultOptions]);
+
+  // Check if Translation Settings are modified
+  const isTranslationModified = useMemo(() => {
+    return (
+      options.translationFontSize !== defaultOptions.translationFontSize ||
+      options.translationBorderWidth !== defaultOptions.translationBorderWidth ||
+      options.translationSpacing !== defaultOptions.translationSpacing
     );
   }, [options, defaultOptions]);
 
@@ -575,6 +604,15 @@ export function KtvAssExport() {
       logoMaxWidth: defaultOptions.logoMaxWidth,
       logoMaxHeight: defaultOptions.logoMaxHeight,
       logoMinInterludeGap: defaultOptions.logoMinInterludeGap,
+    }));
+  }, [defaultOptions]);
+
+  const resetTranslationSettings = useCallback(() => {
+    setOptions((o) => ({
+      ...o,
+      translationFontSize: defaultOptions.translationFontSize,
+      translationBorderWidth: defaultOptions.translationBorderWidth,
+      translationSpacing: defaultOptions.translationSpacing,
     }));
   }, [defaultOptions]);
 
@@ -1106,6 +1144,30 @@ export function KtvAssExport() {
       } else {
         delete updatedMeta.kcr;
       }
+    }
+    // 同步譯文字幕 (translationLrcEnabled, translationLrcText)
+    if (newOptions.translationLrcEnabled !== undefined) {
+      if (newOptions.translationLrcEnabled) {
+        updatedMeta.translationLrcEnabled = "true";
+      } else {
+        delete updatedMeta.translationLrcEnabled;
+      }
+    }
+    if (newOptions.translationLrcText !== undefined) {
+      if (newOptions.translationLrcText) {
+        updatedMeta.translationLrcText = newOptions.translationLrcText;
+      } else {
+        delete updatedMeta.translationLrcText;
+      }
+    }
+    if (newOptions.translationFontSize !== undefined) {
+      updatedMeta.translationFontSize = String(newOptions.translationFontSize);
+    }
+    if (newOptions.translationBorderWidth !== undefined) {
+      updatedMeta.translationBorderWidth = String(newOptions.translationBorderWidth);
+    }
+    if (newOptions.translationSpacing !== undefined) {
+      updatedMeta.translationSpacing = String(newOptions.translationSpacing);
     }
     // 同步 Logo 單色與縮寫屬性
     if (newOptions.logoMonochrome !== undefined) {
@@ -1936,6 +1998,124 @@ export function KtvAssExport() {
               </div>
             </div>
           </div>
+
+          {/* ==================== 譯文字幕設定區 ==================== */}
+          <div className="col-span-1 md:col-span-2 flex flex-col gap-4 border border-[var(--app-border-light)] rounded-lg p-4 bg-[var(--app-bg-card)] shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-[var(--app-accent)]/10 text-[var(--app-accent)]">
+                  <Languages className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--app-text-primary)]">譯文字幕設定</h3>
+                  <p className="text-[10px] text-[var(--app-text-muted)] mt-0.5">
+                    支援外掛逐行 .lrc 譯文檔案，隨主歌詞字幕完美淡出與對齊
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!options.translationLrcEnabled}
+                  onChange={(e) => {
+                    const updated = {
+                      ...options,
+                      translationLrcEnabled: e.target.checked,
+                    };
+                    setOptions(updated);
+                    syncToLrcMetadata(updated);
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-[var(--app-bg-hover)] border border-[var(--app-border-input)] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--app-accent)] peer-checked:border-[var(--app-accent)]" />
+                <span className="ml-2 text-xs font-semibold text-[var(--app-text-secondary)]">
+                  {options.translationLrcEnabled ? "已啟用" : "已關閉"}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div className="col-span-1 md:col-span-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept=".lrc"
+                    ref={translationInputRef}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        const txt = evt.target?.result as string;
+                        if (txt) {
+                          const updated = {
+                            ...options,
+                            translationLrcEnabled: true,
+                            translationLrcText: txt,
+                          };
+                          setOptions(updated);
+                          setTranslationLrcFileName(file.name);
+                          syncToLrcMetadata(updated);
+                          showToast(`已成功載入譯文：${file.name}`);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => translationInputRef.current?.click()}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-200 border border-blue-500/20 transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>選取譯文 .lrc 檔案</span>
+                  </button>
+
+                  {translationLrcFileName && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = {
+                          ...options,
+                          translationLrcEnabled: false,
+                          translationLrcText: "",
+                        };
+                        setOptions(updated);
+                        setTranslationLrcFileName(null);
+                        if (translationInputRef.current) {
+                          translationInputRef.current.value = "";
+                        }
+                        syncToLrcMetadata(updated);
+                        showToast("已清除譯文內容");
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all cursor-pointer border border-red-500/15"
+                      title="清除目前譯文"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>清除譯文</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="col-span-1 flex justify-end">
+                {translationLrcFileName ? (
+                  <div className="flex items-center gap-2 text-xs text-green-400 font-mono bg-green-500/5 px-2.5 py-1 rounded border border-green-500/15 max-w-full truncate">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate" title={translationLrcFileName}>
+                      {translationLrcFileName}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-[var(--app-text-muted)] italic">
+                    尚未載入任何外掛譯文
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="border-b border-[var(--app-border-base)]/40 my-1 col-span-1 md:col-span-2" />
 
           {/* ==================== 單次輸出設定區 ==================== */}
@@ -2553,6 +2733,101 @@ export function KtvAssExport() {
 
               {/* Right Column of Single Settings */}
               <div className="flex flex-col gap-5">
+                {/* 譯文字幕樣式設定 */}
+                {SHOW_INTERNAL_TEST_PARAMS && (
+                  <div className=" col-span-1 flex flex-col gap-1.5">
+                    <div
+                      onClick={() => setTranslationConfigOpen(!translationConfigOpen)}
+                      className={`flex items-center justify-between font-semibold text-xs cursor-pointer group hover:text-[var(--app-accent)] transition-colors ${
+                        isTranslationModified ? "text-[var(--app-accent)]" : "text-[var(--app-text-primary)]"
+                      }`}
+                    >
+                      <span>譯文字幕樣式設定</span>
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          type="button"
+                          disabled={!isTranslationModified}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            resetTranslationSettings();
+                            showToast("已還原譯文字幕樣式設定預設值");
+                          }}
+                          className={`px-1.5 py-0.5 text-[9px] rounded font-semibold border transition-all duration-150 ${
+                            isTranslationModified
+                              ? "bg-[var(--app-accent)]/15 border-[var(--app-accent)] text-[var(--app-accent)] hover:bg-[var(--app-accent)]/25 cursor-pointer"
+                              : "bg-transparent border-[var(--app-border-light)] text-[var(--app-text-muted)] opacity-40 cursor-not-allowed"
+                          }`}
+                        >
+                          還原預設
+                        </button>
+                        {translationConfigOpen ? (
+                          <ChevronDown className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-[var(--app-text-muted)] group-hover:text-[var(--app-accent)] animate-in fade-in duration-205" />
+                        )}
+                      </div>
+                    </div>
+
+                    {translationConfigOpen && (
+                      <div className="grid grid-cols-2 gap-2 text-[10px] bg-[var(--app-bg-panel)] border border-[var(--app-border-light)] p-3 rounded animate-in fade-in duration-200">
+                        {/* 字體大小 */}
+                        <div className="flex flex-col">
+                          <label className="text-[var(--app-text-muted)]">字體大小 (translationFontSize)</label>
+                          <input
+                            type="number"
+                            step="1"
+                            value={options.translationFontSize !== undefined ? options.translationFontSize : 8}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              const finalVal = isNaN(val) ? 8 : val;
+                              const updated = { ...options, translationFontSize: finalVal };
+                              setOptions(updated);
+                              syncToLrcMetadata(updated);
+                            }}
+                            className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
+                          />
+                        </div>
+
+                        {/* 描邊粗細 */}
+                        <div className="flex flex-col">
+                          <label className="text-[var(--app-text-muted)]">描邊粗細 (translationBorderWidth)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={options.translationBorderWidth !== undefined ? options.translationBorderWidth : 1.2}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              const finalVal = isNaN(val) ? 1.2 : val;
+                              const updated = { ...options, translationBorderWidth: finalVal };
+                              setOptions(updated);
+                              syncToLrcMetadata(updated);
+                            }}
+                            className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
+                          />
+                        </div>
+
+                        {/* 與主歌詞間距 */}
+                        <div className="flex flex-col col-span-2">
+                          <label className="text-[var(--app-text-muted)]">與主歌詞間距 (translationSpacing)</label>
+                          <input
+                            type="number"
+                            step="1"
+                            value={options.translationSpacing !== undefined ? options.translationSpacing : 15}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              const finalVal = isNaN(val) ? 0 : val;
+                              const updated = { ...options, translationSpacing: finalVal };
+                              setOptions(updated);
+                              syncToLrcMetadata(updated);
+                            }}
+                            className="bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded px-1 py-0.5 font-mono text-[var(--app-text-primary)]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 字體設定 */}
               <div className=" col-span-1 flex flex-col gap-1.5">
                 <div

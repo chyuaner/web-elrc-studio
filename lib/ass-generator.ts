@@ -55,6 +55,11 @@ export interface AssOptions {
   logoMinInterludeGap?: number; // minimum gap in seconds between paragraphs to display logo
   klgno?: string; // semicolons separated durations of not displaying logo
   copyrightAiText?: string;
+  translationLrcEnabled?: boolean;
+  translationLrcText?: string;
+  translationFontSize?: number;
+  translationBorderWidth?: number;
+  translationSpacing?: number;
 }
 
 // 內部控制參數
@@ -182,12 +187,48 @@ function getStyleColor(styleId: string | undefined, options: AssOptions): string
   }
 }
 
+interface TranslationLine {
+  start: number;
+  text: string;
+}
+
+function parseTranslationLrc(lrcText: string): TranslationLine[] {
+  if (!lrcText) return [];
+  const lines = lrcText.split(/\r?\n/);
+  const result: TranslationLine[] = [];
+  const timeRegex = /\[(\d+):(\d+(?:\.\d+)?)]/g;
+
+  for (const line of lines) {
+    let match;
+    timeRegex.lastIndex = 0;
+    const matches: number[] = [];
+    let lastIndex = 0;
+    while ((match = timeRegex.exec(line)) !== null) {
+      const min = parseInt(match[1], 10);
+      const sec = parseFloat(match[2]);
+      const seconds = min * 60 + sec;
+      matches.push(seconds);
+      lastIndex = timeRegex.lastIndex;
+    }
+    if (matches.length > 0) {
+      const text = line.substring(lastIndex).trim();
+      for (const seconds of matches) {
+        result.push({ start: seconds, text });
+      }
+    }
+  }
+  return result.sort((a, b) => a.start - b.start);
+}
+
 export function generateAss(
   rawLines: LyricLine[],
   metadata: LrcMetadata,
   options: AssOptions,
 ): string {
   const lines: LyricLine[] = createEffectiveLines(rawLines) as LyricLine[];
+  const translationLines = options.translationLrcEnabled && options.translationLrcText
+    ? parseTranslationLrc(options.translationLrcText)
+    : [];
   const playResX = options.playResX || 1920;
   const playResY = options.playResY || 1080;
   const centerX = playResX / 2;
@@ -212,6 +253,14 @@ export function generateAss(
   const dualRowMarginV = Math.round(
     (options.dualRowMarginV !== undefined ? options.dualRowMarginV : 50) * scale,
   );
+  const baseTransFontSize = options.translationFontSize !== undefined ? options.translationFontSize : 8;
+  const translationFontSize = Math.round(
+    (baseTransFontSize + (options.fontSizeOffset || 0)) * scale,
+  );
+  const baseTransBorderWidth = options.translationBorderWidth !== undefined ? options.translationBorderWidth : 1.2;
+  const translationBorderWidth = Math.max(1, Math.round(baseTransBorderWidth * scale));
+  const baseTransSpacing = options.translationSpacing !== undefined ? options.translationSpacing : 15;
+  const transMarginV = Math.round(dualRowMarginV + dualRowSpacing + fontSize + baseTransSpacing * scale);
 
   const infoTitleFontSize = Math.round(
     ((options.infoTitleFontSize || options.fontSize - 10) + (options.fontSizeOffset || 0)) * scale,
@@ -606,6 +655,45 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
   });
 
+  // Pass 2.5: 譯文擁有者段落索引計算輔助函數 (完全脫勾、非單純主歌詞行綁定，而是依顯示區間做最佳歸屬)
+  const getOwnerParagraphIndex = (tlStart: number): number => {
+    // 優先尋找哪個段落的顯示區間 [blockDisplayStart, truncatedBlockEnd] 完整涵蓋該譯文起點
+    for (let i = 0; i < pInfos.length; i++) {
+      const bStart = pInfos[i].blockDisplayStart;
+      const bEnd = finalTruncatedBlockEnds[i];
+      if (tlStart >= bStart && tlStart < bEnd) {
+        return i;
+      }
+    }
+    // 若落在任何段落顯示區間之外（例如長間奏/前奏/尾奏期間）：
+    // 1. 若在第一個段落顯示之前，歸屬第一段
+    if (tlStart < pInfos[0].blockDisplayStart) {
+      return 0;
+    }
+    // 2. 若在最後一個段落顯示之後，歸屬最後一段
+    if (tlStart >= finalTruncatedBlockEnds[pInfos.length - 1]) {
+      return pInfos.length - 1;
+    }
+    // 3. 若落在段落 i 與 i+1 之間的間奏中：
+    // 因已在段落 i 結束之後且在段落 i+1 開始之前，故應歸屬即將開始的段落 i+1
+    for (let i = 0; i < pInfos.length - 1; i++) {
+      if (tlStart >= finalTruncatedBlockEnds[i] && tlStart < pInfos[i + 1].blockDisplayStart) {
+        return i + 1;
+      }
+    }
+    // 備用：尋找主歌詞起點最接近的段落
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    for (let i = 0; i < pInfos.length; i++) {
+      const diff = Math.abs(tlStart - pInfos[i].p[0].start!);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = i;
+      }
+    }
+    return closestIdx;
+  };
+
   paragraphs.forEach((p, idx) => {
     const pInfo = pInfos[idx];
     const { blockDisplayStart, dotCount, isStartRealInterlude, isEndRealInterlude } = pInfo;
@@ -961,6 +1049,40 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         // 直接使用 ASS 內建的 \bord4\3c&H000000& 確保描邊，將 \2c 設為白色 \1c 設為唱完的 primaryAssColor
         ass += `Dialogue: ${row},${formatAssTime(displayStart)},${formatAssTime(displayEnd)},${style},,0,0,0,,{\\an${alignment}\\pos(${baseX},${baseY})\\bord${border4Scaled}\\shad0\\fs${fontSize}\\1c${lineAssColor}\\2c&HFFFFFF&\\3c&H000000&\\fad(${fadeIn},${fadeOut})}${karaokeStrTraditional}\n`;
       }
+
+    }
+
+    // 輸出此段落專屬的譯文字幕，解決無結束時間戳與淡出同步問題，且不因智慧對齊產生重疊
+    if (options.translationLrcEnabled && translationLines.length > 0) {
+      const pTranslations = translationLines.filter((tl) => {
+        return getOwnerParagraphIndex(tl.start) === idx;
+      });
+
+      pTranslations.forEach((tl, k) => {
+        let displayStart = tl.start;
+        if (displayStart < blockDisplayStart) {
+          displayStart = blockDisplayStart;
+        }
+
+        let displayEnd = truncatedBlockEnd;
+        if (k < pTranslations.length - 1) {
+          displayEnd = Math.min(truncatedBlockEnd, pTranslations[k + 1].start);
+        }
+
+        if (displayStart >= displayEnd) {
+          displayStart = displayEnd - 0.1 > 0 ? displayEnd - 0.1 : displayEnd;
+        }
+
+        // 當譯文段落第一句出現時，請淡入演出
+        const transFadeIn = k === 0 ? fadeMs : 0;
+        // 當雙行字幕淡出時，譯文歌詞也要跟著淡出
+        const transFadeOut = (displayEnd === truncatedBlockEnd && isEndRealInterlude) ? fadeMs : 0;
+
+        const tx = playResX - dualRowMarginR;
+        const ty = playResY - transMarginV;
+
+        ass += `Dialogue: 8,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an3\\pos(${tx},${ty})\\fad(${transFadeIn},${transFadeOut})\\fs${translationFontSize}\\c&HFFFFFF&\\3c&H000000&\\bord${translationBorderWidth}\\shad0}${tl.text}\n`;
+      });
     }
   });
 
