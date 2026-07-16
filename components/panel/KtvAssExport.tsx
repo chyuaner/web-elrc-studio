@@ -3,10 +3,11 @@
 import { useEditor } from "@/components/base/EditorProvider";
 import { FontSelect } from "@/components/common/FontSelect";
 import { BaseDialog } from "@/components/dialog/BaseDialog";
+import { useDialogs } from "@/components/dialog/DialogProvider";
 import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { useI18n } from "@/hooks/useI18n";
 import { AssOptions, generateAss } from "@/lib/ass-generator";
-import { formatTime, parseSeconds } from "@/lib/lyric-utils";
+import { formatTime, parseSeconds, convertSrtToLrc, shiftLrcTextTime } from "@/lib/lyric-utils";
 import { applySvgLogoOutline, recolorSvgMonochrome } from "@/lib/svg-to-ass-vector";
 import {
   Check,
@@ -298,9 +299,10 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     translationLrcText: lrcMetadata.translationLrcText !== undefined ? lrcMetadata.translationLrcText : "",
     translationFontSize: lrcMetadata.translationFontSize !== undefined && !isNaN(parseFloat(lrcMetadata.translationFontSize)) ? parseFloat(lrcMetadata.translationFontSize) : 10,
     translationBorderWidth: lrcMetadata.translationBorderWidth !== undefined && !isNaN(parseFloat(lrcMetadata.translationBorderWidth)) ? parseFloat(lrcMetadata.translationBorderWidth) : 2,
-    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : -15,
+    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : -5,
     translationColor: lrcMetadata.translationColor !== undefined ? lrcMetadata.translationColor : "#FFFFFF",
-    translationOutlineColor: lrcMetadata.translationOutlineColor !== undefined ? lrcMetadata.translationOutlineColor : "#757575",
+    translationOutlineColor: lrcMetadata.translationOutlineColor !== undefined ? lrcMetadata.translationOutlineColor : "#646464",
+    translationUnderline: true,
   };
 }
 
@@ -335,6 +337,7 @@ export function KtvAssExport() {
     file,
   } = useEditor();
   const i18n = useI18n();
+  const dialogs = useDialogs();
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
@@ -501,7 +504,8 @@ export function KtvAssExport() {
       options.translationBorderWidth !== defaultOptions.translationBorderWidth ||
       options.translationSpacing !== defaultOptions.translationSpacing ||
       options.translationColor !== defaultOptions.translationColor ||
-      options.translationOutlineColor !== defaultOptions.translationOutlineColor
+      options.translationOutlineColor !== defaultOptions.translationOutlineColor ||
+      options.translationUnderline !== defaultOptions.translationUnderline
     );
   }, [options, defaultOptions]);
 
@@ -620,6 +624,7 @@ export function KtvAssExport() {
       translationSpacing: defaultOptions.translationSpacing,
       translationColor: defaultOptions.translationColor,
       translationOutlineColor: defaultOptions.translationOutlineColor,
+      translationUnderline: defaultOptions.translationUnderline,
     }));
   }, [defaultOptions]);
 
@@ -1225,6 +1230,7 @@ export function KtvAssExport() {
     delete updatedMeta.translationSpacing;
     delete updatedMeta.translationColor;
     delete updatedMeta.translationOutlineColor;
+    delete updatedMeta.translationUnderline;
 
     if (newOptions.translationLrcText !== undefined) {
       if (newOptions.translationLrcText) {
@@ -2928,6 +2934,25 @@ export function KtvAssExport() {
                             </span>
                           </div>
                         </div>
+
+                        {/* 加入底線 */}
+                        <div className="flex items-center gap-2 pt-2 mt-1 border-t border-[var(--app-border-light)] col-span-2">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] transition-colors select-none">
+                            <input
+                              type="checkbox"
+                              checked={options.translationUnderline || false}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setOptions({
+                                  ...options,
+                                  translationUnderline: checked,
+                                });
+                              }}
+                              className="accent-[var(--app-accent)]"
+                            />
+                            <span>加入底線 (translationUnderline)</span>
+                          </label>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -4133,7 +4158,7 @@ export function KtvAssExport() {
         onClose={() => setTranslationEditorOpen(false)}
         title={
           <span className="flex items-center gap-2 text-[var(--app-text-primary)] font-bold">
-            <Languages className="w-5 h-5 text-[var(--app-accent)]" /> 編輯譯文內容
+            <Languages className="w-5 h-5 text-[var(--app-accent)]" /> 編輯lrc譯文內容
           </span>
         }
         maxWidthClass="max-w-2xl"
@@ -4174,6 +4199,70 @@ export function KtvAssExport() {
           <p className="text-xs text-[var(--app-text-muted)]">
             您可以在此處直接修改譯文內容。格式應為標準 LRC 歌詞格式 (例如 <code>[00:12.34]譯文內容</code>)。
           </p>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--app-bg-panel)] p-2 rounded-lg border border-[var(--app-border-light)] shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const converted = convertSrtToLrc(tempTranslationText);
+                  if (converted) {
+                    setTempTranslationText(converted);
+                    showToast("已成功將編輯區內 SRT 轉換為 LRC 格式");
+                  } else {
+                    alert("無法解析編輯區內的 SRT 內容，請檢查格式是否正確。");
+                  }
+                }}
+                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all cursor-pointer h-[28px]"
+              >
+                從SRT轉LRC
+              </button>
+            </div>
+
+            <div className="flex items-center shadow-sm rounded border border-[var(--app-border-light)] h-[28px] overflow-hidden bg-[var(--app-bg-panel-alt)] text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  const shifted = shiftLrcTextTime(tempTranslationText, -0.1);
+                  setTempTranslationText(shifted);
+                  showToast("已將所有譯文時間提前 0.1 秒");
+                }}
+                className="px-2 h-full hover:bg-[var(--app-bg-hover)] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors border-r border-[var(--app-border-light)] font-mono text-[10px] cursor-pointer"
+                title="將所有時間提前 0.1 秒"
+              >
+                -0.1s
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const val = await dialogs.prompt("將所有譯文時間軸平移 X 秒 (例如 0.5 或 -1.2)：", "0");
+                  if (val && !isNaN(parseFloat(val))) {
+                    const offset = parseFloat(val);
+                    const shifted = shiftLrcTextTime(tempTranslationText, offset);
+                    setTempTranslationText(shifted);
+                    showToast(`已將所有譯文時間平移 ${offset} 秒`);
+                  }
+                }}
+                className="px-3 h-full hover:bg-[var(--app-bg-hover)] flex items-center text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors cursor-pointer"
+                title="整份譯文時間平移 (輸入數值)"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--app-text-muted)]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const shifted = shiftLrcTextTime(tempTranslationText, 0.1);
+                  setTempTranslationText(shifted);
+                  showToast("已將所有譯文時間延後 0.1 秒");
+                }}
+                className="px-2 h-full hover:bg-[var(--app-bg-hover)] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors border-l border-[var(--app-border-light)] font-mono text-[10px] cursor-pointer"
+                title="將所有時間延後 0.1 秒"
+              >
+                +0.1s
+              </button>
+            </div>
+          </div>
+
           <textarea
             value={tempTranslationText}
             onChange={(e) => setTempTranslationText(e.target.value)}

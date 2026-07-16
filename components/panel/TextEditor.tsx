@@ -2,9 +2,10 @@
 
 import { useEditor } from "@/components/base/EditorProvider";
 import { LineNumberedTextarea } from "@/components/common/LineNumberedTextarea";
+import { BaseDialog } from "@/components/dialog/BaseDialog";
 import { useDialogs } from "@/components/dialog/DialogProvider";
 import { useI18n } from "@/hooks/useI18n";
-import { exportLrc, parseRawLyrics } from "@/lib/lyric-utils";
+import { exportLrc, parseRawLyrics, convertSrtToLrc } from "@/lib/lyric-utils";
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, Search, X } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
@@ -20,9 +21,12 @@ export function TextEditor() {
     setLrcMetadata,
     activeLineIndex,
     mode,
+    showToast,
   } = useEditor();
   const [text, setText] = useState("");
   const isDirty = useRef(false);
+  const [srtImportOpen, setSrtImportOpen] = useState(false);
+  const [srtText, setSrtText] = useState("");
   const i18n = useI18n();
   const dialogs = useDialogs();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -429,9 +433,20 @@ export function TextEditor() {
     >
       <div className="p-2 bg-[var(--app-bg-panel)] border-b border-[var(--app-border-base)] flex flex-wrap gap-2 items-center justify-between shrink-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-3 py-1 bg-[var(--app-border-base)] rounded text-[10px] font-bold uppercase tracking-widest border border-[var(--app-border-light)] text-[var(--app-text-secondary)]">
+          <span className="text-xs font-bold text-[var(--app-text-primary)] mr-2 select-none">
             WITH TIMESTAMPS (ELRC)
           </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSrtText("");
+              setSrtImportOpen(true);
+            }}
+            className="px-3 py-1 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] transition-colors cursor-pointer active:scale-95 animate-in fade-in duration-200"
+            title="從 SRT 格式字幕匯入歌詞"
+          >
+            以SRT輸入
+          </button>
           <button
             onClick={() => {
               if (!isSearchOpen) {
@@ -692,6 +707,63 @@ export function TextEditor() {
         }}
         startLineNumber={1}
       />
+
+      {/* SRT 匯入 Dialog */}
+      <BaseDialog
+        isOpen={srtImportOpen}
+        onClose={() => setSrtImportOpen(false)}
+        title={
+          <span className="flex items-center gap-2 text-[var(--app-text-primary)] font-bold">
+            以 SRT 格式輸入歌詞
+          </span>
+        }
+        maxWidthClass="max-w-2xl"
+        footer={
+          <div className="flex justify-end gap-2 w-full text-xs">
+            <button
+              onClick={() => {
+                if (!srtText.trim()) {
+                  setSrtImportOpen(false);
+                  return;
+                }
+                const lrcConverted = convertSrtToLrc(srtText);
+                if (lrcConverted) {
+                  setText(lrcConverted);
+                  textRef.current = lrcConverted;
+                  isDirty.current = true;
+                  saveChanges(lrcConverted);
+                  setSrtImportOpen(false);
+                  showToast("已成功匯入並轉換 SRT 字幕為 LRC 歌詞");
+                } else {
+                  alert("無法解析該 SRT 內容，請檢查格式是否正確。");
+                }
+              }}
+              className="px-4 py-2 bg-[var(--app-accent)] hover:opacity-90 text-black font-bold rounded transition-colors text-center cursor-pointer"
+            >
+              確定
+            </button>
+            <button
+              onClick={() => setSrtImportOpen(false)}
+              className="px-4 py-2 bg-[var(--app-bg-hover)] hover:bg-[var(--app-border-base)] text-[var(--app-text-primary)] font-semibold rounded transition-colors text-center cursor-pointer"
+            >
+              取消
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-[var(--app-text-muted)]">
+            請貼上標準 SRT 格式的字幕。系統會自動將其時間戳與文字轉換為 LRC 格式，並取代目前的主歌詞內容。
+          </p>
+          <textarea
+            value={srtText}
+            onChange={(e) => setSrtText(e.target.value)}
+            rows={12}
+            className="w-full bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded-lg p-3 font-mono text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] resize-y"
+            placeholder="1&#10;00:00:01,000 --> 00:00:04,500&#10;第一行歌詞...&#10;&#10;2&#10;00:00:05,200 --> 00:00:08,000&#10;第二行歌詞..."
+          />
+        </div>
+      </BaseDialog>
     </div>
   );
 }

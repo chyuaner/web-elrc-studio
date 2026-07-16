@@ -61,6 +61,7 @@ export interface AssOptions {
   translationSpacing?: number;
   translationColor?: string;
   translationOutlineColor?: string;
+  translationUnderline?: boolean;
 }
 
 // 內部控制參數
@@ -103,6 +104,19 @@ const KARAOKE_LIMIT_ENGLISH = 100;
 
 function isEnglishWord(text: string): boolean {
   return /[a-zA-Z]/.test(text);
+}
+
+function estimateTextWidth(text: string, fontSize: number): number {
+  let width = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code >= 0 && code <= 127) {
+      width += fontSize * 0.45; // 半形字元（英文、數字、空格）通常約為字型高度的 45% 寬度
+    } else {
+      width += fontSize * 0.75; // 全形 CJK 中文字元通常約為字型高度的 85% 寬度
+    }
+  }
+  return width;
 }
 
 function formatAssTime(timeInSeconds: number) {
@@ -1057,13 +1071,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     // 輸出此段落專屬的譯文字幕，解決無結束時間戳與淡出同步問題，且不因智慧對齊產生重疊
     if (translationLines.length > 0) {
-      const pTranslations = translationLines.filter((tl) => {
+      let pTranslations = translationLines.filter((tl) => {
         return getOwnerParagraphIndex(tl.start) === idx;
       });
 
+      // 當譯文下一句是空白時，若與主歌詞段落結束落差低於3秒，就直接略過該空白段落，使其和主歌詞一起淡出
+      pTranslations = pTranslations.filter((tl) => {
+        const isCloseEmpty = tl.text.trim() === "" && (truncatedBlockEnd - tl.start) < 3.0 && (truncatedBlockEnd - tl.start) >= 0;
+        return !isCloseEmpty;
+      });
+
+      const firstRealIndex = pTranslations.findIndex((tl) => tl.text.trim() !== "");
+
       pTranslations.forEach((tl, k) => {
         let displayStart = tl.start;
-        if (k === 0) {
+        const isFirstReal = k === firstRealIndex;
+        if (isFirstReal) {
           displayStart -= 0.5;
         }
         if (displayStart < blockDisplayStart) {
@@ -1080,12 +1103,49 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
 
         // 當譯文段落第一句出現時，請淡入演出
-        const transFadeIn = k === 0 ? fadeMs : 0;
+        const transFadeIn = isFirstReal ? fadeMs : 0;
         // 當雙行字幕淡出時，譯文歌詞也要跟著淡出
         const transFadeOut = (displayEnd === truncatedBlockEnd && isEndRealInterlude) ? fadeMs : 0;
 
         const tx = playResX - dualRowMarginR;
         const ty = playResY - transMarginV;
+
+        if (options.translationUnderline && tl.text.trim() !== "") {
+          const W_text = estimateTextWidth(tl.text, translationFontSize);
+          // 漸層區域的延伸長度
+          // 調整方式：其中的 2.0 代表往左多延伸 2.0 個中文字的寬度。若您覺得太長，可以將其改小，例如：
+          // 改成 0.5 (延伸半個字寬)
+          const W_grad = 2.0 * translationFontSize;
+          const tx_left = tx - W_text;
+          const u_left = tx_left - W_grad;
+          // 底線與文字的間距
+          // 調整方式：其中的 5 即為文字下邊緣到底線的間距（以像素點計），可依需求調大或調小。
+          const underlineGap = Math.round(5 * scale);
+          // 底線的粗細
+          // 調整方式：其中的 1.5 為底線的基本像素高度，可依視覺喜好調整。
+          const h = Math.max(1, Math.round(2 * scale));
+
+          // 漸層細分線段數量 
+          // 調整方式：將延伸區域細分為 10 段來模擬漸層。若您縮小了延伸長度，也可以適度降低線段數量（例如改為 5 或 8），以減少輸出的字幕行數。
+          // Draw the gradient region (10 segments)
+          const segmentsCount = 30;
+          const segWidth = W_grad / segmentsCount;
+          for (let i = 0; i < segmentsCount; i++) {
+            const x_start = u_left + i * segWidth;
+            const x_end = x_start + segWidth;
+            const w = x_end - x_start;
+            const alphaVal = Math.round(255 * (1 - i / segmentsCount));
+            const hexAlpha = alphaVal.toString(16).toUpperCase().padStart(2, "0");
+
+            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${x_start.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${translationColor}&\\bord0\\shad0\\1a&H${hexAlpha}&}m 0 0 l ${w.toFixed(1)} 0 l ${w.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
+          }
+
+          // Draw the solid region
+          const solidWidth = tx - tx_left;
+          if (solidWidth > 0) {
+            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${tx_left.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${translationColor}&\\bord0\\shad0\\1a&H00&}m 0 0 l ${solidWidth.toFixed(1)} 0 l ${solidWidth.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
+          }
+        }
 
         ass += `Dialogue: 8,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an3\\pos(${tx},${ty})\\fad(${transFadeIn},${transFadeOut})\\fs${translationFontSize}\\c${translationColor}&\\3c${translationOutlineColor}&\\bord${translationBorderWidth}\\shad0}${tl.text}\n`;
       });

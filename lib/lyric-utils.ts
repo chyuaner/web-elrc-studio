@@ -529,3 +529,103 @@ export function exportSrt(lines: LyricLine[], durationSec: number = 0): string {
 
   return srt.trim();
 }
+
+export function convertSrtToLrc(srtText: string): string {
+  if (!srtText) return "";
+  const cleanSrt = srtText.replace(/\r/g, "");
+  const blocks = cleanSrt.split(/\n\s*\n+/);
+  const lrcLines: { time: number; lrc: string }[] = [];
+  
+  for (const block of blocks) {
+    const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+    
+    let timecodeLine = "";
+    let textStartIndex = 1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("-->")) {
+        timecodeLine = lines[i];
+        textStartIndex = i + 1;
+        break;
+      }
+    }
+    if (!timecodeLine) continue;
+    
+    const startMatch = timecodeLine.match(/(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})/);
+    if (startMatch) {
+      const sHrs = parseInt(startMatch[1], 10);
+      const sMins = parseInt(startMatch[2], 10);
+      const sSecs = parseInt(startMatch[3], 10);
+      const sMs = parseInt(startMatch[4], 10);
+
+      const eHrs = parseInt(startMatch[5], 10);
+      const eMins = parseInt(startMatch[6], 10);
+      const eSecs = parseInt(startMatch[7], 10);
+      const eMs = parseInt(startMatch[8], 10);
+
+      const sTotalSecs = sHrs * 3600 + sMins * 60 + sSecs;
+      const sLrcMin = Math.floor(sTotalSecs / 60);
+      const sLrcSec = sTotalSecs % 60;
+      const sLrcCentiseconds = Math.round(sMs / 10);
+
+      const eTotalSecs = eHrs * 3600 + eMins * 60 + eSecs;
+      const eLrcMin = Math.floor(eTotalSecs / 60);
+      const eLrcSec = eTotalSecs % 60;
+      const eLrcCentiseconds = Math.round(eMs / 10);
+
+      const sTimeStr = `[${sLrcMin.toString().padStart(2, "0")}:${sLrcSec.toString().padStart(2, "0")}.${sLrcCentiseconds.toString().padStart(2, "0")}]`;
+      const eTimeStr = `[${eLrcMin.toString().padStart(2, "0")}:${eLrcSec.toString().padStart(2, "0")}.${eLrcCentiseconds.toString().padStart(2, "0")}]`;
+
+      const subtitleText = lines.slice(textStartIndex).join(" ");
+      lrcLines.push({ time: sTotalSecs + sMs / 1000, lrc: `${sTimeStr}${subtitleText}` });
+      lrcLines.push({ time: eTotalSecs + eMs / 1000, lrc: `${eTimeStr}` });
+    }
+  }
+
+  if (lrcLines.length === 0) return "";
+  lrcLines.sort((a, b) => {
+    if (Math.abs(a.time - b.time) < 0.001) {
+      return a.lrc.length - b.lrc.length;
+    }
+    return a.time - b.time;
+  });
+
+  const finalLines: string[] = [];
+  for (let i = 0; i < lrcLines.length; i++) {
+    const current = lrcLines[i];
+    if (current.lrc.endsWith("]")) {
+      const next = lrcLines[i + 1];
+      if (next && Math.abs(next.time - current.time) < 0.05) {
+        continue;
+      }
+    }
+    finalLines.push(current.lrc);
+  }
+  return finalLines.join("\n");
+}
+
+export function shiftLrcTextTime(lrcText: string, offsetSec: number): string {
+  if (!lrcText) return "";
+  const timeRegex = /\[(\d+):(\d{2})(?:\.(\d+))?\]/g;
+  
+  return lrcText.replace(timeRegex, (match, minStr, secStr, msStr) => {
+    const mins = parseInt(minStr, 10);
+    const secs = parseInt(secStr, 10);
+    const fractionFactor = msStr ? Math.pow(10, msStr.length) : 100;
+    const fractionVal = msStr ? parseInt(msStr, 10) : 0;
+    
+    const totalSecs = mins * 60 + secs + fractionVal / fractionFactor;
+    let nextSecs = totalSecs + offsetSec;
+    if (nextSecs < 0) nextSecs = 0;
+    
+    const newMins = Math.floor(nextSecs / 60);
+    const remainingSecs = Math.floor(nextSecs % 60);
+    
+    const decimalPlaces = msStr ? msStr.length : 2;
+    const fractionPart = Math.round((nextSecs % 1) * Math.pow(10, decimalPlaces));
+    const newMsStr = fractionPart.toString().padStart(decimalPlaces, "0").slice(0, decimalPlaces);
+    
+    return `[${newMins.toString().padStart(2, "0")}:${remainingSecs.toString().padStart(2, "0")}.${newMsStr}]`;
+  });
+}
+
