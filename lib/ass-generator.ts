@@ -129,6 +129,9 @@ function formatAssTime(timeInSeconds: number) {
 
 function hexToAssColor(hex: string) {
   let cleanHex = hex.replace("#", "");
+  if (cleanHex.length === 8) {
+    cleanHex = cleanHex.slice(0, 6);
+  }
   if (cleanHex.length === 3) {
     cleanHex = cleanHex
       .split("")
@@ -756,7 +759,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           dotFadeIn = fadeMs;
         }
 
-        const dotOuterColorAss = hexToAssColor(options.dotOuterColor || "#888888");
+        const dotOuterColorAss = hexToAssColor(options.dotOuterColor || "#e0e0e0");
         const dotInnerColorAss = hexToAssColor(options.dotInnerColor || "#FFFFFF");
         const outerRadius = Math.round(fontSize * outerRatio);
         const innerRadius = Math.max(1, Math.round(fontSize * innerRatio));
@@ -1086,7 +1089,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       pTranslations.forEach((tl, k) => {
         let displayStart = tl.start;
         const isFirstReal = k === firstRealIndex;
-        if (isFirstReal) {
+        if (isFirstReal && isStartRealInterlude) {
           displayStart -= 0.5;
         }
         if (displayStart < blockDisplayStart) {
@@ -1096,14 +1099,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         let displayEnd = truncatedBlockEnd;
         if (k < pTranslations.length - 1) {
           displayEnd = Math.min(truncatedBlockEnd, pTranslations[k + 1].start);
+        } else {
+          // 若後續非真實間奏（例如因第三句強制單行切分段落），最後一句應延續顯示到下一個譯文字幕起點，避免閃爍消失
+          if (!isEndRealInterlude) {
+            const nextTl = translationLines.find((t) => t.start > tl.start);
+            if (nextTl) {
+              displayEnd = nextTl.start;
+            }
+          }
         }
 
         if (displayStart >= displayEnd) {
           displayStart = displayEnd - 0.1 > 0 ? displayEnd - 0.1 : displayEnd;
         }
 
-        // 當譯文段落第一句出現時，請淡入演出
-        const transFadeIn = isFirstReal ? fadeMs : 0;
+        // 當譯文段落第一句出現時，且前方為真實間奏時，請淡入演出
+        const transFadeIn = (isFirstReal && isStartRealInterlude) ? fadeMs : 0;
         // 當雙行字幕淡出時，譯文歌詞也要跟著淡出
         const transFadeOut = (displayEnd === truncatedBlockEnd && isEndRealInterlude) ? fadeMs : 0;
 
@@ -1111,6 +1122,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         const ty = playResY - transMarginV;
 
         if (options.translationUnderline && tl.text.trim() !== "") {
+          const uColor = hexToAssColor("#e0e0e0");
           const W_text = estimateTextWidth(tl.text, translationFontSize);
           // 漸層區域的延伸長度
           // 調整方式：其中的 2.0 代表往左多延伸 2.0 個中文字的寬度。若您覺得太長，可以將其改小，例如：
@@ -1137,13 +1149,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             const alphaVal = Math.round(255 * (1 - i / segmentsCount));
             const hexAlpha = alphaVal.toString(16).toUpperCase().padStart(2, "0");
 
-            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${x_start.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${translationColor}&\\bord0\\shad0\\1a&H${hexAlpha}&}m 0 0 l ${w.toFixed(1)} 0 l ${w.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
+            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${x_start.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${uColor}&\\bord0\\shad0\\1a&H${hexAlpha}&}m 0 0 l ${w.toFixed(1)} 0 l ${w.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
           }
 
           // Draw the solid region
           const solidWidth = tx - tx_left;
           if (solidWidth > 0) {
-            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${tx_left.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${translationColor}&\\bord0\\shad0\\1a&H00&}m 0 0 l ${solidWidth.toFixed(1)} 0 l ${solidWidth.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
+            ass += `Dialogue: 7,${formatAssTime(displayStart)},${formatAssTime(displayEnd)},Default,,0,0,0,,{\\an7\\pos(${tx_left.toFixed(1)},${(ty + underlineGap).toFixed(1)})\\fad(${transFadeIn},${transFadeOut})\\p1\\c${uColor}&\\bord0\\shad0\\1a&H00&}m 0 0 l ${solidWidth.toFixed(1)} 0 l ${solidWidth.toFixed(1)} ${h} l 0 ${h}{\\p0}\n`;
           }
         }
 

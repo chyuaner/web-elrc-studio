@@ -299,7 +299,7 @@ export function getDefaultAssOptions(lrcMetadata: any) {
     translationLrcText: lrcMetadata.translationLrcText !== undefined ? lrcMetadata.translationLrcText : "",
     translationFontSize: lrcMetadata.translationFontSize !== undefined && !isNaN(parseFloat(lrcMetadata.translationFontSize)) ? parseFloat(lrcMetadata.translationFontSize) : 10,
     translationBorderWidth: lrcMetadata.translationBorderWidth !== undefined && !isNaN(parseFloat(lrcMetadata.translationBorderWidth)) ? parseFloat(lrcMetadata.translationBorderWidth) : 2,
-    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : -5,
+    translationSpacing: lrcMetadata.translationSpacing !== undefined && !isNaN(parseFloat(lrcMetadata.translationSpacing)) ? parseFloat(lrcMetadata.translationSpacing) : 0,
     translationColor: lrcMetadata.translationColor !== undefined ? lrcMetadata.translationColor : "#FFFFFF",
     translationOutlineColor: lrcMetadata.translationOutlineColor !== undefined ? lrcMetadata.translationOutlineColor : "#646464",
     translationUnderline: true,
@@ -420,13 +420,36 @@ export function KtvAssExport() {
     getDefaultAssOptions(lrcMetadata),
   );
 
+  const lastAudioRef = useRef(audioFileName || "");
+
   useEffect(() => {
     const def = getDefaultAssOptions(lrcMetadata);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOptions(def);
+    const audioChanged = (audioFileName || "") !== lastAudioRef.current;
+    if (audioChanged) {
+      setOptions(def);
+      lastAudioRef.current = audioFileName || "";
+    } else {
+      setOptions((prev) => ({
+        ...prev,
+        songInfoTitle: def.songInfoTitle,
+        songInfoArtist: def.songInfoArtist,
+        songInfoAlbum: def.songInfoAlbum,
+        songInfoCustom: def.songInfoCustom,
+        interludeLogoSvg: def.interludeLogoSvg,
+        customStartInfoTime: def.customStartInfoTime,
+        startInfoStartTime: def.startInfoStartTime,
+        startInfoEndTime: def.startInfoEndTime,
+        logoMonochrome: def.logoMonochrome,
+        logoMonochromeColor: def.logoMonochromeColor,
+        logoOutlineEnabled: def.logoOutlineEnabled,
+        logoOutlineWidth: def.logoOutlineWidth,
+        logoOutlineColor: def.logoOutlineColor,
+        translationLrcText: def.translationLrcText,
+      }));
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTranslationLrcFileName(def.translationLrcText ? "已自歌詞檔載入譯文" : null);
-  }, [lrcMetadata]);
+  }, [lrcMetadata, audioFileName]);
 
   const [dotPreset, setDotPreset] = useState<"anime" | "general" | "custom">(() => {
     const rawOpts = getDefaultAssOptions(lrcMetadata);
