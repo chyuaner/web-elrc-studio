@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const SHOW_INTERNAL_TEST_PARAMS = process.env.NEXT_PUBLIC_SHOW_INTERNAL_TEST_PARAMS === "true" || process.env.NEXT_PUBLIC_DEBUG === "true";
+// SHOW_INTERNAL_TEST_PARAMS is now managed dynamically as a state within the KtvAssExport component to link with Electron.
 
 /** Fixed ASS path for ffmpeg subtitles filter (avoids apostrophe/space parsing bugs). */
 const FFMPEG_ASS_BURN_ALIAS = "__ktv_burn__.ass";
@@ -338,6 +338,28 @@ export function KtvAssExport() {
   } = useEditor();
   const i18n = useI18n();
   const dialogs = useDialogs();
+  const [showInternalParams, setShowInternalParams] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return process.env.NEXT_PUBLIC_SHOW_INTERNAL_TEST_PARAMS === "true" || process.env.NEXT_PUBLIC_DEBUG === "true";
+  });
+  const SHOW_INTERNAL_TEST_PARAMS = showInternalParams;
+
+  useEffect(() => {
+    const checkEnv = async () => {
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.getEnv) {
+        try {
+          const env = await electronAPI.getEnv();
+          if (env.SHOW_INTERNAL_TEST_PARAMS !== undefined || env.DEBUG !== undefined) {
+            setShowInternalParams(env.SHOW_INTERNAL_TEST_PARAMS === true || env.DEBUG === true);
+          }
+        } catch (e) {
+          console.error("Failed to read environment from Electron:", e);
+        }
+      }
+    };
+    checkEnv();
+  }, []);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
