@@ -55,13 +55,38 @@ export function KaraokePreview({ hideTouchUI = false }: { hideTouchUI?: boolean 
   const getLineEndTime = React.useCallback((lineIdx: number) => {
     const line = lines[lineIdx];
     if (!line) return 0;
+
+    const isNextParaStart = paragraphStarts[lineIdx + 1];
+    const nextLine = lines[lineIdx + 1];
+    const nextLineStart = nextLine?.start;
+
+    if (isNextParaStart && nextLineStart !== null) {
+      if (line.words && line.words.length > 0) {
+        const lastWord = line.words[line.words.length - 1];
+        if (lastWord?.end === nextLineStart || line.end === nextLineStart) {
+          let baseStart = line.start ?? 0;
+          for (let w = line.words.length - 1; w >= 0; w--) {
+            if (line.words[w].start !== null) {
+              baseStart = line.words[w].start!;
+              break;
+            }
+          }
+          const estEnd = baseStart + 1.5;
+          return Math.min(estEnd, nextLineStart);
+        }
+        return lastWord?.end ?? lastWord?.start ?? line.start ?? 0;
+      }
+      return Math.min((line.start ?? 0) + 3.0, nextLineStart);
+    }
+
     if (line.end !== null) return line.end;
+
     if (line.words && line.words.length > 0) {
       const lastWord = line.words[line.words.length - 1];
       return lastWord?.end ?? lastWord?.start ?? line.start ?? 0;
     }
     return line.start ?? 0;
-  }, [lines]);
+  }, [lines, paragraphStarts]);
 
   const overlappingPairs = React.useMemo(() => {
     const pairs: Array<{ top: number; bottom: number; start: number; end: number }> = [];
