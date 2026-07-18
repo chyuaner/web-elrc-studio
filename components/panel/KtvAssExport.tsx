@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const SHOW_INTERNAL_TEST_PARAMS = true;
+const SHOW_INTERNAL_TEST_PARAMS = process.env.NEXT_PUBLIC_SHOW_INTERNAL_TEST_PARAMS === "true" || process.env.NEXT_PUBLIC_DEBUG === "true";
 
 /** Fixed ASS path for ffmpeg subtitles filter (avoids apostrophe/space parsing bugs). */
 const FFMPEG_ASS_BURN_ALIAS = "__ktv_burn__.ass";
