@@ -394,7 +394,8 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
       showLrcMetadata: () => setMetadataDialogOpen(true),
       exportStandard: () => handleExport("standard", "file", ".lrc 標準LRC (逐行同步)"),
       exportEnhanced: () =>
-        handleExport("enhanced", "file", ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)"),
+        handleExport("enhanced", "file", ".lrc 增強型 (ESLyric - 逐字同步)"),
+      exportWord: () => handleExport("word", "file", ".lrc 逐字LRC (逐字同步)"),
       exportSimple: () => handleExport("simple", "file", ".txt 簡易歌詞 (無時間戳)"),
       exportSrt: () => handleExport("srt", "file", ".srt 影片字幕 (逐行同步)"),
       exportEmbeddedStandard: () =>
@@ -407,7 +408,7 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         handleExport(
           "enhanced",
           "embedded",
-          `${audioFileName ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase() : ""} 已嵌入歌詞的 增強型LRC (ESLYRIC ﹣ 逐字同步)`,
+          `${audioFileName ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase() : ""} 已嵌入歌詞的 增強型 (ESLyric - 逐字同步)`,
         ),
       exportEmbeddedSimple: () =>
         handleExport(
@@ -417,18 +418,23 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         ),
       exportCurrent: () => {
         const title =
-          syncMode === "word" ? ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)" : ".lrc 標準LRC (逐行同步)";
-        handleExport(exportFormat as "standard" | "enhanced" | "simple" | "srt", "file", title);
+          syncMode === "word" ? ".lrc 增強型 (ESLyric - 逐字同步)" : ".lrc 標準LRC (逐行同步)";
+        handleExport(exportFormat as "standard" | "enhanced" | "word" | "simple" | "srt", "file", title);
       },
       getExportOptions: () => {
         const ext = audioFileName
           ? audioFileName.substring(audioFileName.lastIndexOf(".")).toLowerCase()
           : "";
-        const options = [
+        const options: Array<{ label: string; action: string; isHeader?: boolean; isBold?: boolean }> = [
+          { label: "本程式的原始完整格式", action: "header", isHeader: true },
           {
-            label: ".lrc 增強型LRC (ESLYRIC ﹣ 逐字同步)",
+            label: ".lrc 增強型 (ESLyric - 逐字同步)",
             action: "exportEnhanced",
+            isBold: true,
           },
+          { label: "---", action: "separator" },
+          { label: "其他歌詞格式", action: "header", isHeader: true },
+          { label: ".lrc 逐字LRC (逐字同步)", action: "exportWord" },
           { label: ".lrc 標準LRC (逐行同步)", action: "exportStandard" },
           { label: ".txt 簡易歌詞 (無時間戳)", action: "exportSimple" },
           { label: ".srt 影片字幕 (逐行同步)", action: "exportSrt" },
@@ -436,9 +442,11 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
         ];
         if (ext === ".flac" || ext === ".m4a" || ext === ".mp4") {
           options.push({ label: "---", action: "separator" });
+          options.push({ label: "嵌入進媒體檔案", action: "header", isHeader: true });
           options.push({
-            label: `${ext} 已嵌入歌詞的 增強型LRC (ESLYRIC ﹣ 逐字同步)`,
+            label: `${ext} 已嵌入歌詞的 增強型 (ESLyric - 逐字同步)`,
             action: "exportEmbeddedEnhanced",
+            isBold: true,
           });
           options.push({
             label: `${ext} 已嵌入歌詞的 標準LRC (逐行同步)`,
@@ -1096,16 +1104,30 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
 
           {exportDropdownOpen && (
             <div className="absolute top-full right-0 mt-1 w-max min-w-[14rem] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-[9999] overflow-hidden py-1 whitespace-nowrap">
-              {AppCommands.getExportOptions().map((opt, i) =>
-                opt.action === "separator" ? (
-                  <div key={i} className="my-1 border-t border-[var(--app-border-base)] mx-2"></div>
-                ) : (
+              {AppCommands.getExportOptions().map((opt: any, i) => {
+                if (opt.isHeader) {
+                  return (
+                    <div
+                      key={i}
+                      className="px-3 pt-1.5 pb-1 text-[11px] font-bold text-[var(--app-text-muted)] select-none"
+                    >
+                      {opt.label}
+                    </div>
+                  );
+                }
+                if (opt.action === "separator") {
+                  return <div key={i} className="my-1 border-t border-[var(--app-border-base)] mx-2"></div>;
+                }
+                return (
                   <button
                     key={i}
-                    className="w-full text-left px-3 py-2 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex flex-col gap-1"
+                    className={`w-full text-left px-3 py-1.5 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors flex flex-col gap-1 ${
+                      opt.isBold ? "font-bold text-[var(--app-text-primary)]" : "font-normal"
+                    }`}
                     onClick={() => {
-                      const actionMap = {
+                      const actionMap: Record<string, () => void> = {
                         exportEnhanced: () => handleExport("enhanced", "file", opt.label),
+                        exportWord: () => handleExport("word", "file", opt.label),
                         exportStandard: () => handleExport("standard", "file", opt.label),
                         exportSimple: () => handleExport("simple", "file", opt.label),
                         exportSrt: () => handleExport("srt", "file", opt.label),
@@ -1118,14 +1140,16 @@ export function TopToolbar({ hideTitle = false }: { hideTitle?: boolean }) {
                           handleExport("standard", "embedded", opt.label),
                         exportEmbeddedSimple: () => handleExport("simple", "embedded", opt.label),
                       };
-                      (actionMap as any)[opt.action]();
+                      if (actionMap[opt.action]) {
+                        actionMap[opt.action]();
+                      }
                       setExportDropdownOpen(false);
                     }}
                   >
                     <span>{opt.label}</span>
                   </button>
-                ),
-              )}
+                );
+              })}
             </div>
           )}
         </div>

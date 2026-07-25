@@ -27,6 +27,9 @@ export function TextEditor() {
   const isDirty = useRef(false);
   const [srtImportOpen, setSrtImportOpen] = useState(false);
   const [srtText, setSrtText] = useState("");
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false);
+  const [wordLrcImportOpen, setWordLrcImportOpen] = useState(false);
+  const [wordLrcText, setWordLrcText] = useState("");
   const i18n = useI18n();
   const dialogs = useDialogs();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -76,6 +79,9 @@ export function TextEditor() {
         selectedText = t.value.substring(t.selectionStart, t.selectionEnd);
       }
     }
+    if (!selectedText) {
+      selectedText = window.getSelection()?.toString() || "";
+    }
     if (selectedText) {
       setSearchText(selectedText);
     }
@@ -88,6 +94,17 @@ export function TextEditor() {
       }
     }, 50);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        openSearchWithSelection();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const matches = useMemo(() => {
     if (!searchText) return [];
@@ -434,19 +451,46 @@ export function TextEditor() {
       <div className="p-2 bg-[var(--app-bg-panel)] border-b border-[var(--app-border-base)] flex flex-wrap gap-2 items-center justify-between shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-[var(--app-text-primary)] mr-2 select-none">
-            WITH TIMESTAMPS (ELRC)
+            增強型LRC (ESLyric) / 逐行LRC ：
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              setSrtText("");
-              setSrtImportOpen(true);
-            }}
-            className="px-3 py-1 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] transition-colors cursor-pointer active:scale-95 animate-in fade-in duration-200"
-            title="從 SRT 格式字幕匯入歌詞"
-          >
-            以SRT輸入
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setImportDropdownOpen((prev) => !prev)}
+              className="px-3 py-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest rounded border border-[var(--app-border-light)] text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] transition-colors cursor-pointer active:scale-95 animate-in fade-in duration-200"
+              title="以其他格式匯入歌詞"
+            >
+              <span>以其他格式輸入</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {importDropdownOpen && (
+              <div
+                className="absolute left-0 top-full mt-1 w-36 bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-50 py-1"
+                onClick={() => setImportDropdownOpen(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSrtText("");
+                    setSrtImportOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors font-medium"
+                >
+                  以SRT輸入
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWordLrcText("");
+                    setWordLrcImportOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors font-medium"
+                >
+                  以逐字LRC輸入
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => {
               if (!isSearchOpen) {
@@ -761,6 +805,63 @@ export function TextEditor() {
             rows={12}
             className="w-full bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded-lg p-3 font-mono text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] resize-y"
             placeholder="1&#10;00:00:01,000 --> 00:00:04,500&#10;第一行歌詞...&#10;&#10;2&#10;00:00:05,200 --> 00:00:08,000&#10;第二行歌詞..."
+          />
+        </div>
+      </BaseDialog>
+      {/* 逐字LRC 匯入 Dialog */}
+      <BaseDialog
+        isOpen={wordLrcImportOpen}
+        onClose={() => setWordLrcImportOpen(false)}
+        title={
+          <span className="flex items-center gap-2 text-[var(--app-text-primary)] font-bold">
+            以 逐字LRC 格式輸入歌詞
+          </span>
+        }
+        maxWidthClass="max-w-2xl"
+        footer={
+          <div className="flex justify-end gap-2 w-full text-xs">
+            <button
+              onClick={() => {
+                if (!wordLrcText.trim()) {
+                  setWordLrcImportOpen(false);
+                  return;
+                }
+                const parsed = parseRawLyrics(wordLrcText);
+                const lrcConverted = exportLrc(parsed.lines, parsed.metadata, true, false);
+                if (lrcConverted) {
+                  setText(lrcConverted);
+                  textRef.current = lrcConverted;
+                  isDirty.current = true;
+                  saveChanges(lrcConverted);
+                  setWordLrcImportOpen(false);
+                  showToast("已成功匯入逐字LRC歌詞");
+                } else {
+                  alert("無法解析該逐字LRC內容，請檢查格式是否正確。");
+                }
+              }}
+              className="px-4 py-2 bg-[var(--app-accent)] hover:opacity-90 text-black font-bold rounded transition-colors text-center cursor-pointer"
+            >
+              確定
+            </button>
+            <button
+              onClick={() => setWordLrcImportOpen(false)}
+              className="px-4 py-2 bg-[var(--app-bg-hover)] hover:bg-[var(--app-border-base)] text-[var(--app-text-primary)] font-semibold rounded transition-colors text-center cursor-pointer"
+            >
+              取消
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-[var(--app-text-muted)]">
+            請貼上逐字 LRC 格式的歌詞 (例如 <code>[00:24.161]屋[00:24.440]檐[00:24.683]如...</code>)。系統會自動將其解析並取代目前的主歌詞內容。
+          </p>
+          <textarea
+            value={wordLrcText}
+            onChange={(e) => setWordLrcText(e.target.value)}
+            rows={12}
+            className="w-full bg-[var(--app-bg-input)] border border-[var(--app-border-input)] rounded-lg p-3 font-mono text-xs text-[var(--app-text-primary)] focus:outline-none focus:border-[var(--app-accent)] resize-y"
+            placeholder="[00:24.161]屋[00:24.440]檐[00:24.683]如[00:24.944]悬[00:25.526]崖[00:25.948]"
           />
         </div>
       </BaseDialog>

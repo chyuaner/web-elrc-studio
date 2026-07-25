@@ -39,6 +39,7 @@ export interface AppCommandsType {
 
   exportStandard: null | (() => void);
   exportEnhanced: null | (() => void);
+  exportWord: null | (() => void);
   exportSimple: null | (() => void);
   exportSrt: null | (() => void);
   exportEmbeddedStandard: null | (() => void);
@@ -80,6 +81,7 @@ export const AppCommands: AppCommandsType = {
 
   exportStandard: null,
   exportEnhanced: null,
+  exportWord: null,
   exportSimple: null,
   exportSrt: null,
   exportEmbeddedStandard: null,

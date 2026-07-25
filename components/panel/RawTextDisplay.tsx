@@ -65,11 +65,38 @@ export function RawTextDisplay({
   const i18n = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [simpleIncludeInstrumental, setSimpleIncludeInstrumental] = useState(false);
+  const [includeControlTags, setIncludeControlTags] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const [ignoreTimeTags, setIgnoreTimeTags] = useState(true);
+  const [ignoreTimeTags, setIgnoreTimeTags] = useState(false);
   const [selectWholeLine, setSelectWholeLine] = useState(false);
+
+  const openSearchWithSelection = () => {
+    let selectedText = window.getSelection()?.toString() || "";
+    if (selectedText) {
+      setSearchText(selectedText);
+    }
+    setIsSearchOpen(true);
+    setTimeout(() => {
+      const searchInput = document.getElementById("preview-search-input") as HTMLInputElement | null;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }, 50);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        openSearchWithSelection();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const visualParagraphStarts = useMemo(() => {
     const result = new Array(lines.length).fill(false);
@@ -117,6 +144,8 @@ export function RawTextDisplay({
         exportFormat === "simple",
         simpleIncludeInstrumental,
         paragraphStarts,
+        includeControlTags,
+        exportFormat === "word",
       );
     }
   }
@@ -375,7 +404,7 @@ export function RawTextDisplay({
       }
     } else {
       let metadataLinesCount = 0;
-      if (exportFormat !== "simple" && lrcMetadata) {
+      if (includeControlTags && exportFormat !== "simple" && lrcMetadata) {
         if (lrcMetadata.klgno) {
           const intervals = lrcMetadata.klgno.split(";");
           for (const interval of intervals) {
@@ -400,7 +429,11 @@ export function RawTextDisplay({
         if (exportFormat === "simple" && simpleIncludeInstrumental && i > 0 && paragraphStarts[i]) {
           currentRawIndex++; // Empty line
         }
-        if (exportFormat !== "simple") {
+        if (exportFormat !== "simple" && includeControlTags) {
+          if (lines[i].isCenter) {
+            rawIdxToLineIdx.set(currentRawIndex, i);
+            currentRawIndex++;
+          }
           if (lines[i].isSingleLine) {
             rawIdxToLineIdx.set(currentRawIndex, i);
             currentRawIndex++;
@@ -456,6 +489,12 @@ export function RawTextDisplay({
                 {i18n.exportEnhanced}
               </button>
               <button
+                onClick={() => setExportFormat("word")}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded border transition-colors disabled:opacity-50 ${exportFormat === "word" ? "bg-[var(--app-border-base)] border-[var(--app-accent)] text-[var(--app-accent)] shadow-inner" : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
+              >
+                逐字LRC (逐字同步)
+              </button>
+              <button
                 onClick={() => setExportFormat("standard")}
                 className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded border transition-colors disabled:opacity-50 ${exportFormat === "standard" ? "bg-[var(--app-border-base)] border-[var(--app-accent)] text-[var(--app-accent)] shadow-inner" : "border-[var(--app-border-light)] text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"}`}
               >
@@ -489,8 +528,24 @@ export function RawTextDisplay({
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)] transition-colors select-none">
+            <input
+              type="checkbox"
+              checked={includeControlTags}
+              onChange={(e) => setIncludeControlTags(e.target.checked)}
+              className="rounded border-[var(--app-border-base)] bg-transparent accent-[var(--app-accent)] m-0 w-3.5 h-3.5"
+            />
+            包含控制標籤
+          </label>
+
           <button
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            onClick={() => {
+              if (!isSearchOpen) {
+                openSearchWithSelection();
+              } else {
+                setIsSearchOpen(false);
+              }
+            }}
             className={`px-3 py-1.5 flex items-center text-[10px] font-bold uppercase tracking-widest rounded border transition-colors ${
               isSearchOpen
                 ? "border-[var(--app-accent)]/50 text-[var(--app-accent)] bg-[var(--app-accent)]/10"

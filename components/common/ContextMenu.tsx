@@ -194,7 +194,7 @@ export function ContextMenuSub({
           {/* Desktop/Tablet design: elegant side-by-side flyout */}
           <div
             className={`hidden md:flex absolute top-0 z-[10000] bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded-lg shadow-lg py-1 min-w-[200px] flex-col ${
-              popDirection === "left" ? "right-full mr-1" : "left-full ml-1"
+              popDirection === "left" ? "right-full mr-0" : "left-full ml-0"
             }`}
           >
             {children}

@@ -226,6 +226,12 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
 
     if (cleanText.includes("<") && cleanText.includes(">")) {
       isEnhanced = true;
+    } else if (/\[\d+:\d+(?:\.\d+)?\]/.test(cleanText)) {
+      if (start !== null && !cleanText.startsWith("[")) {
+        cleanText = `<${formatTime(start, true)}>` + cleanText;
+      }
+      cleanText = cleanText.replace(/\[(\d+:\d+(?:\.\d+)?)\]/g, "<$1>");
+      isEnhanced = true;
     }
 
     if (isEnhanced) {
@@ -358,6 +364,12 @@ export function computeWordEndTimesForLines(lines: LyricLine[]): LyricLine[] {
   });
 }
 
+export function convertWordLrcToElrc(text: string): string {
+  if (!text) return "";
+  const parsed = parseRawLyrics(text);
+  return exportLrc(parsed.lines, parsed.metadata, true, false);
+}
+
 export function exportLrc(
   lines: LyricLine[],
   metadata?: LrcMetadata,
@@ -365,11 +377,13 @@ export function exportLrc(
   isSimple = false,
   simpleIncludeInstrumental = false,
   paragraphStarts?: boolean[],
+  includeControlTags = true,
+  isWordByWord = false,
 ): string {
   let lrc = "";
 
   let exportMetadata = metadata;
-  if (!isSimple && metadata) {
+  if (includeControlTags && !isSimple && metadata) {
     if (metadata.klgno) {
       exportMetadata = { ...metadata };
       delete exportMetadata.klgno;
@@ -385,7 +399,7 @@ export function exportLrc(
     }
   }
 
-  if (!isSimple && exportMetadata) {
+  if (includeControlTags && !isSimple && exportMetadata) {
     for (const [key, value] of Object.entries(exportMetadata)) {
       if (value) {
         if (key.startsWith("kstyledef_")) {
@@ -415,21 +429,23 @@ export function exportLrc(
       continue;
     }
 
-    if (line.isCenter) {
-      lrc += `[ktv:center]\n`;
-    }
+    if (includeControlTags) {
+      if (line.isCenter) {
+        lrc += `[ktv:center]\n`;
+      }
 
-    if (line.isSingleLine) {
-      lrc += `[ktv:singleline]\n`;
-    }
+      if (line.isSingleLine) {
+        lrc += `[ktv:singleline]\n`;
+      }
 
-    if (line.ktvsp !== undefined && line.ktvsp !== null) {
-      lrc += `[ktvsp:${formatTime(line.ktvsp, true)}]\n`;
-    }
+      if (line.ktvsp !== undefined && line.ktvsp !== null) {
+        lrc += `[ktvsp:${formatTime(line.ktvsp, true)}]\n`;
+      }
 
-    if (line.style && line.style !== currentExportStyle) {
-      lrc += `[kstyle:${line.style}]\n`;
-      currentExportStyle = line.style;
+      if (line.style && line.style !== currentExportStyle) {
+        lrc += `[kstyle:${line.style}]\n`;
+        currentExportStyle = line.style;
+      }
     }
 
     if (line.start === null) {
@@ -441,11 +457,32 @@ export function exportLrc(
       ? `[${formatTime(line.start, true)}]`
       : `[${formatTime(line.start)}]`;
 
-    if (isEnhanced) {
+    if (isWordByWord) {
+      let lineText = "";
+      let firstWordHasStart = false;
+      for (let wIdx = 0; wIdx < line.words.length; wIdx++) {
+        const w = line.words[wIdx];
+        if (w.start !== null) {
+          if (wIdx === 0 && Math.abs(w.start - line.start) < 0.001) {
+            firstWordHasStart = true;
+          }
+          lineText += `[${formatTime(w.start, true)}]${w.text}`;
+        } else {
+          lineText += w.text;
+        }
+      }
+      if (!firstWordHasStart && line.start !== null) {
+        lineText = `[${formatTime(line.start, true)}]` + lineText;
+      }
+      if (line.end !== null && !lineText.endsWith("]")) {
+        lineText += `[${formatTime(line.end, true)}]`;
+      }
+      lrc += `${lineText}\n`;
+    } else if (isEnhanced) {
       let lineText = "";
       let currentWordStyle = currentExportStyle;
       for (const w of line.words) {
-        if (w.style && w.style !== currentWordStyle) {
+        if (includeControlTags && w.style && w.style !== currentWordStyle) {
           lineText += `<kstyle:${w.style}>`;
           currentWordStyle = w.style;
           currentExportStyle = w.style;

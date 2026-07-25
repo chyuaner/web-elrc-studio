@@ -346,7 +346,7 @@ export function useFileActions() {
 
   const handleExport = useCallback(
     async (
-      format: "standard" | "enhanced" | "simple" | "srt",
+      format: "standard" | "enhanced" | "word" | "simple" | "srt",
       saveType: "file" | "embedded" = "file",
       customTitle?: string,
     ) => {
@@ -356,7 +356,16 @@ export function useFileActions() {
       if (format === "srt") {
         lrcText = exportSrt(lines, duration);
       } else {
-        lrcText = exportLrc(lines, lrcMetadata, format === "enhanced", format === "simple");
+        lrcText = exportLrc(
+          lines,
+          lrcMetadata,
+          format === "enhanced",
+          format === "simple",
+          false,
+          undefined,
+          true,
+          format === "word",
+        );
       }
 
       let defaultName = "lyrics.lrc";

@@ -10,7 +10,7 @@ interface Hotkeys {
 
 export type EditorMode = "text" | "sync" | "dual-sync" | "raw" | "ktv-ass";
 export type SyncMode = "line" | "word";
-export type ExportFormat = "standard" | "enhanced" | "simple" | "srt";
+export type ExportFormat = "standard" | "enhanced" | "word" | "simple" | "srt";
 
 export interface HistoryState {
   past: {

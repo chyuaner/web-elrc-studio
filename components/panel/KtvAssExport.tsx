@@ -7,7 +7,7 @@ import { useDialogs } from "@/components/dialog/DialogProvider";
 import { RawTextDisplay } from "@/components/panel/RawTextDisplay";
 import { useI18n } from "@/hooks/useI18n";
 import { AssOptions, generateAss } from "@/lib/ass-generator";
-import { formatTime, parseSeconds, convertSrtToLrc, shiftLrcTextTime } from "@/lib/lyric-utils";
+import { formatTime, parseSeconds, convertSrtToLrc, shiftLrcTextTime, convertWordLrcToElrc } from "@/lib/lyric-utils";
 import { applySvgLogoOutline, recolorSvgMonochrome } from "@/lib/svg-to-ass-vector";
 import {
   Check,
@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const SHOW_INTERNAL_TEST_PARAMS = true;
+// SHOW_INTERNAL_TEST_PARAMS is now managed dynamically as a state within the KtvAssExport component to link with Electron.
 
 /** Fixed ASS path for ffmpeg subtitles filter (avoids apostrophe/space parsing bugs). */
 const FFMPEG_ASS_BURN_ALIAS = "__ktv_burn__.ass";
@@ -338,6 +338,28 @@ export function KtvAssExport() {
   } = useEditor();
   const i18n = useI18n();
   const dialogs = useDialogs();
+  const [showInternalParams, setShowInternalParams] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return process.env.NEXT_PUBLIC_SHOW_INTERNAL_TEST_PARAMS === "true" || process.env.NEXT_PUBLIC_DEBUG === "true";
+  });
+  const SHOW_INTERNAL_TEST_PARAMS = showInternalParams;
+
+  useEffect(() => {
+    const checkEnv = async () => {
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.getEnv) {
+        try {
+          const env = await electronAPI.getEnv();
+          if (env.SHOW_INTERNAL_TEST_PARAMS !== undefined || env.DEBUG !== undefined) {
+            setShowInternalParams(env.SHOW_INTERNAL_TEST_PARAMS === true || env.DEBUG === true);
+          }
+        } catch (e) {
+          console.error("Failed to read environment from Electron:", e);
+        }
+      }
+    };
+    checkEnv();
+  }, []);
   const [fontConfigOpen, setFontConfigOpen] = useState(false);
   const [colorConfigOpen, setColorConfigOpen] = useState(false);
   const [dotConfigOpen, setDotConfigOpen] = useState(false);
@@ -406,6 +428,7 @@ export function KtvAssExport() {
   const [forceScaleEnabled, setForceScaleEnabled] = useState(false);
   const [targetScaleRes, setTargetScaleRes] = useState<"720p" | "1080p">("1080p");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [transImportDropdownOpen, setTransImportDropdownOpen] = useState(false);
   const [interludeLogoFileName, setInterludeLogoFileName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [translationLrcFileName, setTranslationLrcFileName] = useState<string | null>(() => {
@@ -957,8 +980,7 @@ export function KtvAssExport() {
   };
 
   const handleClearInterludeLogo = () => {
-    const updated = { ...options };
-    delete updated.interludeLogoSvg;
+    const updated = { ...options, interludeLogoSvg: "" };
     setOptions(updated);
     syncToLrcMetadata(updated);
     setInterludeLogoFileName(null);
@@ -4225,21 +4247,53 @@ export function KtvAssExport() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--app-bg-panel)] p-2 rounded-lg border border-[var(--app-border-light)] shadow-sm">
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const converted = convertSrtToLrc(tempTranslationText);
-                  if (converted) {
-                    setTempTranslationText(converted);
-                    showToast("已成功將編輯區內 SRT 轉換為 LRC 格式");
-                  } else {
-                    alert("無法解析編輯區內的 SRT 內容，請檢查格式是否正確。");
-                  }
-                }}
-                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all cursor-pointer h-[28px]"
-              >
-                從SRT轉LRC
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTransImportDropdownOpen((prev) => !prev)}
+                  className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all cursor-pointer h-[28px] flex items-center gap-1"
+                >
+                  <span>以其他格式輸入</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                {transImportDropdownOpen && (
+                  <div
+                    className="absolute left-0 top-full mt-1 w-36 bg-[var(--app-bg-panel)] border border-[var(--app-border-base)] rounded shadow-xl z-50 py-1"
+                    onClick={() => setTransImportDropdownOpen(false)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const converted = convertSrtToLrc(tempTranslationText);
+                        if (converted) {
+                          setTempTranslationText(converted);
+                          showToast("已成功將編輯區內 SRT 轉換為 LRC 格式");
+                        } else {
+                          alert("無法解析編輯區內的 SRT 內容，請檢查格式是否正確。");
+                        }
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors font-medium"
+                    >
+                      從SRT轉LRC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const converted = convertWordLrcToElrc(tempTranslationText);
+                        if (converted) {
+                          setTempTranslationText(converted);
+                          showToast("已成功將編輯區內逐字LRC轉換為LRC格式");
+                        } else {
+                          alert("無法解析編輯區內的逐字LRC內容，請檢查格式是否正確。");
+                        }
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-[var(--app-text-secondary)] hover:bg-[var(--app-accent)] hover:text-black transition-colors font-medium"
+                    >
+                      以逐字LRC輸入
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center shadow-sm rounded border border-[var(--app-border-light)] h-[28px] overflow-hidden bg-[var(--app-bg-panel-alt)] text-[10px] font-bold">

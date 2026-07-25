@@ -111,9 +111,9 @@ function estimateTextWidth(text: string, fontSize: number): number {
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
     if (code >= 0 && code <= 127) {
-      width += fontSize * 0.45; // 半形字元（英文、數字、空格）通常約為字型高度的 45% 寬度
+      width += fontSize * 0.40; // 半形字元（英文、數字、空格）通常約為字型高度的 40% 寬度
     } else {
-      width += fontSize * 0.75; // 全形 CJK 中文字元通常約為字型高度的 85% 寬度
+      width += fontSize * 0.70; // 全形 CJK 中文字元通常約為字型高度的 70% 寬度
     }
   }
   return width;
@@ -527,11 +527,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
 
   if (overlapsWithLyrics && artistAlbum.length > 0) {
-    // 固定紅字標題位置，不因下方實際歌曲資訊內容行數的關係往上擠，統一使用 4 行的高度來估算
-    const assumedLines = artistAlbum.length>3? 3:artistAlbum.length;
-    const detailHeight = Math.round(assumedLines * detailFontSize * 1.20);
-    // 增加安全間距至 60 * scale 以留出足夠空間，避免與 an5 置中的標題字重疊
-    titleY = Math.round(detailBottomY - detailHeight - Math.round(60 * scale) - titleSize / 2);
+    const artistAlbum_length = artistAlbum.length;
+    // 使用實際行數估算高度，行高採用更符合 ASS 渲染器的 1.35
+    const detailHeight = Math.round(artistAlbum_length * detailFontSize * 1.35);
+    
+    // 詳細資訊的頂部 Y 座標
+    const detailTopY = detailBottomY - detailHeight;
+    
+    // 預設標題底部 Y 座標加上安全間距 (60 * scale)
+    const titleDefaultBottomY = titleY + titleSize / (-30) + Math.round(2 * scale);
+    
+    // 只有當詳細資訊的頂部真的撞上標題預設位置時，才彈性往上推
+    if (detailTopY < titleDefaultBottomY) {
+      const pushedTitleY = detailTopY - Math.round((-30) * scale) - titleSize / 2;
+      // 限制最高不可高於 margin48Scaled (避免衝出螢幕頂部)
+      titleY = Math.max(margin48Scaled, Math.round(pushedTitleY));
+    }
   }
 
   const offsets = [
@@ -1127,7 +1138,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
           // 漸層區域的延伸長度
           // 調整方式：其中的 2.0 代表往左多延伸 2.0 個中文字的寬度。若您覺得太長，可以將其改小，例如：
           // 改成 0.5 (延伸半個字寬)
-          const W_grad = 2.0 * translationFontSize;
+          const W_grad = 1.0 * translationFontSize;
           const tx_left = tx - W_text;
           const u_left = tx_left - W_grad;
           // 底線與文字的間距
