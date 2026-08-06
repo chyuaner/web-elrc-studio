@@ -555,6 +555,15 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     actionName?: string,
     payloadMetadata?: LrcMetadata,
   ) => {
+    const newLines =
+      typeof payload === "function" ? payload(historyState.present.lines) : payload;
+    const hasWordTimestamps = newLines.some(
+      (l) => l.words && l.words.some((w) => w.start !== null),
+    );
+    if (hasWordTimestamps) {
+      setSyncMode("word");
+      setExportFormat("enhanced");
+    }
     dispatchLines({ type: "COMMIT", payloadLines: payload, actionName, payloadMetadata });
   };
   const commitLrcMetadata = (

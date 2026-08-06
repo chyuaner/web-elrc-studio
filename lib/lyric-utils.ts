@@ -42,11 +42,46 @@ export function formatTime(seconds: number | null, useThreeDigitsMs = false): st
 }
 
 export function parseSeconds(timeStr: string): number {
-  const parts = timeStr.split(":");
-  if (parts.length === 2) {
-    const m = parseFloat(parts[0]);
-    const s = parseFloat(parts[1]);
-    return m * 60 + s;
+  if (!timeStr) return 0;
+  const normalized = timeStr.trim().replace(",", ".");
+
+  let mainStr = normalized;
+  let fraction = 0;
+  const dotIdx = normalized.lastIndexOf(".");
+  if (dotIdx !== -1) {
+    mainStr = normalized.substring(0, dotIdx);
+    const fracStr = normalized.substring(dotIdx + 1);
+    if (fracStr.length > 0) {
+      fraction = parseFloat("0." + fracStr) || 0;
+    }
+  }
+
+  const parts = mainStr.split(":").map((p) => parseFloat(p) || 0);
+
+  if (dotIdx !== -1) {
+    if (parts.length === 1) {
+      return parts[0] + fraction;
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1] + fraction;
+    } else if (parts.length >= 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2] + fraction;
+    }
+  } else {
+    if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+      const rawSubStr = mainStr.split(":")[2] || "";
+      const len = rawSubStr.length;
+      const subSec = len > 0 ? parts[2] / Math.pow(10, len) : 0;
+      return parts[0] * 60 + parts[1] + subSec;
+    } else if (parts.length >= 4) {
+      const rawSubStr = mainStr.split(":")[3] || "";
+      const len = rawSubStr.length;
+      const subSec = len > 0 ? parts[3] / Math.pow(10, len) : 0;
+      return parts[0] * 3600 + parts[1] * 60 + parts[2] + subSec;
+    }
   }
   return 0;
 }
@@ -142,7 +177,7 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
   const lines = cleanLyricsText.split(/\r?\n/);
   const result: LyricLine[] = [];
 
-  const lineTimeRegex = /^\[(\d+:\d+(?:\.\d+)?)\]/;
+  const lineTimeRegex = /^\[((?:\d+:)+\d+(?:[.,]\d+)?)\]/;
   const wordTimeRegex = /<([^>]+)>([^<]*)/g;
 
   let pendingSingleLine = false;
@@ -224,13 +259,16 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
 
     const effectiveLineStyle = explicitLineStyle || currentStyle;
 
-    if (cleanText.includes("<") && cleanText.includes(">")) {
-      isEnhanced = true;
-    } else if (/\[\d+:\d+(?:\.\d+)?\]/.test(cleanText)) {
-      if (start !== null && !cleanText.startsWith("[")) {
+    const hasBracketTimestamps = /\[((?:\d+:)+\d+(?:[.,]\d+)?)\]/.test(cleanText);
+    const hasAngleTimestamps = cleanText.includes("<") && cleanText.includes(">");
+
+    if (hasAngleTimestamps || hasBracketTimestamps) {
+      if (start !== null && !cleanText.startsWith("[") && !cleanText.startsWith("<")) {
         cleanText = `<${formatTime(start, true)}>` + cleanText;
       }
-      cleanText = cleanText.replace(/\[(\d+:\d+(?:\.\d+)?)\]/g, "<$1>");
+      if (hasBracketTimestamps) {
+        cleanText = cleanText.replace(/\[((?:\d+:)+\d+(?:[.,]\d+)?)\]/g, "<$1>");
+      }
       isEnhanced = true;
     }
 
@@ -271,9 +309,12 @@ export function parseRawLyrics(text: string): { lines: LyricLine[]; metadata: Lr
         currentWordStyle = undefined;
       }
 
+      const finalLineStart =
+        start !== null ? start : (words.find((w) => w.start !== null)?.start ?? null);
+
       result.push({
         id: generateId(),
-        start,
+        start: finalLineStart,
         end: null,
         words:
           words.length > 0
@@ -643,26 +684,19 @@ export function convertSrtToLrc(srtText: string): string {
 
 export function shiftLrcTextTime(lrcText: string, offsetSec: number): string {
   if (!lrcText) return "";
-  const timeRegex = /\[(\d+):(\d{2})(?:\.(\d+))?\]/g;
-  
-  return lrcText.replace(timeRegex, (match, minStr, secStr, msStr) => {
-    const mins = parseInt(minStr, 10);
-    const secs = parseInt(secStr, 10);
-    const fractionFactor = msStr ? Math.pow(10, msStr.length) : 100;
-    const fractionVal = msStr ? parseInt(msStr, 10) : 0;
-    
-    const totalSecs = mins * 60 + secs + fractionVal / fractionFactor;
+  const timeRegex = /([\[<])((?:\d+:)+\d+(?:[.,]\d+)?)([\]>])/g;
+
+  return lrcText.replace(timeRegex, (match, openBracket, timeStr, closeBracket) => {
+    const totalSecs = parseSeconds(timeStr);
     let nextSecs = totalSecs + offsetSec;
     if (nextSecs < 0) nextSecs = 0;
-    
-    const newMins = Math.floor(nextSecs / 60);
-    const remainingSecs = Math.floor(nextSecs % 60);
-    
-    const decimalPlaces = msStr ? msStr.length : 2;
-    const fractionPart = Math.round((nextSecs % 1) * Math.pow(10, decimalPlaces));
-    const newMsStr = fractionPart.toString().padStart(decimalPlaces, "0").slice(0, decimalPlaces);
-    
-    return `[${newMins.toString().padStart(2, "0")}:${remainingSecs.toString().padStart(2, "0")}.${newMsStr}]`;
+
+    const hasDot = timeStr.includes(".");
+    const dotIdx = timeStr.lastIndexOf(".");
+    const decimalPlaces = hasDot ? timeStr.substring(dotIdx + 1).length : 2;
+
+    const formatted = formatTime(nextSecs, decimalPlaces >= 3);
+    return `${openBracket}${formatted}${closeBracket}`;
   });
 }
 

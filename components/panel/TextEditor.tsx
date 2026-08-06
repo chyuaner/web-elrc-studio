@@ -15,6 +15,8 @@ export function TextEditor() {
     setLines,
     commitLines,
     exportFormat,
+    setExportFormat,
+    setSyncMode,
     setActiveLineIndex,
     setActiveWordIndex,
     lrcMetadata,
@@ -827,12 +829,14 @@ export function TextEditor() {
                   return;
                 }
                 const parsed = parseRawLyrics(wordLrcText);
-                const lrcConverted = exportLrc(parsed.lines, parsed.metadata, true, false);
-                if (lrcConverted) {
+                if (parsed.lines.length > 0) {
+                  const lrcConverted = exportLrc(parsed.lines, parsed.metadata, true, false);
                   setText(lrcConverted);
                   textRef.current = lrcConverted;
                   isDirty.current = true;
                   saveChanges(lrcConverted);
+                  setSyncMode("word");
+                  setExportFormat("enhanced");
                   setWordLrcImportOpen(false);
                   showToast("已成功匯入逐字LRC歌詞");
                 } else {

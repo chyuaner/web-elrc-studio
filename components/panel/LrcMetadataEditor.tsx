@@ -93,6 +93,8 @@ const extractors: Extractor[] = [
             "produc",
             "mix",
             "master",
+            "op",
+            "sp",
           ].some((k) => key.toLowerCase().includes(k)) ||
           [
             "词",
@@ -127,6 +129,9 @@ const extractors: Extractor[] = [
             "翻唱",
             "鸣谢",
             "鳴謝",
+            "监制",
+            "監制",
+            "監製",
           ].some((k) => originalLowerKey.includes(k));
 
         if (!isKnown) {
